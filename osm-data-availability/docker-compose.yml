@@ -1,0 +1,24 @@
+version: "2"
+
+services:
+
+  osmdb:
+    image: "mdillon/postgis:11"
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+
+  jupyter:
+    depends_on:
+      - "osmdb"
+    build: .
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebook:/home/jovyan
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    command: "start-notebook.sh --NotebookApp.custom_display_url=http://localhost:8888"
