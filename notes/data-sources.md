@@ -20,3 +20,6 @@
 
 * [Wikiloc](https://wikiloc.com/)
 * [Stravia](https://www.strava.com)
+
+## Calibration & validation
+ * [Carte Sanitaire](http://www.cartesanitairerdc.org/)
