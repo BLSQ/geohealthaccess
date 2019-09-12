@@ -1,0 +1,33 @@
+name: osm
+channels:
+  - conda-forge
+dependencies:  
+  - python=3.7
+  - notebook=5.7.8
+  - jupyterhub=1.0.0
+  - jupyterlab=0.35.5
+  - numpy=1.16.*
+  - pandas=0.24.*
+  - scipy=1.2.*
+  - scikit-learn=0.21.*
+  - scikit-image=0.15.*
+  - matplotlib=3.0.*
+  - seaborn=0.9.*
+  - rasterio=1.0.*
+  - fiona=1.8.*
+  - gdal=2.4.*
+  - geopandas=0.5.*
+  - psycopg2
+  - beautifulsoup4
+  - bokeh
+  - cartopy
+  - folium
+  - geojson
+  - pyproj
+  - pysal
+  - sqlalchemy
+  - rasterstats
+  - ipywidgets
+  - dask
+  - statsmodels
+  - geopy
