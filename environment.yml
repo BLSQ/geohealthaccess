@@ -1,0 +1,10 @@
+name: geohealthaccess
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7
+  - requests
+  - shapely
+  - geopandas
+  - beautifulsoup4
+  - tqdm
