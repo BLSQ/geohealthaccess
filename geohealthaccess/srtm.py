@@ -115,7 +115,8 @@ def authentify(session, username, password):
     return session
 
 
-def download_from_url(session, url, output_dir, show_progress=True):
+def download_from_url(session, url, output_dir, show_progress=True,
+                      overwrite=False):
     """Download remote file from URL in a given requests session.
 
     Params
@@ -128,6 +129,8 @@ def download_from_url(session, url, output_dir, show_progress=True):
         Path to output directory. Local filename is guessed from the URL.
     show_progress : bool, optional (default=True)
         Show a progress bar.
+    overwrite : bool, optional (default=False)
+        Overwrite existing files.
     
     Returns
     -------
@@ -137,6 +140,8 @@ def download_from_url(session, url, output_dir, show_progress=True):
     os.makedirs(output_dir, exist_ok=True)
     filename = url.split('/')[-1]
     local_path = os.path.join(output_dir, filename)
+    if os.path.isfile(local_path) and not overwrite:
+        return local_path
     with session.get(url, stream=True) as r:
         r.raise_for_status()
         file_size = int(r.headers['Content-Length'])
@@ -154,7 +159,8 @@ def download_from_url(session, url, output_dir, show_progress=True):
     return local_path
 
 
-def download(geom, output_dir, username, password, show_progress=True):
+def download(geom, output_dir, username, password, show_progress=True,
+             overwrite=False):
     """Download the SRTM tiles that intersects the area of interest.
 
     Params
@@ -169,6 +175,8 @@ def download(geom, output_dir, username, password, show_progress=True):
         NASA EarthData password.
     show_progress : bool, optional (default=True)
         Show progress bars.
+    overwrite : bool, optional (default=False)
+        Overwrite existing files.
     
     Returns
     -------
@@ -180,5 +188,6 @@ def download(geom, output_dir, username, password, show_progress=True):
         authentify(session, username, password)
         for tile in tiles:
             url = DOWNLOAD_URL + tile
-            download_from_url(session, url, output_dir, show_progress)
+            download_from_url(
+                session, url, output_dir, show_progress overwrite)
     return tiles
