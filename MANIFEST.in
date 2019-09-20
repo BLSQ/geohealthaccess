@@ -1,0 +1,3 @@
+include README.md
+include geohealthaccess/resources/countries.geojson
+include geohealthaccess/resources/srtm.geojson
