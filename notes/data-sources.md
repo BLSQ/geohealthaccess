@@ -15,6 +15,7 @@
 ## Population
 
 * [WorldPop](https://www.worldpop.org/project/categories?id=3) - 100 m
+* [GeoPode] / Grid3
 
 ## Calibration & validation
 
