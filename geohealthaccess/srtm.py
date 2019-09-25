@@ -1,14 +1,10 @@
 """Download and preprocess elevation data from the SRTM."""
 
-import os
-import json
 from pkg_resources import resource_string, resource_filename
 
 import requests
-from shapely.geometry import shape, mapping
 import geopandas as gpd
 from bs4 import BeautifulSoup
-from tqdm import tqdm
 from geohealthaccess.utils import download_from_url
 
 
