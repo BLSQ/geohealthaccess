@@ -130,8 +130,9 @@ def download_from_url(session, url, output_dir, show_progress=True,
     show_progress : bool, optional (default=True)
         Show a progress bar.
     overwrite : bool, optional (default=False)
-        Overwrite existing files.
-    
+        If set to `False`, local files will not be overwritten if they have
+        the same size as the remote file.
+
     Returns
     -------
     local_path : str
@@ -140,11 +141,12 @@ def download_from_url(session, url, output_dir, show_progress=True,
     os.makedirs(output_dir, exist_ok=True)
     filename = url.split('/')[-1]
     local_path = os.path.join(output_dir, filename)
-    if os.path.isfile(local_path) and not overwrite:
-        return local_path
     with session.get(url, stream=True) as r:
         r.raise_for_status()
         file_size = int(r.headers['Content-Length'])
+        if os.path.isfile(local_path) and not overwrite:
+            if os.path.getsize(local_path) == file_size:
+                return local_path
         if show_progress:
             progress_bar = tqdm(
                 desc=filename, total=file_size, unit_scale=True, unit='B')
@@ -189,5 +191,5 @@ def download(geom, output_dir, username, password, show_progress=True,
         for tile in tiles:
             url = DOWNLOAD_URL + tile
             download_from_url(
-                session, url, output_dir, show_progress overwrite)
+                session, url, output_dir, show_progress, overwrite)
     return tiles
