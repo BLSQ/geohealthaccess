@@ -55,6 +55,7 @@ def build_tiles_index():
     """Build a geographic index of all available tiles as a geodataframe."""
     geoms = []
     names = []
+    # Build a grid with 10 x 10 degrees cells
     for lon in range(-180, 180, 10):
         for lat in range(-90, 90, 10):
             coords = (
@@ -65,7 +66,6 @@ def build_tiles_index():
                 (lon, lat + 10))
             names.append(generate_location_id(lon, lat))
             geoms.append(Polygon(coords))
-
     tiles_index = gpd.GeoDataFrame(index=names)
     tiles_index['geometry'] = geoms
     tiles_index.crs = CRS.from_epsg(4326)
