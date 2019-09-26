@@ -96,9 +96,14 @@ def download_from_ftp(url, output_dir, overwrite=False):
     filename = parts[-1]
     directory = '/'.join(parts[-2]) + '/'
     ftp.cwd(directory)
-    filesize = ftp.size(filename)
-    progress = tqdm(total=filesize, desc=filename, unit_scale=True, unit='B')
+    file_size = ftp.size(filename)
+    progress = tqdm(total=file_size, desc=filename, unit_scale=True, unit='B')
     local_path = os.path.join(output_dir, filename)
+
+    # Exit if overwrite is set to False and file sizes are equal
+    if os.path.isfile(local_path) and not overwrite:
+        if os.path.getsize(local_path) == file_size:
+            return local_path
 
     with open(local_path, 'wb') as f:
 
