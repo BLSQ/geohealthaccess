@@ -7,15 +7,17 @@ from shapely.geometry import shape
 from tqdm import tqdm
 
 
-def country_geometry(country_name):
-    """Get the shapely geometry corresponding to a given country."""
+def country_geometry(country):
+    """Get the shapely geometry corresponding to a given country
+    identified by its name or its three-letters ISO A3 Code.
+    """
     countries = json.loads(
-        resource_string(__name__, 'resources/countries.geojson')
-    )
+        resource_string(__name__, 'resources/countries.geojson'))
     geom = None
     for feature in countries['features']:
-        name = feature['properties']['name']
-        if name == country_name:
+        name = feature['properties']['ADMIN']
+        code = feature['properties']['ISO_A3']
+        if country in (name, code):
             geom = shape(feature['geometry'])
     if not geom:
         raise ValueError('Country not found.')
