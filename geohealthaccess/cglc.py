@@ -1,4 +1,4 @@
-"""Helper functions for automatic ata acquisition of the
+"""Helper functions for automatic data acquisition of the
 Copernicus Global Land Cover product.
 https://lcviewer.vito.be/
 """
