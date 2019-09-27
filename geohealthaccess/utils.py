@@ -3,6 +3,7 @@ import os
 from ftplib import FTP
 from pkg_resources import resource_string
 from urllib.parse import urlparse
+import zipfile
 
 import requests
 from shapely.geometry import shape
@@ -119,3 +120,27 @@ def download_from_ftp(url, output_dir, overwrite=False):
     progress.close()
     ftp.close()
     return local_path
+
+
+def unzip(src, dst_dir=None):
+    """Extract a .zip archive."""
+    if not dst_dir:
+        dst_dir = os.path.dirname(src)
+    with zipfile.ZipFile(src, 'r') as z:
+        z.extractall(dst_dir)
+    return dst_dir
+
+
+def unzip_all(src_dir, remove_archives=False):
+    """Unzip all .zip files in a directory."""
+    filenames = os.listdir(src_dir)
+    filenames = [f for f in filenames if f.endswith('.zip')]
+    progress = tqdm(total=len(filenames))
+    for filename in filenames:
+        filename = os.path.join(src_dir, filename)
+        unzip(filename)
+        if remove_archives:
+            os.remove(filename)
+        progress.update(1)
+    progress.close()
+    return src_dir

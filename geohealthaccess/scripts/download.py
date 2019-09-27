@@ -27,12 +27,16 @@ def download(country, directory, earthdata_user, earthdata_pass):
     output_dir = os.path.join(directory, country, 'input', 'topography')
     os.makedirs(output_dir, exist_ok=True)
     srtm.download(geom, output_dir, earthdata_user, earthdata_pass)
+    click.echo('Unzipping...')
+    utils.unzip_all(output_dir)
 
     # Land cover
     click.echo('Downloading land cover data...')
     output_dir = os.path.join(directory, country, 'input', 'land_cover')
     os.makedirs(output_dir, exist_ok=True)
     cglc.download(geom, output_dir)
+    click.echo('Unzipping...')
+    utils.unzip_all(output_dir)
 
     # Water
     click.echo('Downloading surface water data...')
