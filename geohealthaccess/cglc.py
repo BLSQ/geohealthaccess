@@ -10,6 +10,8 @@ from rasterio.crs import CRS
 from shapely.geometry import Polygon
 import geopandas as gpd
 
+from geohealthaccess.utils import download_from_url
+
 
 # A manifest text file keeps track of all the URLs of the available tiles
 MANIFEST_URL = 'https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/manifest_cgls_lc_v2_100m_global_2015.txt'
@@ -61,3 +63,12 @@ def required_tiles(geom):
     tiles_index = build_tiles_index()
     tiles = tiles_index[tiles_index.intersects(geom)]
     return list(tiles.url)
+
+
+def download(geom, output_dir, overwrite=False):
+    """Download all the CGLC tiles required to cover the area of interest."""
+    tiles = required_tiles(geom)
+    with requests.Session() as s:
+        for tile in tiles:
+            download_from_url(s, tile, output_dir, overwrite=overwrite)
+    return output_dir

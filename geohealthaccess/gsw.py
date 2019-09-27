@@ -4,9 +4,12 @@ https://global-surface-water.appspot.com/
 """
 
 
+import requests
 import geopandas as gpd
 from rasterio.crs import CRS
 from shapely.geometry import Polygon
+
+from geohealthaccess.utils import download_from_url
 
 
 BASE_URL = 'https://storage.googleapis.com/global-surface-water/downloads2'
@@ -92,3 +95,11 @@ def required_tiles(geom, product):
     tiles = build_tiles_index()
     tiles = tiles[tiles.intersects(geom)]
     return [build_url(product, loc_id) for loc_id in tiles.index]
+
+
+def download(geom, product, output_dir, overwrite=False):
+    """Download all the GSW tiles that cover the given area of interest."""
+    tiles = required_tiles(geom, product)
+    with requests.Session() as s:
+        for tile in tiles:
+            download_from_url(s, tile, output_dir, overwrite=overwrite)
