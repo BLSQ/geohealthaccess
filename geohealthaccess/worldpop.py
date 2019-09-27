@@ -5,7 +5,7 @@ from geohealthaccess.utils import download_from_ftp
 
 
 FTP_HOST = 'ftp.worldpop.org.uk'
-BASE_DIR = '/GIS/Population/Global_2000_2020'
+BASE_DIR = 'GIS/Population/Global_2000_2020'
 
 
 def build_url(country, year):

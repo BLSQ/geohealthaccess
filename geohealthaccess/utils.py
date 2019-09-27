@@ -19,7 +19,7 @@ def country_geometry(country):
     for feature in countries['features']:
         name = feature['properties']['ADMIN']
         code = feature['properties']['ISO_A3']
-        if country in (name, code):
+        if country.lower() in (name.lower(), code.lower()):
             geom = shape(feature['geometry'])
     if not geom:
         raise ValueError('Country not found.')
@@ -94,7 +94,7 @@ def download_from_ftp(url, output_dir, overwrite=False):
     ftp.login()
     parts = url.path.split('/')
     filename = parts[-1]
-    directory = '/'.join(parts[-2]) + '/'
+    directory = '/'.join(parts[:-1])
     ftp.cwd(directory)
     file_size = ftp.size(filename)
     progress = tqdm(total=file_size, desc=filename, unit_scale=True, unit='B')
