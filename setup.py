@@ -23,9 +23,14 @@ setup(
         'shapely',
         'geopandas',
         'beautifulsoup4',
-        'tqdm'
+        'tqdm',
+        'Click'
     ],
     package_data={
         'geohealthaccess': ['resources/*.geojson', 'resources/*.json']
-    }
+    },
+    entry_points='''
+        [console_scripts]
+        geohealthaccess-download=geohealthaccess.scripts.download:download
+    ''',
 )
