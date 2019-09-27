@@ -24,7 +24,8 @@ setup(
         'geopandas',
         'beautifulsoup4',
         'tqdm',
-        'Click'
+        'Click',
+        'rasterio'
     ],
     package_data={
         'geohealthaccess': ['resources/*.geojson', 'resources/*.json']

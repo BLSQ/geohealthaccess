@@ -8,3 +8,5 @@ dependencies:
   - geopandas
   - beautifulsoup4
   - tqdm
+  - rasterio
+  - click
