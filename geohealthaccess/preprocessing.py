@@ -3,6 +3,7 @@
 import os
 from math import ceil
 
+from osgeo import gdal
 import rasterio
 from rasterio import Affine
 from tqdm import tqdm
@@ -60,3 +61,43 @@ def merge_raster_tiles(filenames, output_file):
     progress.close()
 
     return output_file
+
+
+def align_raster(src_raster, dst_filename, primary_raster, resample_algorithm):
+    """Align a source raster to be in the same grid as a given
+    primary raster.
+    
+    Parameters
+    ----------
+    src_raster : str
+        Path to source raster that will be reprojected.
+    dst_filename : str
+        Path to output raster.
+    primary_raster : str
+        Path to primary raster. Source raster will be reprojected
+        to the same grid.
+    resample_algorithm : int
+        GDAL code of the resampling algorithm, e.g. 0=NearestNeighbour,
+        1=Bilinear, 2=Cubic, 5=Average, 6=Mode...
+    
+    Returns
+    -------
+    dst_filename : str
+        Path to output raster.
+    """
+    # Get information on target grid
+    with rasterio.open(primary_raster) as src:
+        dst_bounds = src.bounds
+        dst_crs = src.crs
+        dst_width, dst_height = src.width, src.height
+    
+    # Reproject source raster
+    src_dataset = gdal.Open(src_raster)
+    options = gdal.WarpOptions(
+        format='GTiff',
+        outputBounds=dst_bounds,
+        width=dst_width,
+        height=dst_height,
+        resampleAlg=resample_algorithm)
+    dst_dataset = gdal.Warp(dst_filename, src_dataset, options=options)
+    return dst_filename
