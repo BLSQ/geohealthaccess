@@ -140,6 +140,7 @@ def preprocess_population(input_dir, output_dir, primary_raster):
     if os.path.isfile(aligned_raster):
         return
     
+    # If population raster is the primary raster, just copy the original file
     if os.path.abspath(filename) == os.path.abspath(primary_raster): 
         shutil.copyfile(filename, os.path.join(output_dir, 'population.tif'))
     else:
