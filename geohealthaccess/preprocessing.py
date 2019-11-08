@@ -12,6 +12,8 @@ from rasterio.features import rasterize
 import geopandas as gpd
 from tqdm import tqdm
 
+from geohealthaccess import utils
+
 
 def merge_raster_tiles(filenames, output_file):
     """Merge multiple rasters with same CRS and spatial resolution into
@@ -105,3 +107,53 @@ def align_raster(src_raster, dst_filename, primary_raster, resample_algorithm):
         resampleAlg=resample_algorithm)
     dst_dataset = gdal.Warp(dst_filename, src_dataset, options=options)
     return dst_filename
+
+
+def set_nodata(src_raster, nodata, overwrite=False):
+    """Set nodata value for a given raster."""
+    with rasterio.open(src_raster) as src:
+        if src.nodata and not overwrite:
+            return
+        else:
+            dst_profile = src.profile.copy()
+            dst_profile.update(nodata=nodata)
+            with rasterio.open(src_raster, 'w', **dst_profile) as dst:
+                dst.write(src.read(1), 1)
+    return
+
+
+def compress_raster(src_raster):
+    """Ensure that src_raster uses LZW compression."""
+    with rasterio.open(src_raster) as src:
+        if src.profile.get('compress') == 'lzw':
+            return
+        else:
+            dst_profile = src.profile.copy()
+            dst_profile['compress'] = 'lzw'
+            with rasterio.open(src_raster, 'w', **dst_profile) as dst:
+                dst.write(src.read(1), 1)
+    return
+
+
+
+def mask_raster(src_raster, country):
+    """Assign nodata value to pixels outside a country boundaries."""
+    geom = utils.country_geometry(country)
+    with rasterio.open(src_raster) as src:
+        src_profile = src.profile
+        src_nodata = src.nodata
+        src_width, src_height = src.width, src.height
+        src_transform, src_crs = src.transform, src.crs
+        data = src.read(1)
+    country_mask = rasterize(
+        shapes=[geom.__geo_interface__],
+        fill=0,
+        default_value=1,
+        out_shape=(src_height, src_width),
+        all_touched=True,
+        transform=src_transform,
+        dtype=rasterio.uint8)
+    data[country_mask != 1] = src_nodata
+    with rasterio.open(src_raster, 'w', **src_profile) as dst:
+        dst.write(data, 1)
+    return
