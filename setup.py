@@ -33,5 +33,6 @@ setup(
     entry_points='''
         [console_scripts]
         geohealthaccess-download=geohealthaccess.scripts.download:download
+        geohealthaccess-preprocess=geohealthaccess.scripts.preprocess:preprocess
     ''',
 )
