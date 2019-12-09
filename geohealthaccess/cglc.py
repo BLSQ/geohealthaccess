@@ -72,3 +72,16 @@ def download(geom, output_dir, overwrite=False):
         for tile in tiles:
             download_from_url(s, tile, output_dir, overwrite=overwrite)
     return output_dir
+
+
+def coverfraction_layers(data_dir):
+    """Get the list of tuples (layer_name, file_name) corresponding to each
+    available layer.
+    """
+    layers = []
+    for fname in os.listdir(data_dir):
+        if 'coverfraction' in fname and fname.endswith('.tif'):
+            file_name = os.path.join(data_dir, fname)
+            layer_name = fname.split('-')[0]
+            layers.append((layer_name, file_name))
+    return layers
