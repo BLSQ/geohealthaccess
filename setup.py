@@ -20,15 +20,17 @@ setup(
     packages=find_packages(include=['geohealthaccess', 'geohealthaccess.*']),
     install_requires=[
         'requests',
+        'osgeo',
         'shapely',
+        'pandas'
         'geopandas',
         'beautifulsoup4',
         'tqdm',
-        'Click',
-        'rasterio'
+        'rasterio',
+        'appdirs',
     ],
     package_data={
-        'geohealthaccess': ['resources/*.geojson', 'resources/*.json']
+        'geohealthaccess': ['resources/*.geojson', 'resources/*.json', 'resources/*.ini']
     },
     entry_points='''
         [console_scripts]
