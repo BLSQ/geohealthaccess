@@ -1,55 +1,80 @@
-"""Download input data."""
+"""Automatically download input data for a given country."""
 
+import argparse
 import os
 
-import click
-from geohealthaccess import utils, srtm, cglc, gsw, worldpop
+from geohealthaccess import utils, srtm, cglc, gsw, worldpop, geofabrik
+from geohealthaccess.config import config
 
 
-@click.command()
-@click.option(
-    '--country', '-c', type=str, help='Country code.')
-@click.option(
-    '--directory', '-d', type=click.Path(), help='Output directory.')
-@click.option(
-    '--earthdata-user', '-u', type=str, help='NASA EarthData username.',
-    default=lambda: os.environ.get('EARTHDATA_USERNAME', ''))
-@click.option(
-    '--earthdata-pass', '-p', type=str, help='NASA EarthData password.',
-    default=lambda: os.environ.get('EARTHDATA_PASSWORD', ''))
-def download(country, directory, earthdata_user, earthdata_pass):
-    """Download all input data."""
-    country = country.lower()
-    geom = utils.country_geometry(country)
+def download(country, dst_dir, earthdata_username, earthdata_password):
+    """Download input data for a given country.
 
-    # Topography
-    click.echo('Downloading topographic data...')
-    output_dir = os.path.join(directory, country, 'input', 'topography')
+    Parameters
+    ----------
+    country : str
+        Three-letters country code.
+    dst_dir : str
+        Output directory.
+    earthdata_username : str
+        NASA Earthdata username.
+    earthdata_password : str
+        NASA Earthdata password.
+    """
+    # Get country geometry
+    geom = utils.country_geometry(country.lower())
+
+    # Elevation
+    print('Downloading elevation data...')
+    output_dir = os.path.join(dst_dir, 'elevation')
     os.makedirs(output_dir, exist_ok=True)
-    srtm.download(geom, output_dir, earthdata_user, earthdata_pass)
-    click.echo('Unzipping...')
-    utils.unzip_all(output_dir)
+    srtm.download(geom, output_dir, earthdata_username, earthdata_password)
+    utils.unzip_all(output_dir, remove_archives=True)
 
     # Land cover
-    click.echo('Downloading land cover data...')
-    output_dir = os.path.join(directory, country, 'input', 'land_cover')
+    print('Downloading land cover data...')
+    output_dir = os.path.join(dst_dir, 'land_cover')
     os.makedirs(output_dir, exist_ok=True)
     cglc.download(geom, output_dir)
-    click.echo('Unzipping...')
-    utils.unzip_all(output_dir)
+    utils.unzip_all(output_dir, remove_archives=True)
 
     # Water
-    click.echo('Downloading surface water data...')
-    output_dir = os.path.join(directory, country, 'input', 'water')
+    print('Downloading surface water data...')
+    output_dir = os.path.join(dst_dir, 'water')
     os.makedirs(output_dir, exist_ok=True)
     gsw.download(geom, 'seasonality', output_dir)
 
     # Population
-    click.echo('Downloading population data...')
-    output_dir = os.path.join(directory, country, 'input', 'population')
+    print('Downloading population data...')
+    output_dir = os.path.join(dst_dir, 'population')
     os.makedirs(output_dir, exist_ok=True)
     worldpop.download(country, 2018, output_dir)
 
-    click.echo('Input data downloaded.')
+    # OpenStreetMap road network
+    print('Downloading OpenStreetMap data...')
+    output_dir = os.path.join(dst_dir, 'openstreetmap')
+    os.makedirs(output_dir, exist_ok=True)
+    spatial_index = geofabrik.build_spatial_index()
+    region_id = geofabrik.find_best_region(spatial_index, geom)
+    geofabrik.download_latest_highways(region_id, output_dir, overwrite=True)
 
-    return directory
+    print('Done!')
+    return
+
+
+if __name__ == '__main__':
+    # Parse command-line argument & load configuration
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'config_file',
+        type=str,
+        help='.ini configuration file')
+    args = parser.parse_args()
+    conf = config.load_config(args.config_file)
+    # Run script
+    download(
+        country=conf['AREA']['CountryCode'],
+        dst_dir=conf['DIRECTORIES']['InputDir'],
+        earthdata_username=conf['EARTHDATA']['EarthdataUsername'],
+        earthdata_password=conf['EARTHDATA']['EarthdataPassword']
+    )
