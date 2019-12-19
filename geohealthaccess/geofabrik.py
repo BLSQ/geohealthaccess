@@ -271,4 +271,4 @@ def download_latest_highways(region_id, dst_dir, overwrite=False):
         highways = highways[highways.geom_type == 'LineString']
         highways.to_file(dst, driver='GPKG')
 
-        return dst
+    return dst
