@@ -20,9 +20,9 @@ setup(
     packages=find_packages(include=['geohealthaccess', 'geohealthaccess.*']),
     install_requires=[
         'requests',
-        'osgeo',
+        'gdal',
         'shapely',
-        'pandas'
+        'pandas',
         'geopandas',
         'beautifulsoup4',
         'tqdm',
