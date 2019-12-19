@@ -121,6 +121,14 @@ class Region:
                 datasets_.append(
                     {'date': date, 'file': f, 'url': url})
         return datasets_
+    
+    @property
+    def latest(self):
+        """Get the URL to latest OSM dataset for the current region."""
+        dates = [dataset['date'] for dataset in self.datasets]
+        latest = max(dates)
+        i = dates.index(latest)
+        return self.datasets[i]['url']
 
     @property
     def subregions(self):
