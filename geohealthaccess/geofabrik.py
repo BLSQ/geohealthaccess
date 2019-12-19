@@ -3,6 +3,7 @@
 from datetime import datetime
 import os
 import re
+from subprocess import run
 import tempfile
 from urllib.parse import urljoin, urlsplit
 
@@ -10,8 +11,11 @@ from appdirs import user_data_dir
 from bs4 import BeautifulSoup
 import geopandas as gpd
 from osgeo import ogr
+import pandas as pd
 import requests
 from shapely import wkt
+
+from geohealthaccess.exceptions import OsmiumNotFound
 
 
 BASE_URL = 'http://download.geofabrik.de'
@@ -222,3 +226,49 @@ def find_best_region(spatial_index, geom):
         lambda x: _cover(x, geom))
     index_cover = index_cover.sort_values(by='cover', ascending=False)
     return index_cover.id.values[0], index_cover.cover.values[0]
+
+
+def check_osmium():
+    """Check if osmium-tool is available."""
+    check = run(['which', 'osmium'])
+    if check.returncode == 1:
+        raise OsmiumNotFound()
+
+
+def download_latest_highways(region_id, dst_dir, overwrite=False):
+    """Download latest OSM road network for the given region."""
+    check_osmium()
+    region = Region(region_id)
+    url = region.latest
+    filename = url.split('/')[-1]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+
+        # Download .osm.pbf file and filter highways
+        dst = os.path.join(tmpdir, filename)
+        options = [url, 'w/highway', '-o', dst]
+        if overwrite:
+            options.append('--overwrite')
+        run(['osmium', 'tags-filter'] + options)
+        
+        # Convert PBF data to GeoJSON
+        src = dst
+        dst = src.replace('.osm.pbf', '.geojson')
+        options = [src, '-o', dst]
+        if overwrite:
+            options.append('--overwrite')
+        run(['osmium', 'export'] + options)
+        
+        # Filter data and export as GPKG
+        src = dst
+        dst = os.path.join(dst_dir, filename.replace('.osm.pbf', '.gpkg'))
+        os.makedirs(dst_dir, exist_ok=True)
+        highways = gpd.read_file(src)
+        highways = highways.loc[~pd.isnull(highways.highway)]
+        columns_of_interest = ['highways', 'smoothness', 'surface', 'tracktype']
+        columns = [col for col in columns_of_interest if col in highways.columns]
+        highways = gpd.GeoDataFrame(highways[columns], geometry=highways['geometry'])
+        highways = highways[highways.geom_type == 'LineString']
+        highways.to_file(dst, driver='GPKG')
+
+        return dst
