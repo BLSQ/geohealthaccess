@@ -4,7 +4,7 @@ import argparse
 import os
 
 from geohealthaccess import utils, srtm, cglc, gsw, worldpop, geofabrik
-from geohealthaccess.config import config
+from geohealthaccess.config import load_config
 
 
 def download(country, dst_dir, earthdata_username, earthdata_password):
@@ -62,7 +62,7 @@ def download(country, dst_dir, earthdata_username, earthdata_password):
     return
 
 
-if __name__ == '__main__':
+def main():
     # Parse command-line argument & load configuration
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -70,7 +70,7 @@ if __name__ == '__main__':
         type=str,
         help='.ini configuration file')
     args = parser.parse_args()
-    conf = config.load_config(args.config_file)
+    conf = load_config(args.config_file)
     # Run script
     download(
         country=conf['AREA']['CountryCode'],
@@ -78,3 +78,7 @@ if __name__ == '__main__':
         earthdata_username=conf['EARTHDATA']['EarthdataUsername'],
         earthdata_password=conf['EARTHDATA']['EarthdataPassword']
     )
+
+
+if __name__ == '__main__':
+    main()
