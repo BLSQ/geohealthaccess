@@ -87,7 +87,7 @@ def preprocess_surface_water(input_dir, output_dir, primary_raster):
     merged_raster = os.path.join(output_dir, 'surface-water_merged.tif')
     preprocessing.merge_raster_tiles(filenames, merged_raster)
     preprocessing.align_raster(merged_raster, aligned_raster, primary_raster,
-                               resample_algorithm=8)
+                               resample_algorithm='max')
     preprocessing.set_nodata(aligned_raster, 255)
     os.remove(merged_raster)
     return
