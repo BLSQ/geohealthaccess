@@ -7,7 +7,13 @@ from geohealthaccess import utils, srtm, cglc, gsw, worldpop, geofabrik
 from geohealthaccess.config import load_config
 
 
-def download(country, dst_dir, earthdata_username, earthdata_password):
+def _empty(directory):
+    """Check if a directory is empty."""
+    return len(os.listdir(directory)) == 0
+
+
+def download(country, dst_dir, earthdata_username,
+             earthdata_password, overwrite=False):
     """Download input data for a given country.
 
     Parameters
@@ -20,43 +26,60 @@ def download(country, dst_dir, earthdata_username, earthdata_password):
         NASA Earthdata username.
     earthdata_password : str
         NASA Earthdata password.
+    overwrite : bool, optional
+        Overwrite existing data.
     """
     # Get country geometry
     geom = utils.country_geometry(country.lower())
 
     # Elevation
-    print('Downloading elevation data...')
     output_dir = os.path.join(dst_dir, 'elevation')
     os.makedirs(output_dir, exist_ok=True)
-    srtm.download(geom, output_dir, earthdata_username, earthdata_password)
-    utils.unzip_all(output_dir, remove_archives=True)
+    if _empty(output_dir) or overwrite:
+        print('Downloading elevation data...')
+        srtm.download(geom, output_dir, earthdata_username, earthdata_password)
+        utils.unzip_all(output_dir, remove_archives=True)
+    else:
+        print('Elevation data already downloaded. Skipping...')
+
 
     # Land cover
-    print('Downloading land cover data...')
     output_dir = os.path.join(dst_dir, 'land_cover')
     os.makedirs(output_dir, exist_ok=True)
-    cglc.download(geom, output_dir)
-    utils.unzip_all(output_dir, remove_archives=True)
+    if _empty(output_dir) or overwrite:
+        print('Downloading land cover data...')
+        cglc.download(geom, output_dir)
+        utils.unzip_all(output_dir, remove_archives=True)
+    else:
+        print('Land cover data already downloaded. Skipping...')
 
     # Water
-    print('Downloading surface water data...')
     output_dir = os.path.join(dst_dir, 'water')
     os.makedirs(output_dir, exist_ok=True)
-    gsw.download(geom, 'seasonality', output_dir)
+    if _empty(output_dir) or overwrite:
+        print('Downloading surface water data...')
+        gsw.download(geom, 'seasonality', output_dir)
+    else:
+        print('Surface water data already downloaded. Skipping...')
 
     # Population
-    print('Downloading population data...')
     output_dir = os.path.join(dst_dir, 'population')
     os.makedirs(output_dir, exist_ok=True)
-    worldpop.download(country, 2018, output_dir)
+    if _empty(output_dir) or overwrite:
+        worldpop.download(country, 2018, output_dir)
+    else:
+        print('Population data already downloaded. Skipping...')
 
     # OpenStreetMap road network
-    print('Downloading OpenStreetMap data...')
     output_dir = os.path.join(dst_dir, 'openstreetmap')
     os.makedirs(output_dir, exist_ok=True)
-    spatial_index = geofabrik.build_spatial_index()
-    region_id, _ = geofabrik.find_best_region(spatial_index, geom)
-    geofabrik.download_latest_highways(region_id, output_dir, overwrite=True)
+    if _empty(output_dir) or overwrite:
+        print('Downloading OpenStreetMap data...')
+        spatial_index = geofabrik.build_spatial_index()
+        region_id, _ = geofabrik.find_best_region(spatial_index, geom)
+        geofabrik.download_latest_highways(region_id, output_dir, overwrite=True)
+    else:
+        print('OpenStreetMap data already downloaded. Skipping...')
 
     print('Done!')
     return
