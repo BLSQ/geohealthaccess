@@ -55,7 +55,7 @@ def download(country, dst_dir, earthdata_username, earthdata_password):
     output_dir = os.path.join(dst_dir, 'openstreetmap')
     os.makedirs(output_dir, exist_ok=True)
     spatial_index = geofabrik.build_spatial_index()
-    region_id = geofabrik.find_best_region(spatial_index, geom)
+    region_id, _ = geofabrik.find_best_region(spatial_index, geom)
     geofabrik.download_latest_highways(region_id, output_dir, overwrite=True)
 
     print('Done!')
