@@ -75,7 +75,7 @@ def download(country, dst_dir, earthdata_username,
     os.makedirs(output_dir, exist_ok=True)
     if _empty(output_dir) or overwrite:
         print('Downloading OpenStreetMap data...')
-        spatial_index = geofabrik.build_spatial_index()
+        spatial_index = geofabrik.get_spatial_index()
         region_id, _ = geofabrik.find_best_region(spatial_index, geom)
         geofabrik.download_latest_highways(region_id, output_dir, overwrite=True)
     else:
