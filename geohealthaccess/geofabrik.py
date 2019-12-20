@@ -3,7 +3,7 @@
 from datetime import datetime
 import os
 import re
-from subprocess import run
+from subprocess import run, DEVNULL
 import tempfile
 from urllib.parse import urljoin, urlsplit
 
@@ -230,7 +230,7 @@ def find_best_region(spatial_index, geom):
 
 def check_osmium():
     """Check if osmium-tool is available."""
-    check = run(['which', 'osmium'])
+    check = run(['which', 'osmium'], stdout=DEVNULL)
     if check.returncode == 1:
         raise OsmiumNotFound()
 
