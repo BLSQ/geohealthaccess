@@ -135,7 +135,6 @@ def compress_raster(src_raster):
     return
 
 
-
 def mask_raster(src_raster, country):
     """Assign nodata value to pixels outside a country boundaries."""
     geom = utils.country_geometry(country)
@@ -155,5 +154,23 @@ def mask_raster(src_raster, country):
         dtype=rasterio.uint8)
     data[country_mask != 1] = src_nodata
     with rasterio.open(src_raster, 'w', **src_profile) as dst:
+        dst.write(data, 1)
+    return
+
+
+def set_blocksize(raster, size=256):
+    """Set tile blocksize of a given raster in pixels."""
+    with rasterio.open(raster) as src:
+        profile = src.profile
+        # Avoid if blocksize is already correct
+        if profile.get('blockxsize') == size:
+            return
+        data = src.read(1)
+    profile.update(
+        tiled=True,
+        blockxsize=size,
+        blockysize=size)
+    # Rewrite raster to disk
+    with rasterio.open(raster, 'w', **profile) as dst:
         dst.write(data, 1)
     return
