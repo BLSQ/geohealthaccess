@@ -34,7 +34,7 @@ def preprocess_land_cover(input_dir, output_dir, primary_raster):
                      if layer_name in f and f.endswith('.tif')]
         merged_raster = os.path.join(output_dir,
                                      f'landcover_{land_cover}_merged.tif')
-        preprocessing.merge_raster_tiles(filenames, merged_raster)
+        preprocessing.merge_raster_tiles(filenames, merged_raster, nodata=255)
         # Align grid with primary raster
         preprocessing.align_raster(merged_raster, aligned_raster, primary_raster,
                                    resample_algorithm=1)
@@ -60,7 +60,7 @@ def preprocess_elevation(input_dir, output_dir, primary_raster):
     filenames = [os.path.join(input_dir, f) for f in os.listdir(input_dir)
                  if f.endswith('.hgt')]
     merged_raster = os.path.join(output_dir, 'elevation_merged.tif')
-    preprocessing.merge_raster_tiles(filenames, merged_raster)
+    preprocessing.merge_raster_tiles(filenames, merged_raster, nodata=-32768)
     preprocessing.align_raster(merged_raster, aligned_raster, primary_raster,
                                resample_algorithm=1)
     os.remove(merged_raster)
@@ -85,7 +85,7 @@ def preprocess_surface_water(input_dir, output_dir, primary_raster):
     filenames = [os.path.join(input_dir, f) for f in os.listdir(input_dir)
                  if f.endswith('.tif')]
     merged_raster = os.path.join(output_dir, 'surface-water_merged.tif')
-    preprocessing.merge_raster_tiles(filenames, merged_raster)
+    preprocessing.merge_raster_tiles(filenames, merged_raster, nodata=255)
     preprocessing.align_raster(merged_raster, aligned_raster, primary_raster,
                                resample_algorithm='max')
     preprocessing.set_nodata(aligned_raster, 255)
