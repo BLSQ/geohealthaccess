@@ -81,6 +81,46 @@ def align_raster(src_raster, dst_filename, primary_raster, resample_algorithm):
     return dst_filename
 
 
+def list_landcover_layers(src_dir):
+    """List land cover layers available in a given
+    directory. Return a list of tuples (name, file_path).
+    """
+    layers = []
+    for fname in os.listdir(src_dir):
+        if 'landcover' in fname and fname.endswith('.tif'):
+            # Avoid if 'speed' is found in the filename
+            # It's not a land cover layer
+            if 'speed' in fname:
+                continue
+            basename = fname.replace('.tif', '')
+            layername = basename.split('_')[1]
+            layerpath = os.path.join(src_dir, fname)
+            layers.append((layername, layerpath))
+    return layers
+
+
+def create_landcover_stack(src_dir, dst_filename):
+    """Create a multi-band GeoTIFF stack of land cover
+    layers.
+    """
+    layers = list_landcover_layers(src_dir)
+    with rasterio.open(layers[0][1]) as src:
+        dst_profile = src.profile
+        dst_profile.update(
+            count=len(layers),
+            tiled=True,
+            blockxsize=256,
+            blockysize=256)
+
+    with rasterio.open(dst_filename, 'w', **dst_profile) as dst:
+        for id, layer in enumerate(layers, start=1):
+            with rasterio.open(layer[1]) as src:
+                dst.write_band(id, src.read(1))
+                dst.set_band_description(id, layer[0])
+
+    return dst_filename
+
+
 def set_nodata(src_raster, nodata, overwrite=False):
     """Set nodata value for a given raster."""
     with rasterio.open(src_raster) as src:
@@ -90,7 +130,7 @@ def set_nodata(src_raster, nodata, overwrite=False):
             dst_profile = src.profile.copy()
             dst_profile.update(nodata=nodata)
             with rasterio.open(src_raster, 'w', **dst_profile) as dst:
-                dst.write(src.read(1), 1)
+                dst.write(src.read())
     return
 
 
@@ -103,7 +143,7 @@ def compress_raster(src_raster):
             dst_profile = src.profile.copy()
             dst_profile['compress'] = 'lzw'
             with rasterio.open(src_raster, 'w', **dst_profile) as dst:
-                dst.write(src.read(1), 1)
+                dst.write(src.read())
     return
 
 
@@ -115,7 +155,7 @@ def mask_raster(src_raster, country):
         src_nodata = src.nodata
         src_width, src_height = src.width, src.height
         src_transform, src_crs = src.transform, src.crs
-        data = src.read(1)
+
     country_mask = rasterize(
         shapes=[geom.__geo_interface__],
         fill=0,
@@ -124,10 +164,15 @@ def mask_raster(src_raster, country):
         all_touched=True,
         transform=src_transform,
         dtype=rasterio.uint8)
-    data[country_mask != 1] = src_nodata
-    with rasterio.open(src_raster, 'w', **src_profile) as dst:
-        dst.write(data, 1)
-    return
+
+    for id in range(0, src_profile['count']):
+        with rasterio.open(src_raster) as src:
+            data = src.read(id+1)
+            data[country_mask != 1] = src_nodata
+        with rasterio.open(src_raster, 'w', **src_profile) as dst:
+            dst.write(data, id+1)
+
+    return src_raster
 
 
 def set_blocksize(raster, size=256):
