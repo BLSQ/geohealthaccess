@@ -41,8 +41,10 @@ def preprocess_land_cover(src_dir, dst_dir, dst_crs,
         filenames = [os.path.join(src_dir, f) for f in os.listdir(src_dir)
                      if name in f and f.endswith('.tif')]
         merged = os.path.join(dst_dir, f'landcover_{landcover}_merged.tif')
-        preprocessing.merge_tiles(filenames, merged, nodata=-1)
         reprojected = merged.replace('_merged.tif', '_reprojected.tif')
+        if os.path.isfile(reprojected):
+            continue
+        preprocessing.merge_tiles(filenames, merged, nodata=-1)
         output = preprocessing.reproject_raster(
             src_raster=merged,
             dst_filename=reprojected,
@@ -156,6 +158,8 @@ def preprocess_population(src_dir, dst_dir, dst_crs,
     filename = [os.path.join(src_dir, f) for f in os.listdir(src_dir)
                 if f.endswith('.tif') and 'ppp' in f][0]
     reprojected = os.path.join(dst_dir, 'population.tif')
+    if os.path.isfile(reprojected):
+        return
     preprocessing.reproject_raster(
         src_raster=filename,
         dst_filename=reprojected,
