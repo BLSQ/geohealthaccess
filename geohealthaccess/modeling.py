@@ -82,6 +82,8 @@ def speed_from_roads(src_filename, dst_filename, dst_transform, dst_crs,
     dst_filename : str
         Path to output raster.
     """
+    if os.path.isfile(dst_filename):
+        return dst_filename
     network = gpd.read_file(src_filename)
     network = network[network.geom_type == 'LineString']
     network.crs = CRS.from_epsg(4326)
@@ -148,6 +150,8 @@ def speed_from_landcover(src_filename, dst_filename, water_filename,
     dst_filename : str
         Path to output raster.
     """
+    if os.path.isfile(dst_filename):
+        return dst_filename
     with rasterio.open(src_filename) as src:
         dst_profile = src.profile
         dst_profile.update(
@@ -202,6 +206,7 @@ def combine_speed_rasters(landcover_speed, roadnetwork_speed, dst_filename):
         for ij, window in dst.block_windows(1):
             speed = np.maximum(src_land.read(window=window, indexes=1),
                                src_road.read(window=window, indexes=1))
+            speed[speed < 0] = src_land.nodata
             dst.write(speed, window=window, indexes=1)
     return dst_filename
 
@@ -218,7 +223,7 @@ def compute_friction(speed_raster, dst_filename, max_time=3600):
             speed = src.read(window=window, indexes=1).astype(np.float64)
             speed /= 3.6  # From km/hour to m/second
             diag_distance = np.sqrt(xres * xres + yres * yres)
-            time_to_cross = distance / speed
+            time_to_cross = diag_distance / speed
             # Clean bad values
             time_to_cross[speed == 0] = max_time
             time_to_cross[np.isinf(time_to_cross)] = max_time
