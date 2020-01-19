@@ -86,7 +86,7 @@ def speed_from_roads(src_filename, dst_filename, dst_transform, dst_crs,
     network = network[network.geom_type == 'LineString']
     network.crs = CRS.from_epsg(4326)
     if network.crs != dst_crs:
-        network = network.to_crs(crs)
+        network = network.to_crs(dst_crs)
 
     shapes = []
     for _, row in network.iterrows():
