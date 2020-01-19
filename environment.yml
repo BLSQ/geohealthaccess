@@ -1,12 +1,18 @@
 name: geohealthaccess
 channels:
   - conda-forge
+  - defaults
 dependencies:
-  - python=3.7
-  - requests
-  - shapely
-  - geopandas
-  - beautifulsoup4
-  - tqdm
-  - rasterio
-  - click
+  - python=3.8.0
+  - appdirs=1.4.3
+  - beautifulsoup4=4.8.1
+  - fiona=1.8.11
+  - geopandas=0.6.2
+  - gdal=3.0.2
+  - numpy=1.17.3
+  - pandas=0.25.3
+  - rasterio=1.1.1
+  - requests=2.22.0
+  - shapely=1.6.4
+  - tqdm=4.39.0
+  - whitebox=1.1.0
