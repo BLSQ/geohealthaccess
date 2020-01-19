@@ -9,14 +9,69 @@ import subprocess
 from osgeo import gdal
 import rasterio
 from rasterio import Affine
+from rasterio.crs import CRS
 from rasterio.features import rasterize
+from rasterio.transform import from_origin
+from rasterio.warp import transform_geom
+from shapely.geometry import shape
 import geopandas as gpd
 from tqdm import tqdm
 
 from geohealthaccess import utils
 
 
-def merge_raster_tiles(filenames, dst_filename, nodata=-1):
+def gdal_dtype(dtype):
+    """Convert dtype string to GDAL GDT object."""
+    GDAL_DTYPES = {
+        'uint8': gdal.GDT_Byte,
+        'uint16': gdal.GDT_UInt16,
+        'int16': gdal.GDT_Int16,
+        'uint32': gdal.GDT_UInt32,
+        'int32': gdal.GDT_Int32,
+        'float32': gdal.GDT_Float32,
+        'float64': gdal.GDT_Float64,
+    }
+    if dtype.lower() not in GDAL_DTYPES:
+        raise ValueError('Unrecognized data type.')
+    return GDAL_DTYPES[dtype.lower()]
+
+
+def create_grid(geom, dst_crs, dst_res):
+    """Create a raster grid for a given area of interest.
+
+    Parameters
+    ----------
+    geom: shapely geometry
+        Area of interest.
+    dst_crs : dict-like CRS object
+        Target CRS.
+    dst_res : int or float
+        Spatial resolution (in dst_srs units).
+    
+    Returns
+    -------
+    transform: Affine
+        Output affine transform object.
+    width: int
+        Output width.
+    height: int
+        Output height.
+    bounds : tuple
+        AOI bounds.
+    """
+    area = transform_geom(
+        src_crs=CRS.from_epsg(4326),
+        dst_crs=dst_crs,
+        geom=geom.__geo_interface__)
+    left, bottom, right, top = shape(area).bounds
+    dst_bounds = (left, bottom, right, top)
+    dst_transform = from_origin(left, top, dst_res, dst_res)
+    dst_width = ceil(abs(right - left) / dst_res)
+    dst_height = ceil(abs(top - bottom) / dst_res)
+    return dst_transform, dst_width, dst_height, dst_bounds
+
+
+def merge_tiles(filenames, dst_filename, nodata=-1):
     """Merge multiple rasters with same CRS and spatial resolution into
     a single GTiff file. Use gdal_merge.py CLI utility.
     
@@ -41,12 +96,66 @@ def merge_raster_tiles(filenames, dst_filename, nodata=-1):
     return dst_filename
 
 
+def reproject_raster(src_raster, dst_filename, dst_crs, resample_algorithm,
+                     dst_bounds=None, dst_shape=None, dst_res=None,
+                     dst_nodata=None, dst_dtype=None):
+    """Reproject a source raster to a target CRS identified by its EPSG code.
+
+    Parameters
+    ----------
+    src_raster : str
+        Path to source raster.
+    dst_filename : str
+        Path to output raster.
+    dst_crs : CRS object
+        Target spatial reference system.
+    resample_algorithm : int
+        GDAL code of the resampling algorithm, e.g. 0=NearestNeighbour,
+        1=Bilinear, 2=Cubic, 5=Average, 6=Mode...
+    dst_bounds : tuple, optional
+        Output bounds (xmin, ymin, xmax, ymax) in target SRS.
+    dst_shape : tuple, optional
+        Output raster shape (width, height).
+    dst_res : float, optional
+        Output spatial resolution in target SRS units.
+    dst_nodata : float or int, optional
+        Output nodata value.
+    dst_dtype : str
+        Target data type (Int16, UInt16, UInt32, Float32, etc.).
+
+    Returns
+    -------
+    dst_filename : str
+        Path to output raster.
+    """
+    src_dataset = gdal.Open(src_raster)
+    creation_options = ['TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256',
+                        'COMPRESS=LZW', 'PREDICTOR=2', 'NUM_THREADS=ALL_CPUS']
+    options = {'format': 'GTiff',
+               'dstSRS': dst_crs.to_string(),
+               'resampleAlg': resample_algorithm,
+               'creationOptions': creation_options}
+    if dst_bounds:
+        options.update(outputBounds=dst_bounds)
+    if dst_shape:
+        options.update(width=dst_shape[0], height=dst_shape[1])
+    if dst_res:
+        options.update(xRes=dst_res, yRes=dst_res)
+    if dst_nodata:
+        options.update(dstNodata=dst_nodata)
+    if dst_dtype:
+        options.update(outputType=gdal_dtype(dst_dtype))
+    warp_options = gdal.WarpOptions(**options)
+    dst_dataset = gdal.Warp(dst_filename, src_dataset, options=warp_options)
+    return dst_filename
+
+
 def align_raster(src_raster, dst_filename, primary_raster, resample_algorithm):
     """Align a source raster to be in the same grid as a given
     primary raster.
     
     Parameters
-    ----------
+    ----------ODO.
     src_raster : str
         Path to source raster that will be reprojected.
     dst_filename : str
@@ -79,7 +188,6 @@ def align_raster(src_raster, dst_filename, primary_raster, resample_algorithm):
         resampleAlg=resample_algorithm)
     dst_dataset = gdal.Warp(dst_filename, src_dataset, options=options)
     return dst_filename
-
 
 def list_landcover_layers(src_dir):
     """List land cover layers available in a given
@@ -149,28 +257,40 @@ def compress_raster(src_raster):
 
 def mask_raster(src_raster, country):
     """Assign nodata value to pixels outside a country boundaries."""
-    geom = utils.country_geometry(country)
+
     with rasterio.open(src_raster) as src:
         src_profile = src.profile
         src_nodata = src.nodata
         src_width, src_height = src.width, src.height
         src_transform, src_crs = src.transform, src.crs
 
+    geom = utils.country_geometry(country)
+    geom = transform_geom(
+        src_crs=CRS.from_epsg(4326),
+        dst_crs=src_crs,
+        geom=geom.__geo_interface__)
+
     country_mask = rasterize(
-        shapes=[geom.__geo_interface__],
+        shapes=[geom],
         fill=0,
         default_value=1,
         out_shape=(src_height, src_width),
         all_touched=True,
         transform=src_transform,
         dtype=rasterio.uint8)
+    
+    # Store band descriptions
+    with rasterio.open(src_raster) as src:
+        descriptions = src.descriptions
 
     for id in range(0, src_profile['count']):
         with rasterio.open(src_raster) as src:
             data = src.read(id+1)
             data[country_mask != 1] = src_nodata
         with rasterio.open(src_raster, 'w', **src_profile) as dst:
-            dst.write(data, id+1)
+            dst.write_band(id+1, data)
+            if descriptions[id]:
+                dst.set_band_description(id+1, descriptions[id])
 
     return src_raster
 

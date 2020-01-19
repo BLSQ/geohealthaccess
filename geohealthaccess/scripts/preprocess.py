@@ -4,164 +4,236 @@ import argparse
 import os
 import shutil
 
+from rasterio.crs import CRS
+
 from geohealthaccess import preprocessing, utils
 from geohealthaccess.config import load_config
 
 
-def preprocess_land_cover(input_dir, output_dir, primary_raster):
+def preprocess_land_cover(src_dir, dst_dir, dst_crs,
+                          dst_bounds, dst_res):
     """Merge and reproject land cover tiles.
-    
+
     Parameters
     ----------
-    input_dir : str
-        Directory that contains raw land cover tiles.
-    output_dir : str
-        Output directory for preprocessed files.
-    primary_raster : str
-        Path to primary raster (main grid and extent).
+    src_dir : str
+        Path to source directory where land cover layers are stored.
+    dst_dir : str
+        Path to output directory. Output land cover stack will be
+        written in the 'landcover.tif' file.
+    dst_crs : dict-like CRS object
+        Target coordinate reference system.
+    dst_bounds : tuple of float
+        Output bounds (xmin, ymin, xmax, ymax) in target CRS.
+    dst_res : int or float
+        Output spatial resolution in target CRS units.
     """
-    LAND_COVERS = ['bare', 'crops', 'grass', 'moss', 'shrub', 'snow', 'tree',
-                   'urban', 'water-permanent', 'water-seasonal']
-    for land_cover in LAND_COVERS:
-        aligned_raster = os.path.join(output_dir,
-                                      f'landcover_{land_cover}.tif')
-        # Avoid if preprocessed raster already exists
-        if os.path.isfile(aligned_raster):
-            continue
-        # Merge all raster tiles into a single GeoTIFF
-        layer_name = f'{land_cover}-coverfraction-layer'
-        filenames = [os.path.join(input_dir, f) for f in os.listdir(input_dir)
-                     if layer_name in f and f.endswith('.tif')]
-        merged_raster = os.path.join(output_dir,
-                                     f'landcover_{land_cover}_merged.tif')
-        preprocessing.merge_raster_tiles(filenames, merged_raster, nodata=255)
-        # Align grid with primary raster
-        preprocessing.align_raster(merged_raster, aligned_raster, primary_raster,
-                                   resample_algorithm=1)
-        os.remove(merged_raster)
-    return output_dir
+    LANDCOVERS = ['bare', 'crops', 'grass', 'moss', 'shrub', 'snow',
+                  'tree', 'urban', 'water-permanent', 'water-seasonal']
+    # Avoid if dst_file already exists
+    dst_filename = os.path.join(dst_dir, 'landcover.tif')
+    if os.path.isfile(dst_filename):
+        return dst_filename
+    preprocessed = []
+    for landcover in LANDCOVERS:
+        # Merge raster tiles
+        name = f'{landcover}-coverfraction-layer'
+        filenames = [os.path.join(src_dir, f) for f in os.listdir(src_dir)
+                     if name in f and f.endswith('.tif')]
+        merged = os.path.join(dst_dir, f'landcover_{landcover}_merged.tif')
+        preprocessing.merge_tiles(filenames, merged, nodata=-1)
+        reprojected = merged.replace('_merged.tif', '_reprojected.tif')
+        output = preprocessing.reproject_raster(
+            src_raster=merged,
+            dst_filename=reprojected,
+            dst_crs=dst_crs,
+            resample_algorithm='bilinear',
+            dst_bounds=dst_bounds,
+            dst_res=dst_res,
+            dst_nodata=-1,
+            dst_dtype='float32')
+        preprocessed.append(output)
+        os.remove(merged)
+    stack = os.path.join(dst_dir, 'landcover.tif')
+    preprocessing.create_landcover_stack(dst_dir, stack)
+    #for filename in preprocessed:
+        #os.remove(filename)
+    return
 
 
-def preprocess_elevation(input_dir, output_dir, primary_raster):
-    """Merge and reproject SRTM elevation tiles.
-    
+def preprocess_elevation(src_dir, dst_dir, dst_crs,
+                         dst_bounds, dst_res):
+    """Merge and reproject SRTM elevation tiles and compute
+    slope (TODO).
+
     Parameters
     ----------
-    input_dir : str
-        Directory that contains raw land cover tiles.
-    output_dir : str
-        Output directory for preprocessed files.
-    primary_raster : str
-        Path to primary raster (main grid and extent).
+    src_dir : str
+        Path to source directory where SRTM tiles are stored.
+    dst_dir : str
+        Path to output directory.
+    dst_crs : dict-like CRS object
+        Target coordinate reference system.
+    dst_bounds : tuple of float
+        Output bounds (xmin, ymin, xmax, ymax) in target CRS.
+    dst_res : int or float
+        Output spatial resolution in target CRS units.
     """
-    aligned_raster = os.path.join(output_dir, 'elevation.tif')
-    if os.path.isfile(aligned_raster):
+    preprocessed = os.path.join(dst_dir, 'elevation.tif')
+    if os.path.isfile(preprocessed):
         return
-    filenames = [os.path.join(input_dir, f) for f in os.listdir(input_dir)
+    filenames = [os.path.join(src_dir, f) for f in os.listdir(src_dir)
                  if f.endswith('.hgt')]
-    merged_raster = os.path.join(output_dir, 'elevation_merged.tif')
-    preprocessing.merge_raster_tiles(filenames, merged_raster, nodata=-32768)
-    preprocessing.align_raster(merged_raster, aligned_raster, primary_raster,
-                               resample_algorithm=1)
-    os.remove(merged_raster)
+    merged = os.path.join(dst_dir, 'elevation_merged.tif')
+    preprocessing.merge_tiles(filenames, merged, nodata=-32768)
+    preprocessing.reproject_raster(
+        src_raster=merged,
+        dst_filename=preprocessed,
+        dst_crs=dst_crs,
+        resample_algorithm='bilinear',
+        dst_bounds=dst_bounds,
+        dst_res=dst_res,
+        dst_nodata=-32768,
+        dst_dtype='float32')
+    os.remove(merged)
     return
 
 
-def preprocess_surface_water(input_dir, output_dir, primary_raster):
+def preprocess_water(src_dir, dst_dir, dst_crs,
+                     dst_bounds, dst_res):
     """Merge and reproject GSW tiles.
-    
+
     Parameters
     ----------
-    input_dir : str
-        Directory that contains raw land cover tiles.
-    output_dir : str
-        Output directory for preprocessed files.
-    primary_raster : str
-        Path to primary raster (main grid and extent).
+    src_dir : str
+        Path to source directory where GSW tiles are stored.
+    dst_dir : str
+        Path to output directory.
+    dst_crs : dict-like CRS object
+        Target coordinate reference system.
+    dst_bounds : tuple of float
+        Output bounds (xmin, ymin, xmax, ymax) in target CRS.
+    dst_res : int or float
+        Output spatial resolution in target CRS units.
     """
-    aligned_raster = os.path.join(output_dir, 'surface-water.tif')
-    if os.path.isfile(aligned_raster):
+    preprocessed = os.path.join(dst_dir, 'surface_water.tif')
+    if os.path.isfile(preprocessed):
         return
-    filenames = [os.path.join(input_dir, f) for f in os.listdir(input_dir)
+    filenames = [os.path.join(src_dir, f) for f in os.listdir(src_dir)
                  if f.endswith('.tif')]
-    merged_raster = os.path.join(output_dir, 'surface-water_merged.tif')
-    preprocessing.merge_raster_tiles(filenames, merged_raster, nodata=255)
-    preprocessing.align_raster(merged_raster, aligned_raster, primary_raster,
-                               resample_algorithm='max')
-    preprocessing.set_nodata(aligned_raster, 255)
-    os.remove(merged_raster)
+    merged = os.path.join(dst_dir, 'surface_water_merged.tif')
+    preprocessing.merge_tiles(filenames, merged, nodata=255)
+    preprocessing.reproject_raster(
+        src_raster=merged,
+        dst_filename=preprocessed,
+        dst_crs=dst_crs,
+        resample_algorithm='bilinear',
+        dst_bounds=dst_bounds,
+        dst_res=dst_res,
+        dst_nodata=-32768,
+        dst_dtype='float32')
+    os.remove(merged)
     return
 
 
-def preprocess_population(input_dir, output_dir, primary_raster):
-    """Preprocess Worldpop data.
-    
+def preprocess_population(src_dir, dst_dir, dst_crs,
+                          dst_bounds, dst_res):
+    """Reproject WorldPop data.
+
     Parameters
     ----------
-    input_dir : str
-        Directory that contains raw land cover tiles.
-    output_dir : str
-        Output directory for preprocessed files.
-    primary_raster : str
-        Path to primary raster (main grid and extent).
-    """    
-    filename = [os.path.join(input_dir, f) for f in os.listdir(input_dir)
-                if f.endswith('.tif') and 'ppp' in f][0]
-    aligned_raster = os.path.join(output_dir, 'population.tif')
-    if os.path.isfile(aligned_raster):
-        return
-    
-    # If population raster is the primary raster, just copy the original file
-    if os.path.abspath(filename) == os.path.abspath(primary_raster): 
-        shutil.copyfile(filename, os.path.join(output_dir, 'population.tif'))
-    else:
-        preprocess_population.align_raster(filename, aligned_raster, primary_raster,
-                                           resample_algorithm=1)
-    return
-
-
-def preprocess(input_dir, output_dir, primary_raster, country):
-    """Preprocess input data. Merge tiles, reproject to common grid,
-    mask invalid areas, and ensure correct raster compression.
-    
-    Parameters
-    ----------
-    input_dir : str
-        Main input directory which contains raw data.
-    output_dir : str
-        Output directory for preprocessed files.
-    primary_raster : str
-        Path to primary raster (main grid and extent).
-    country : str
-        3-letters country code.
+    src_dir : str
+        Path to source directory.
+    dst_dir : str
+        Path to output directory.
+    dst_crs : dict-like CRS object
+        Target coordinate reference system.
+    dst_bounds : tuple of float
+        Output bounds (xmin, ymin, xmax, ymax) in target CRS.
+    dst_res : int or float
+        Output spatial resolution in target CRS units.
     """
-    os.makedirs(output_dir, exist_ok=True)
+    filename = [os.path.join(src_dir, f) for f in os.listdir(src_dir)
+                if f.endswith('.tif') and 'ppp' in f][0]
+    reprojected = os.path.join(dst_dir, 'population.tif')
+    preprocessing.reproject_raster(
+        src_raster=filename,
+        dst_filename=reprojected,
+        dst_crs=dst_crs,
+        resample_algorithm='bilinear',
+        dst_bounds=dst_bounds,
+        dst_res=dst_res,
+        dst_nodata=-32768,
+        dst_dtype='float32')
+    return
+
+
+def preprocess(src_dir, dst_dir, country, dst_crs, dst_res):
+    """Preprocess input data. Merge tiles, reproject to common
+    grid, mask invalid areas, and ensure correct raster compression
+    and tiling.
+
+    Parameters
+    ----------
+    src_dir : str
+        Main input directory (raw data).
+    dst_dir : str
+        Output directory.
+    country : str
+        Three-letters code of the country of interest.
+    dst_crs : str
+        Target CRS.
+    dst_res : int or float
+        Target spatial resolution in CRS units.
+    """
+    os.makedirs(dst_dir, exist_ok=True)
+    
+    print('Creating raster grid...')
+    geom = utils.country_geometry(country)
+    dst_crs = CRS.from_string(dst_crs)
+    _, _, _, dst_bounds = preprocessing.create_grid(
+        geom, dst_crs, dst_res)
+    
     print('Preprocessing land cover data...')
-    preprocess_land_cover(os.path.join(input_dir, 'land_cover'),
-                          output_dir,
-                          primary_raster)
+    preprocess_land_cover(
+        src_dir=os.path.join(src_dir, 'land_cover'),
+        dst_dir=dst_dir,
+        dst_crs=dst_crs,
+        dst_bounds=dst_bounds,
+        dst_res=dst_res)
+    
     print('Preprocessing elevation data...')
-    preprocess_elevation(os.path.join(input_dir, 'elevation'),
-                         output_dir,
-                         primary_raster)
+    preprocess_elevation(
+        src_dir=os.path.join(src_dir, 'elevation'),
+        dst_dir=dst_dir,
+        dst_crs=dst_crs,
+        dst_bounds=dst_bounds,
+        dst_res=dst_res)
+    
     print('Preprocessing surface water data...')
-    preprocess_surface_water(os.path.join(input_dir, 'water'),
-                             output_dir,
-                             primary_raster)
+    preprocess_water(
+        src_dir=os.path.join(src_dir, 'water'),
+        dst_dir=dst_dir,
+        dst_crs=dst_crs,
+        dst_bounds=dst_bounds,
+        dst_res=dst_res)
+    
     print('Preprocessing population data...')
-    preprocess_population(os.path.join(input_dir, 'population'),
-                          output_dir,
-                          primary_raster)
+    preprocess_population(
+        src_dir=os.path.join(src_dir, 'population'),
+        dst_dir=dst_dir,
+        dst_crs=dst_crs,
+        dst_bounds=dst_bounds,
+        dst_res=dst_res)
+    
     print('Masking data outside country boundaries...')
-    for filename in os.listdir(output_dir):
+    for filename in os.listdir(dst_dir):
         if filename.endswith('.tif'):
-            preprocessing.mask_raster(os.path.join(output_dir, filename),
+            preprocessing.mask_raster(os.path.join(dst_dir, filename),
                                       country)
-    print('Compress rasters...')
-    for filename in os.listdir(output_dir):
-        if filename.endswith('.tif'):
-            preprocessing.compress_raster(os.path.join(output_dir, filename))
+
     print('Done!')
+    return
 
 
 def main():
@@ -172,19 +244,13 @@ def main():
                         help='.ini configuration file')
     args = parser.parse_args()
     conf = load_config(args.config_file)
-    
-    # Get path to primary raster from config file
-    input_dir = conf['DIRECTORIES']['InputDir']
-    label = conf['AREA']['PrimaryRaster']
-    filename = os.listdir(os.path.join(input_dir, label))[0]
-    primary_raster = os.path.join(input_dir, label, filename)
 
     # Run script
-    preprocess(input_dir=input_dir,
-               output_dir=conf['DIRECTORIES']['IntermDir'],
-               primary_raster=primary_raster,
-               country=conf['AREA']['CountryCode'])
-
+    preprocess(src_dir=conf['DIRECTORIES']['InputDir'],
+               dst_dir=conf['DIRECTORIES']['IntermDir'],
+               country=conf['AREA']['CountryCode'],
+               dst_crs=conf['AREA']['CRS'],
+               dst_res=float(conf['AREA']['Resolution']))
 
 if __name__ == '__main__':
     main()
