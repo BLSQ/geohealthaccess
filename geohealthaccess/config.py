@@ -53,6 +53,9 @@ def load_config(config_path):
     if not os.path.isabs(config['MODELING']['RoadNetworkSpeeds']):
         config['MODELING']['RoadNetworkSpeeds'] = os.path.join(
             root_dir, config['MODELING']['RoadNetworkSpeeds'])
+    for key, directory in config['DESTINATIONS'].items():
+        if not os.path.isabs(directory):
+            config['DESTINATIONS'][key] = os.path.join(root_dir, directory)
 
     # Guess GRASS directory if not provided
     if 'GRASS' not in config:
