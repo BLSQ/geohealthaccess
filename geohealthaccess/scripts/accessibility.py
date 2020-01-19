@@ -37,6 +37,7 @@ def compute_friction(input_dir, interm_dir, landcover_speeds, network_speeds):
         Path to output raster.
     """
     # Assign per-cell speed based on land cover and surface water
+    print('Assigning speed values based on land cover...')
     landcover_speed = modeling.speed_from_landcover(
         src_filename=os.path.join(interm_dir, 'landcover.tif'),
         dst_filename=os.path.join(interm_dir, 'landcover_speed.tif'),
@@ -44,6 +45,7 @@ def compute_friction(input_dir, interm_dir, landcover_speeds, network_speeds):
         landcover_speeds=landcover_speeds)
     
     # Assign per-cell speed based on roads and paths
+    print('Assigning speed values based on the road network...')
     with rasterio.open(landcover_speed) as src:
         dst_transform = src.transform
         dst_crs = src.crs,
@@ -62,10 +64,12 @@ def compute_friction(input_dir, interm_dir, landcover_speeds, network_speeds):
         network_speeds=network_speeds)
     
     # Combine both speed rasters by keeping max. speed value
+    print('Combining speed rasters...')
     speed = os.path.join(interm_dir, 'speed.tif')
     modeling.combine_speed_rasters(landcover_speed, road_speed, speed) 
 
     # Friction raster, i.e. time to cross each pixel
+    print('Computing friction raster...')
     friction = os.path.join(interm_dir, 'friction.tif')
     modeling.compute_friction(speed, friction, max_time=3600)
 
@@ -148,6 +152,8 @@ def main():
         points = gpd.read_file(path)
         points_raster = os.path.join(interm_dir, f'points_{label}.tif')
 
+        print(f'Computing travel time to {label}...')
+
         rasterize_points(
             points=points,
             dst_filename=points_raster,
@@ -162,6 +168,8 @@ def main():
             dst_dir=conf['DIRECTORIES']['OutputDir'],
             label=label)
     
+    print('Done.')
+
     return
 
 
