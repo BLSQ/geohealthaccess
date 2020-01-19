@@ -48,8 +48,8 @@ def compute_friction(input_dir, interm_dir, landcover_speeds, network_speeds):
     print('Assigning speed values based on the road network...')
     with rasterio.open(landcover_speed) as src:
         dst_transform = src.transform
-        dst_crs = src.crs,
-        dst_width = src.width,
+        dst_crs = src.crs
+        dst_width = src.width
         dst_height = src.height
     osm_dir = os.path.join(input_dir, 'openstreetmap')
     osm_datafile = [f for f in os.listdir(osm_dir)
