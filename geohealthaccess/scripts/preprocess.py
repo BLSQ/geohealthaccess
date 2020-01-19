@@ -56,8 +56,8 @@ def preprocess_land_cover(src_dir, dst_dir, dst_crs,
         os.remove(merged)
     stack = os.path.join(dst_dir, 'landcover.tif')
     preprocessing.create_landcover_stack(dst_dir, stack)
-    #for filename in preprocessed:
-        #os.remove(filename)
+    for filename in preprocessed:
+        os.remove(filename)
     return
 
 
