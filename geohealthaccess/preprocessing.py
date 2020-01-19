@@ -4,6 +4,7 @@ import os
 from math import ceil
 from pkg_resources import resource_string, resource_filename
 import json
+import shutil
 import subprocess
 
 from osgeo import gdal
@@ -282,15 +283,19 @@ def mask_raster(src_raster, country):
     # Store band descriptions
     with rasterio.open(src_raster) as src:
         descriptions = src.descriptions
-
-    for id in range(0, src_profile['count']):
-        with rasterio.open(src_raster) as src:
-            data = src.read(id+1)
+    
+    dst_dir = os.path.dirname(src_raster)
+    dst_filename = os.path.join(dst_dir, 'masked.tif')
+    
+    with rasterio.open(src_raster) as src, \
+         rasterio.open(dst_filename, 'w', **src_profile) as dst:
+        for id in range(0, src_profile['count']):
+            data = src.read(indexes=id+1)
             data[country_mask != 1] = src_nodata
-        with rasterio.open(src_raster, 'w', **src_profile) as dst:
             dst.write_band(id+1, data)
-            if descriptions[id]:
-                dst.set_band_description(id+1, descriptions[id])
+            dst.set_band_description(id+1, descriptions[id])
+    
+    shutil.move(dst_filename, src_raster)
 
     return src_raster
 
