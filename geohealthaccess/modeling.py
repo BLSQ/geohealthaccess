@@ -167,7 +167,6 @@ def speed_from_landcover(src_filename, dst_filename, water_filename,
             speed = np.zeros(shape=(window.height, window.width),
                              dtype=np.float32)
             for id, landcover in enumerate(src_land.descriptions, start=1):
-                print(landcover)
                 coverfraction = src_land.read(window=window, indexes=id)
                 speed += (coverfraction / 100) * landcover_speeds[landcover]
             surface_water = src_water.read(window=window, indexes=1)
