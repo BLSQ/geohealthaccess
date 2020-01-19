@@ -7,10 +7,26 @@ The `geohealthaccess` python package provides functions to acquire and process g
 ### Installation
 
 ``` sh
+# Download source code
 git clone https://github.com/BLSQ/geohealthaccess
 cd geohealthaccess
+
+# Setup conda environment
+conda env create -f environment.yml
+conda activate geohealthaccess
+
+# Install geohealthaccess package
 pip install -e .
 ```
+
+### Usage
+
+``` sh
+mkdir <project_dir> && cd <project_dir>
+geohealthaccess-download <config_file>
+geohealthaccess-preprocess <config_file>
+geohealthaccess-accessibility <config_file>
+``` 
 
 ### Modules
 
