@@ -109,6 +109,7 @@ def rasterize_points(points, dst_filename, dst_transform, dst_crs,
 
 def compute_traveltime(destinations, friction, dst_dir, label):
     """TODO."""
+    os.makedirs(dst_dir, exist_ok=True)
     out_accum = os.path.join(dst_dir, f'accumulated_cost_{label}.tif')
     out_backlink = os.path.join(dst_dir, f'backlink_{label}.tif')
     wbt = whitebox.WhiteboxTools()
