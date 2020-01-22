@@ -58,10 +58,11 @@ def load_config(config_path):
             config['DESTINATIONS'][key] = os.path.join(root_dir, directory)
 
     # Guess GRASS directory if not provided
-    if 'GRASS' not in config:
-        config.add_section('GRASS')
-    if 'GrassDir' not in config['GRASS']:
-        config['GRASS']['GrassDir'] = find_grass_dir()
+    # Temporary: Skip GRASS checks until it's used in modeling
+    #if 'GRASS' not in config:
+    #    config.add_section('GRASS')
+    #if 'GrassDir' not in config['GRASS']:
+    #    config['GRASS']['GrassDir'] = find_grass_dir()
 
     # NASA Earthdata credentials
     if 'EARTHDATA' not in config:
