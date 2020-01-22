@@ -7,5 +7,6 @@
     "snow": 1.62,
     "tree": 4.00,
     "urban": 5.00,
-    "water": 0.00
+    "water-permanent": 0.00,
+    "water-seasonal": 0.5
 }
