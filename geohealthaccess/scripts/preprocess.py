@@ -11,7 +11,7 @@ from geohealthaccess.config import load_config
 
 
 def preprocess_land_cover(src_dir, dst_dir, dst_crs,
-                          dst_bounds, dst_res):
+                          dst_bounds, dst_res, remove=False):
     """Merge and reproject land cover tiles.
 
     Parameters
@@ -27,6 +27,8 @@ def preprocess_land_cover(src_dir, dst_dir, dst_crs,
         Output bounds (xmin, ymin, xmax, ymax) in target CRS.
     dst_res : int or float
         Output spatial resolution in target CRS units.
+    remove : bool, optional
+        If set to True, raw input data will be deleted after preprocessing.
     """
     LANDCOVERS = ['bare', 'crops', 'grass', 'moss', 'shrub', 'snow',
                   'tree', 'urban', 'water-permanent', 'water-seasonal']
@@ -58,13 +60,21 @@ def preprocess_land_cover(src_dir, dst_dir, dst_crs,
         os.remove(merged)
     stack = os.path.join(dst_dir, 'landcover.tif')
     preprocessing.create_landcover_stack(dst_dir, stack)
+    
+    # Remove individual files
     for filename in preprocessed:
         os.remove(filename)
+    
+    # Remove raw input data
+    if remove:
+        for filename in os.listdir(src_dir):
+            os.remove(os.path.join(src_dir, filename))
+
     return
 
 
 def preprocess_elevation(src_dir, dst_dir, dst_crs,
-                         dst_bounds, dst_res):
+                         dst_bounds, dst_res, remove=False):
     """Merge and reproject SRTM elevation tiles and compute
     slope (TODO).
 
@@ -80,6 +90,8 @@ def preprocess_elevation(src_dir, dst_dir, dst_crs,
         Output bounds (xmin, ymin, xmax, ymax) in target CRS.
     dst_res : int or float
         Output spatial resolution in target CRS units.
+    remove : bool, optional
+        If set to True, delete raw input data after preprocessing.
     """
     preprocessed = os.path.join(dst_dir, 'elevation.tif')
     if os.path.isfile(preprocessed):
@@ -97,12 +109,20 @@ def preprocess_elevation(src_dir, dst_dir, dst_crs,
         dst_res=dst_res,
         dst_nodata=-32768,
         dst_dtype='float32')
+
+    # Remove intermediary files
     os.remove(merged)
+
+    # Remove raw input data
+    if remove:
+        for filename in os.listdir(src_dir):
+            os.remove(os.path.join(src_dir, filename))
+
     return
 
 
 def preprocess_water(src_dir, dst_dir, dst_crs,
-                     dst_bounds, dst_res):
+                     dst_bounds, dst_res, remove=False):
     """Merge and reproject GSW tiles.
 
     Parameters
@@ -117,6 +137,8 @@ def preprocess_water(src_dir, dst_dir, dst_crs,
         Output bounds (xmin, ymin, xmax, ymax) in target CRS.
     dst_res : int or float
         Output spatial resolution in target CRS units.
+    remove : bool, optional
+        If set to True, delete raw input data after preprocessing.
     """
     preprocessed = os.path.join(dst_dir, 'surface_water.tif')
     if os.path.isfile(preprocessed):
@@ -135,6 +157,11 @@ def preprocess_water(src_dir, dst_dir, dst_crs,
         dst_nodata=-32768,
         dst_dtype='float32')
     os.remove(merged)
+
+    if remove:
+        for filename in os.listdir(src_dir):
+            os.remove(os.path.join(src_dir, filename))
+
     return
 
 
@@ -172,7 +199,7 @@ def preprocess_population(src_dir, dst_dir, dst_crs,
     return
 
 
-def preprocess(src_dir, dst_dir, country, dst_crs, dst_res):
+def preprocess(src_dir, dst_dir, country, dst_crs, dst_res, remove=False):
     """Preprocess input data. Merge tiles, reproject to common
     grid, mask invalid areas, and ensure correct raster compression
     and tiling.
@@ -189,6 +216,8 @@ def preprocess(src_dir, dst_dir, country, dst_crs, dst_res):
         Target CRS.
     dst_res : int or float
         Target spatial resolution in CRS units.
+    remove : bool, optional
+        If True, raw input data will be deleted after preprocessing.
     """
     os.makedirs(dst_dir, exist_ok=True)
     
@@ -204,7 +233,8 @@ def preprocess(src_dir, dst_dir, country, dst_crs, dst_res):
         dst_dir=dst_dir,
         dst_crs=dst_crs,
         dst_bounds=dst_bounds,
-        dst_res=dst_res)
+        dst_res=dst_res,
+        remove=remove)
     
     print('Preprocessing elevation data...')
     preprocess_elevation(
@@ -212,7 +242,8 @@ def preprocess(src_dir, dst_dir, country, dst_crs, dst_res):
         dst_dir=dst_dir,
         dst_crs=dst_crs,
         dst_bounds=dst_bounds,
-        dst_res=dst_res)
+        dst_res=dst_res,
+        remove=remove)
     
     print('Preprocessing surface water data...')
     preprocess_water(
@@ -220,7 +251,8 @@ def preprocess(src_dir, dst_dir, country, dst_crs, dst_res):
         dst_dir=dst_dir,
         dst_crs=dst_crs,
         dst_bounds=dst_bounds,
-        dst_res=dst_res)
+        dst_res=dst_res,
+        remove=remove)
     
     print('Preprocessing population data...')
     preprocess_population(
@@ -246,6 +278,9 @@ def main():
     parser.add_argument('config_file',
                         type=str,
                         help='.ini configuration file')
+    parser.add_argument('--remove',
+                        action='store_true',
+                        help='remove raw data from disk after preprocessing')
     args = parser.parse_args()
     conf = load_config(args.config_file)
 
@@ -254,7 +289,8 @@ def main():
                dst_dir=conf['DIRECTORIES']['IntermDir'],
                country=conf['AREA']['CountryCode'],
                dst_crs=conf['AREA']['CRS'],
-               dst_res=float(conf['AREA']['Resolution']))
+               dst_res=float(conf['AREA']['Resolution']),
+               remove=remove)
 
 if __name__ == '__main__':
     main()
