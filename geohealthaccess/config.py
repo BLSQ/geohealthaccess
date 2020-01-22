@@ -39,6 +39,8 @@ def find_grass_dir():
 
 def load_config(config_path):
     """Load user configuration file."""
+    if not os.path.isfile(config_path):
+        raise FileNotFoundError('Config file not found.')
     config = configparser.ConfigParser()
     config.read(config_path)
 
