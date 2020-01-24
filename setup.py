@@ -35,7 +35,7 @@ setup(
     },
     entry_points='''
         [console_scripts]
-        geohealthaccess-setuo=geohealthaccess.scripts.setup:main
+        geohealthaccess-setup=geohealthaccess.scripts.setup:main
         geohealthaccess-download=geohealthaccess.scripts.download:main
         geohealthaccess-preprocess=geohealthaccess.scripts.preprocess:main
         geohealthaccess-accessibility=geohealthaccess.scripts.accessibility:main
