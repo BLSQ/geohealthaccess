@@ -126,3 +126,6 @@ dmypy.json
 
 # Data file
 data/
+
+notebooks/
+notes/
