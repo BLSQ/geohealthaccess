@@ -283,10 +283,12 @@ def main():
                         help='remove raw data from disk after preprocessing')
     args = parser.parse_args()
     conf = load_config(args.config_file)
+    input_dir = os.path.abspath(conf['DIRECTORIES']['InputDir'])
+    interm_dir = os.path.abspath(conf['DIRECTORIES']['IntermDir'])
 
     # Run script
-    preprocess(src_dir=conf['DIRECTORIES']['InputDir'],
-               dst_dir=conf['DIRECTORIES']['IntermDir'],
+    preprocess(src_dir=input_dir,
+               dst_dir=interm_dir,
                country=conf['AREA']['CountryCode'],
                dst_crs=conf['AREA']['CRS'],
                dst_res=float(conf['AREA']['Resolution']),

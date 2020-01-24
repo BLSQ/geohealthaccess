@@ -129,7 +129,9 @@ def main():
                         help='.ini configuration file')
     args = parser.parse_args()
     conf = load_config(args.config_file)
-    interm_dir = conf['DIRECTORIES']['IntermDir']
+    input_dir = os.path.abspath(conf['DIRECTORIES']['InputDir'])
+    interm_dir = os.path.abspath(conf['DIRECTORIES']['IntermDir'])
+    output_dir = os.path.abspath(conf['DIRECTORIES']['OutputDir'])
 
     # Load speed values as dict
     with open(conf['MODELING']['LandCoverSpeeds']) as f:
@@ -139,7 +141,7 @@ def main():
 
     # Run script
     friction = compute_friction(
-        input_dir=conf['DIRECTORIES']['InputDir'],
+        input_dir=input_dir,
         interm_dir=interm_dir,
         landcover_speeds=landcover_speeds,
         network_speeds=network_speeds)
@@ -166,7 +168,7 @@ def main():
         compute_traveltime(
             destinations=points_raster,
             friction=friction,
-            dst_dir=conf['DIRECTORIES']['OutputDir'],
+            dst_dir=output_dir,
             label=label)
     
     print('Done.')
