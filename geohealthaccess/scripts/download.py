@@ -42,7 +42,6 @@ def download(country, dst_dir, earthdata_username,
     else:
         print('Elevation data already downloaded. Skipping...')
 
-
     # Land cover
     output_dir = os.path.join(dst_dir, 'land_cover')
     os.makedirs(output_dir, exist_ok=True)
@@ -94,10 +93,11 @@ def main():
         help='.ini configuration file')
     args = parser.parse_args()
     conf = load_config(args.config_file)
+    dst_dir = os.path.abspath(conf['DIRECTORIES']['InputDir'])
     # Run script
     download(
         country=conf['AREA']['CountryCode'],
-        dst_dir=conf['DIRECTORIES']['InputDir'],
+        dst_dir=dst_dir,
         earthdata_username=conf['EARTHDATA']['EarthdataUsername'],
         earthdata_password=conf['EARTHDATA']['EarthdataPassword']
     )
