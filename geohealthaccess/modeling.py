@@ -3,12 +3,16 @@
 import json
 import os
 from pkg_resources import resource_filename
+import shutil
 
 import numpy as np
 import rasterio
 from rasterio.crs import CRS
 from rasterio.features import rasterize
 import geopandas as gpd
+
+from geohealthaccess import grasshelper
+from geohealthaccess.grasshelper import gscript
 
 
 def get_segment_speed(highway, tracktype=None, smoothness=None, surface=None,
@@ -343,24 +347,140 @@ def combine_speeds(landcover, roadnetwork, dst_file):
     return dst_file
 
 
-def set_water_as_obstacle(speed, water, dst_file):
-    """Assign null speed (obstacle) to surface water cells.
+def compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
+                       dst_nearest, dst_backlink=None, method='whitebox'):
+    """Compute accessibility map (travel time in seconds) from friction surface,
+    elevation and destination points. Travel time can be computed with 3
+    different software solutions: (1) the `CostDistance` module from Whitebox,
+    (2) the `r.cost` module from GRASS GIS, and (3) the `r.walk` module from
+    GRASS GIS. Relevant documentation can be found here:
+        * `CostDistance`: https://jblindsay.github.io/wbt_book/available_tools/gis_analysis_distance_tools.html#CostDistance
+        * `r.cost`: https://grass.osgeo.org/grass78/manuals/r.cost.html
+        * `r.walk`: https://grass.osgeo.org/grass78/manuals/r.walk.html
 
     Parameters
     ----------
-    speed : str
-        Path to speed raster.
-    water : str
-        Path to surface water raster.
-    dst_file : str
-        Path to output raster.
+    src_friction : str
+        Path to input friction raster.
+    src_elevation : str
+        Path to input elevation raster.
+    src_target : str
+        Path to input destination points.
+    dst_cost : str
+        Path to output accumulated cost raster (i.e. the accessibility
+        map).
+    dst_nearest : str
+        Path to nearest entity raster (i.e. for each cell, the ID of the
+        nearest destination point).
+    dst_backlink : str
+        Path to output backlink raster (movement directions).
+    method : str, optional
+        Method used to compute the travel times: `whitebox`, `r.cost` or
+        `r.walk`. Defaults to `whitebox`.
     
     Returns
     -------
-    dst_file : str
-        Path to output raster.
+    dst_cost : str
+        Path to output accumulated cost raster (i.e. the accessibility
+        map).
+    dst_nearest : str
+        Path to nearest entity raster (i.e. for each cell, the ID of the
+        nearest destination point).
     """
-    with rasterio.open(speed) as src:
-        dst_profile = src.profile
-    # Use windowed read/write to save memory
-    pass
+    MEMORY = 8000  # TODO: Determine best amount of memory to be used.
+    if method not in ('whitebox', 'r.cost', 'r.walk'):
+        raise ValueError(f'{method} is not a valid method.')
+    
+    # Create output dirs if needed
+    for dst_file in (dst_cost, dst_nearest, dst_backlink):
+        os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+
+    if method == 'whitebox':
+        dst_backlink = 
+        wbt = whitebox.WhiteboxTools()
+        wbt.cost_distance(source=src_target,
+                          cost=src_friction,
+                          out_accum=dst_cost,
+                          out_backlink=dst_backlink)
+    
+    if method.startswith('r.'):
+
+        # Create temporary GRASSDATA directory
+        dst_dir = os.path.dirname(dst_cost)
+        grass_datadir = os.path.join(dst_dir, 'GRASSDATA')
+        os.makedirs(grass_datadir)
+
+        # Get source CRS and setup GRASS environment accordingly
+        with rasterio.open(src_friction) as src:
+            crs = src.crs
+        grasshelper.setup_environment(grass_datadir, crs)
+
+        # Load input raster data into the GRASS environment
+        # NB: Data will be stored in `grass_datadir`.
+        gscript.run_command('r.in.gdal',
+                            input=src_friction,
+                            output='friction',
+                            overwrite=True)
+        gscript.run_command('g.region', raster='friction')
+        gscript.run_command('r.in.gdal',
+                            input=src_elevation,
+                            output='elevation',
+                            overwrite=True)
+        gscript.run_command('r.in.gdal',
+                            input=src_target,
+                            output='target',
+                            overwrite=True)
+        # In input point raster, ensure that all pixels
+        # with value = 0 are assigned a null value.
+        gscript.run_command('r.null',
+                            map='target',
+                            setnull=0)
+
+        # Compute travel time with GRASS r.cost module
+        if method == 'r.cost':
+            gscript.run_command('r.cost',
+                                overwrite=True,
+                                input='friction',
+                                output='cost',
+                                outdir='backlink',
+                                nearest='nearest',
+                                start_raster='target',
+                                memory=MEMORY)
+        
+        # Compute travel time with GRASS r.walk module
+        if method == 'r.walk':
+            gscript.run_command('r.walk',
+                                elevation='elevation',
+                                friction='friction',
+                                output='cost',
+                                outdir='backlink',
+                                start_raster='target',
+                                memory=MEMORY)
+        
+        # Save output data to disk
+        GDAL_OPT = ['TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256',
+                    'COMPRESS=LZW', 'PREDICTOR=2', 'NUM_THREADS=ALL_CPUS']
+        gscript.run_command('r.out.gdal',
+                            input='cost',
+                            output=dst_cost,
+                            format='GTiff',
+                            type='Int32',
+                            createopt=','.join(GDAL_OPT),
+                            nodata=-1)
+        gscript.run_command('r.out.gdal',
+                            input='backlink',
+                            output=dst_backlink,
+                            format='GTiff',
+                            createopt=','.join(GDAL_OPT))
+        if method == 'r.cost':
+            # Only available with `r.cost` module
+            gscript.run_command('r.out.gdal',
+                                input='nearest',
+                                output=dst_nearest,
+                                format='GTiff',
+                                createopt=','.join(GDAL_OPT))
+        
+        # Clean GRASSDATA directory
+        shutil.rmtree(grass_datadir)    
+    
+    return
