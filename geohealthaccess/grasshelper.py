@@ -49,13 +49,14 @@ def check_gisdb(gisdb_path):
         logging.info(f'GRASSDATA directory created at `{gisdb_path}`.')
 
 
-def check_location(gisdb_path, location_name, epsg):
+def check_location(gisdb_path, location_name, crs):
     """Create a GRASS location if necessary."""
     if os.path.exists(os.path.join(gisdb_path, location_name)):
         logging.info(f'Location "{location_name}" already exists.')
     else:
         gscript.core.create_location(
-            gisdb_path, location_name, epsg=epsg, overwrite=False)
+            gisdb_path, location_name, proj4=crs.to_proj4(),
+            overwrite=False)
         logging.info(f'Location "{location_name}" created.')
 
 
@@ -88,3 +89,44 @@ def working_mapset(gisdb_path, location_name, mapset_name):
         logging.info(f"Now working in mapset '{mapset_name}'.")
     else:
         logging.error(f"Mapset '{mapset_name}' does not exist at '{gisdb_path}'.")
+
+
+def setup_environment(gisdb, crs):
+    """Setup environment variables for GRASS GIS and its Python modules.
+    Documentation: https://grass.osgeo.org/grass76/manuals/variables.html.
+    Then setup a basic GRASS environment.
+
+    Parameters
+    ----------
+    gisdb : str
+        Path to GRASS data dir.
+    crs : CRS object
+        CRS of the GRASS location as a rasterio CRS object.
+    """
+    LOCATION = 'GEOHEALTHACCESS'
+    MAPSET = 'PERMANENT'
+
+    if 'GISBASE' not in os.environ:
+        os.environ['GISBASE'] = find_grass_dir()
+    logging.info(f'GISBASE = {os.environ["GISBASE"]}.')
+
+    if 'GISRC' not in os.environ:
+        os.environ['GISRC'] = os.path.join(os.environ['HOME'], '.gisrc')
+    gisrc = gscript.setup.init(
+        gisbase=os.environ['GISBASE'],
+        dbase=gisdb,
+        location=LOCATION,
+        mapset=MAPSET)
+    logging.info(f'GISRC = {os.environ["GISRC"]}.')
+
+    grass_python_path = os.path.join(os.environ['GISBASE'], 'etc', 'python')
+    if grass_python_path not in sys.path:
+        sys.path.append(grass_python_path)
+    logging.info(f'Importing GRASS Python module from {grass_python_path}.')
+
+    check_gisdb(gisdb)
+    check_location(gisdb, LOCATION, crs)
+    check_mapset(gisdb, LOCATION, MAPSET)
+    logging.info('GRASS environment initialized.')
+
+    return
