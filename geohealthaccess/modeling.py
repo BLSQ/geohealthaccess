@@ -2,17 +2,14 @@
 
 import json
 import os
-from pkg_resources import resource_filename
 import shutil
 
+import geopandas as gpd
 import numpy as np
 import rasterio
+from pkg_resources import resource_filename
 from rasterio.crs import CRS
 from rasterio.features import rasterize
-import geopandas as gpd
-
-from geohealthaccess import grasshelper
-from geohealthaccess.grasshelper import gscript
 
 
 def get_segment_speed(highway, tracktype=None, smoothness=None, surface=None,
@@ -236,117 +233,6 @@ def compute_friction(speed_raster, dst_filename, max_time=3600):
     return dst_filename
 
 
-def land_cover_speed(src_datadir, dst_filename, crs, transform,
-                     width, height, landcover_speeds=None):
-    """Assign speed in km/h based on land cover classes.
-    
-    Parameters
-    ----------
-    src_datadir : str
-        Directory containing land cover layers.
-    dst_filename : str
-        Path to output raster.
-    crs : dict
-        CRS of the output raster.
-    transform : Affine
-        Affine transform of the output raster.
-    width : int
-        Output raster width.
-    height : int
-        Output raster height.
-    landcover_speeds : dict, optional
-        Speeds associated to each land cover category. If not provided,
-        default values will be used.
-    
-    Returns
-    -------
-    dst_filename : str
-        Path to output raster.
-    """
-    layers = []
-    for fname in os.listdir(src_datadir):
-        if 'landcover' in fname and fname.endswith('.tif'):
-            layers.append(os.path.join(src_datadir, fname))
-
-    with rasterio.open(layers[0]) as src:
-        nodata = src.nodata
-        dst_profile = src.profile
-        dst_profile.update(dtype=np.float32, nodata=-1)
-        speed_raster = np.zeros(shape=(src.height, src.width), dtype=np.float32)
-
-    if not landcover_speeds:
-        with open(resource_filename(__name__, 'resources/land-cover.json')) as f:
-            landcover_speeds = json.load(f)
-    
-    for layer in layers:
-        name, _ = os.path.basename(layer).split('.')
-        land_cover = name.split('_')[1]
-        with rasterio.open(layer) as src:
-            coverfraction = src.read(1)
-            speed_raster += (coverfraction / 100) * landcover_speeds[land_cover]
-
-    speed_raster[coverfraction == nodata] = -1
-
-    with rasterio.open(dst_filename, 'w', **dst_profile) as dst:
-        dst.write(speed_raster, 1)
-    return dst_filename
-
-
-def add_surface_water(landcover_speed, surface_water, dst_file):
-    """Use surface water raster to update land cover speeds.
-
-    Parameters
-    ----------
-    landcover_speed : str
-        Path to land cover speed raster.
-    surface_water : str
-        Path to surface water raster, with pixel values
-        equal to the number of months with water cover.
-    dst_file : str
-        Path to output raster.
-    
-    Returns
-    -------
-    dst_file : str
-        Path to output raster.
-    """
-    pass
-
-
-def combine_speeds(landcover, roadnetwork, dst_file):
-    """Combine land cover and road network speeds into
-    a single raster by keeping the max speed for each cell.
-
-    Parameters
-    ----------
-    landcover : str
-        Path to land cover speed raster.
-    roadnetwork : str
-        Path to road network speed raster.
-    water : str
-        Path to surface water raster.
-    dst_file : str
-        Output raster path.
-    
-    Returns
-    -------
-    dst_file : str
-        Path to output raster.
-    """
-    with rasterio.open(landcover) as src:
-        dst_profile = src.profile
-    # Use windowed read/write to save memory
-    with rasterio.open(dst_file, 'w', **dst_profile) as dst:
-        with rasterio.open(landcover) as src_landcover:
-            for ji, window in src.block_windows(1):
-                land_speed = src_landcover.read(1, window=window)
-                with rasterio.open(roadnetwork) as src_road:
-                    road_speed = src_road.read(1, window=window)
-                dst.write(np.maximum(land_speed, road_speed),
-                          window=window, indexes=1)
-    return dst_file
-
-
 def compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
                        dst_nearest, dst_backlink=None, method='whitebox'):
     """Compute accessibility map (travel time in seconds) from friction surface,
@@ -396,7 +282,7 @@ def compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
         os.makedirs(os.path.dirname(dst_file), exist_ok=True)
 
     if method == 'whitebox':
-        dst_backlink = 
+        import whitebox
         wbt = whitebox.WhiteboxTools()
         wbt.cost_distance(source=src_target,
                           cost=src_friction,
@@ -404,6 +290,9 @@ def compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
                           out_backlink=dst_backlink)
     
     if method.startswith('r.'):
+        
+        from geohealthaccess import grasshelper
+        from geohealthaccess.grasshelper import gscript
 
         # Create temporary GRASSDATA directory
         dst_dir = os.path.dirname(dst_cost)
