@@ -168,7 +168,7 @@ def speed_from_landcover(src_filename, dst_filename, water_filename,
     with rasterio.open(dst_filename, 'w', **dst_profile) as dst, \
          rasterio.open(water_filename) as src_water, \
          rasterio.open(src_filename) as src_land:
-        for ij, window in dst.block_windows(1):
+        for _, window in dst.block_windows(1):
             speed = np.zeros(shape=(window.height, window.width),
                              dtype=np.float32)
             for id, landcover in enumerate(src_land.descriptions, start=1):
@@ -204,7 +204,7 @@ def combine_speed_rasters(landcover_speed, roadnetwork_speed, dst_filename):
     with rasterio.open(landcover_speed) as src_land, \
          rasterio.open(roadnetwork_speed) as src_road, \
          rasterio.open(dst_filename, 'w', **dst_profile) as dst:
-        for ij, window in dst.block_windows(1):
+        for _, window in dst.block_windows(1):
             speed = np.maximum(src_land.read(window=window, indexes=1),
                                src_road.read(window=window, indexes=1))
             speed[speed < 0] = src_land.nodata
@@ -220,7 +220,7 @@ def compute_friction(speed_raster, dst_filename, max_time=3600):
         dst_profile.update(dtype=np.float64)
     with rasterio.open(speed_raster) as src, \
          rasterio.open(dst_filename, 'w', **dst_profile) as dst:
-        for ij, window in dst.block_windows(1):
+        for _, window in dst.block_windows(1):
             speed = src.read(window=window, indexes=1).astype(np.float64)
             speed /= 3.6  # From km/hour to m/second
             diag_distance = np.sqrt(xres * xres + yres * yres)
