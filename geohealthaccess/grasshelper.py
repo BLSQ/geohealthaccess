@@ -13,20 +13,6 @@ from geohealthaccess.config import find_grass_dir
 from geohealthaccess.exceptions import GrassNotFound
 
 
-def find_grass_dir():
-    """Try to find GRASS install directory."""
-    if 'GISBASE' in os.environ:
-        return os.environ['GISBASE']
-    try:
-        p = run(['grass', '--config', 'path'], capture_output=True)
-        if p.returncode == 0 and p.stdout:
-            return p.stdout.decode().strip()
-        else:
-            raise GrassNotFound()
-    except:
-        raise GrassNotFound()
-
-
 # Import GRASS python modules
 grass_dir = find_grass_dir()
 os.environ['GISBASE'] = grass_dir
