@@ -181,34 +181,69 @@ def speed_from_landcover(src_filename, dst_filename, water_filename,
     return dst_filename
 
 
-def combine_speed_rasters(landcover_speed, roadnetwork_speed, dst_filename):
-    """Combine land cover and road network speed rasters into a single GeoTIFF
-    by keeping the max. speed value between both rasters.
-
+def combined_speed(landcover_speed, roads_speed, dst_filename, mode='car',
+                   bike_basespeed=15, walk_basespeed=5):
+    """Compute per-cell max. speed (in km/h) depending on the transport mode,
+    i.e. 'car', 'bike' or 'pedestrian'. Transport mode is encoded into the
+    speed values by adding 1000 for walking, 2000 for bicycling, and
+    3000 for cars.
+    
     Parameters
     ----------
     landcover_speed : str
-        Path to land cover speed raster.
-    roadnetwork_speed : str
-        Path to road network speed raster.
+        Path to land cover speed raster, as computed by speed_from_landcover().
+    roads_speed : str
+        Path to roads speed raster, as computed by speed_from_roads().
     dst_filename : str
-        Path to output raster.
+        Path to output speed raster.
+    mode : str, optional
+        Transport mode: 'car', 'bike' or 'walk'.
+    bike_basespeed : int, optional
+        Bicycling base speed in km/h.
+    walk_basespeed : int, optional
+        Walking base speed in km/h.
     
     Returns
     -------
     dst_filename : str
-        Path to output raster.
+        Path to output speed raster.
     """
     with rasterio.open(landcover_speed) as src:
         dst_profile = src.profile
-    with rasterio.open(landcover_speed) as src_land, \
-         rasterio.open(roadnetwork_speed) as src_road, \
+    dst_profile.update(dtype='uint16', nodata=-1)
+
+    # Open source and destination raster datasets
+    with rasterio.open(landcover_speed) as src_landcover, \
+         rasterio.open(roads_speed) as src_roads, \
          rasterio.open(dst_filename, 'w', **dst_profile) as dst:
+
+        # Iterate over raster block windows to use less memory
         for _, window in dst.block_windows(1):
-            speed = np.maximum(src_land.read(window=window, indexes=1),
-                               src_road.read(window=window, indexes=1))
-            speed[speed < 0] = src_land.nodata
+            
+            speed_landcover = src_landcover.read(window=window, indexes=1)
+            speed_roads = src_roads.read(window=window, indexes=1)
+            speed = np.maximum(speed_landcover, speed_roads)
+            
+            if mode == 'car':
+                speed[speed_roads > 0] = speed + 3000
+                speed[speed_roads == 0] = speed + 1000  #  No roads, walking
+
+            if mode == 'bike':
+                BIKE_BASESPEED = 15
+                speed[speed_roads > 0] = 2000 + BIKE_BASESPEED
+                speed[speed_roads == 0] = speed + 1000  # No roads, walking
+            
+            if mode == 'walk':
+                WALK_BASESPEED = 5
+                speed[speed_roads > 0] = 1000 + WALK_BASESPEED  # Walking (base speed)
+                speed[speed_roads == 0] = speed + 1000
+            
+            # Update nodata values and write block to disk
+            speed[np.isnan(speed_landcover)] = -1
+            speed[np.isnan(speed_roads)] = -1
+            speed[speed < 0] = -1
             dst.write(speed, window=window, indexes=1)
+
     return dst_filename
 
 
