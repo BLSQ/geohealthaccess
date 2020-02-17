@@ -76,8 +76,4 @@ def load_config(config_path):
         password = os.environ.get('EARTHDATA_PASSWORD', '')
         config['EARTHDATA']['EarthdataPassword'] = password
 
-    # Write changes to disk
-    with open(config_path, 'w') as f:
-        config.write(f)
-
     return config
