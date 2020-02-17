@@ -257,7 +257,22 @@ def combined_speed(landcover_speed, roads_speed, dst_filename, mode='car',
 
 
 def compute_friction(speed_raster, dst_filename, max_time=3600):
-    """Convert speed raster to friction, i.e. time to cross a given pixel."""
+    """Convert speed raster to friction, i.e. time to cross a given pixel.
+
+    Parameters
+    ----------
+    speed_raster : str
+        Path to speed raster, as computed by combined_speed().
+    dst_filename : str
+        Path to output raster.
+    max_time : int, optional
+        Max. friction value.
+    
+    Returns
+    -------
+    dst_filename : str
+        Path to output raster.
+    """
     with rasterio.open(speed_raster) as src:
         dst_profile = src.profile
         xres, yres = abs(src.transform.a), abs(src.transform.e)
