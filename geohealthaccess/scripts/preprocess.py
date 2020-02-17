@@ -292,7 +292,7 @@ def main():
                country=conf['AREA']['CountryCode'],
                dst_crs=conf['AREA']['CRS'],
                dst_res=float(conf['AREA']['Resolution']),
-               remove=remove)
+               remove=args.remove)
 
 if __name__ == '__main__':
     main()
