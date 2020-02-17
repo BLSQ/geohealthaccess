@@ -19,6 +19,11 @@ def get_segment_speed(highway, tracktype=None, smoothness=None, surface=None,
                       network_speeds=None):
     """Get the speed (km/h) associated with a given road segment depending on
     various OpenStreetMap tags.
+    final_speed = base_speed * max(smoothness, surface, tracktype),
+    where base_speed is the speed associated with the OSM `highway`
+    property, and `smoothness`, `surface` and `tracktype` the adjusting
+    factor (between 0 and 1) associated with the respective OSM
+    property.
 
     Parameters
     ----------
