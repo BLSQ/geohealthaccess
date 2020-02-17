@@ -401,7 +401,7 @@ def compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
         os.makedirs(os.path.dirname(dst_file), exist_ok=True)
 
     if method == 'whitebox':
-        dst_backlink = 
+        import whitebox
         wbt = whitebox.WhiteboxTools()
         wbt.cost_distance(source=src_target,
                           cost=src_friction,
