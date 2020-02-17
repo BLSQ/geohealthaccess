@@ -217,6 +217,10 @@ def combined_speed(landcover_speed, roads_speed, dst_filename, mode='car',
         dst_profile = src.profile
     dst_profile.update(dtype='uint16', nodata=-1)
 
+    # Check mode parameter
+    if mode not in ('car', 'bike', 'walk'):
+        raise ValueError('Unrecognized transport mode.')
+
     # Open source and destination raster datasets
     with rasterio.open(landcover_speed) as src_landcover, \
          rasterio.open(roads_speed) as src_roads, \
