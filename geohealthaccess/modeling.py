@@ -11,6 +11,9 @@ from pkg_resources import resource_filename
 from rasterio.crs import CRS
 from rasterio.features import rasterize
 
+from geohealthaccess import grasshelper
+from geohealthaccess.grasshelper import gscript
+
 
 def get_segment_speed(highway, tracktype=None, smoothness=None, surface=None,
                       network_speeds=None):
@@ -292,9 +295,9 @@ def compute_friction(speed_raster, dst_filename, max_time=3600):
     return dst_filename
 
 
-def compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
+def _compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
                        dst_nearest, dst_backlink=None, method='whitebox'):
-    """Compute accessibility map (travel time in seconds) from friction surface,
+    """DEPERECATED. Compute accessibility map (travel time in seconds) from friction surface,
     elevation and destination points. Travel time can be computed with 3
     different software solutions: (1) the `CostDistance` module from Whitebox,
     (2) the `r.cost` module from GRASS GIS, and (3) the `r.walk` module from
@@ -302,6 +305,7 @@ def compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
         * `CostDistance`: https://jblindsay.github.io/wbt_book/available_tools/gis_analysis_distance_tools.html#CostDistance
         * `r.cost`: https://grass.osgeo.org/grass78/manuals/r.cost.html
         * `r.walk`: https://grass.osgeo.org/grass78/manuals/r.walk.html
+        * `r.walk.accessmod`: https://github.com/fxi/AccessMod_r.walk
 
     Parameters
     ----------
@@ -432,3 +436,108 @@ def compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
         shutil.rmtree(grass_datadir)    
     
     return
+
+
+def compute_traveltime(src_speed, src_elevation, src_target, dst_cost,
+                       dst_nearest, dst_backlink, max_memory=8000):
+    """Compute accessibility map (travel time in seconds) from friction
+    surface, elevation and destination points. Travel time is computed
+    using the r.walk modification by AccessMod:
+        * `r.walk`: https://grass.osgeo.org/grass78/manuals/r.walk.html
+        * `r.walk.accessmod`: https://github.com/fxi/AccessMod_r.walk
+    
+    Parameters
+    ----------
+    src_speed : str
+        Path to input speed raster.
+    src_elevation : str
+        Path to input elevation raster.
+    src_target : str
+        Path to input destination points.
+    dst_cost : str
+        Path to output accumulated cost raster (i.e. the accessibility map).
+    dst_nearest : str
+        Path to output nearest entity raster (i.e. for each cell, the ID of
+        the nearest destination point).
+    dst_backlink : str
+        Path to output backlink raster (movement directions).
+    max_memory : int, optional
+        Max. memory used by the GRASS module (MB). Default = 8000 MB.
+
+    Returns
+    -------
+    dst_cost : str
+        Path to output accumulated cost raster (i.e. the accessibility map).
+    dst_nearest : str
+        Path to output nearest entity raster (i.e. for each cell, the ID of
+        the nearest destination point).
+    """
+    # Create output dirs if needed
+    for dst_file in (dst_cost, dst_nearest, dst_backlink):
+        os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+    
+    # Create temporary GRASSDATA directory
+    dst_dir = os.path.dirname(dst_cost)
+    grass_datadir = os.path.join(dst_dir, 'GRASSDATA')
+    os.makedirs(grass_datadir)
+
+    # Get source CRS and setup GRASS environment accordingly
+    with rasterio.open(src_speed) as src:
+        crs = src.crs
+    grasshelper.setup_environment(grass_datadir, crs)
+
+    # Load input raster data into the GRASS environment
+    # NB: Data will be stored in `grass_datadir`.
+    gscript.run_command('r.in.gdal',
+                        input=src_speed,
+                        output='speed',
+                        overwrite=True)
+    gscript.run_command('g.region', raster='speed')
+    gscript.run_command('r.in.gdal',
+                        input=src_elevation,
+                        output='elevation',
+                        overwrite=True)
+    gscript.run_command('r.in.gdal',
+                        input=src_target,
+                        output='target',
+                        overwrite=True)
+    # In input point raster, ensure that all pixels
+    # with value = 0 are assigned a null value.
+    gscript.run_command('r.null',
+                        map='target',
+                        setnull=0)
+    
+    # Compute travel time with GRASS r.walk.accessmod
+    gscript.run_command('r.walk.accessmod',
+                        elevation='elevation',
+                        friction='speed',
+                        output='cost',
+                        outdir='backlink',
+                        start_raster='target',
+                        memory=max_memory)
+    
+    # Save output data to disk
+    GDAL_OPT = ['TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256',
+                'COMPRESS=LZW', 'PREDICTOR=2', 'NUM_THREADS=ALL_CPUS']
+    gscript.run_command('r.out.gdal',
+                        input='cost',
+                        output=dst_cost,
+                        format='GTiff',
+                        type='Int32',
+                        createopt=','.join(GDAL_OPT),
+                        nodata=-1)
+    gscript.run_command('r.out.gdal',
+                        input='backlink',
+                        output=dst_backlink,
+                        format='GTiff',
+                        createopt=','.join(GDAL_OPT))
+    gscript.run_command('r.out.gdal',
+                        input='nearest',
+                        output=dst_nearest,
+                        format='GTiff',
+                        createopt=','.join(GDAL_OPT))
+
+    # Clean GRASSDATA directory
+    shutil.rmtree(grass_datadir)
+
+    return dst_cost, dst_nearest, dst_backlink
