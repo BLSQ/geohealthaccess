@@ -490,7 +490,7 @@ def compute_traveltime(src_speed, src_elevation, src_target, dst_cost,
     # Get source CRS and setup GRASS environment accordingly
     with rasterio.open(src_speed) as src:
         crs = src.crs
-    grasshelper.setup_environment(grass_datadir, crs.to_proj4())
+    grasshelper.setup_environment(grass_datadir, crs)
 
     # Load input raster data into the GRASS environment
     # NB: Data will be stored in `grass_datadir`.
