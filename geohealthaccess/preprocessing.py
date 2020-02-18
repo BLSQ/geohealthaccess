@@ -156,7 +156,7 @@ def align_raster(src_raster, dst_filename, primary_raster, resample_algorithm):
     primary raster.
     
     Parameters
-    ----------ODO.
+    ----------
     src_raster : str
         Path to source raster that will be reprojected.
     dst_filename : str
