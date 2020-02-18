@@ -220,7 +220,7 @@ def combined_speed(landcover_speed, roads_speed, dst_filename, mode='car',
     """
     with rasterio.open(landcover_speed) as src:
         dst_profile = src.profile
-    dst_profile.update(dtype='uint16', nodata=-1)
+    dst_profile.update(dtype='int16', nodata=-1)
 
     # Check mode parameter
     if mode not in ('car', 'bike', 'walk'):
