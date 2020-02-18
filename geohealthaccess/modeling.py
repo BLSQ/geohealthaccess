@@ -273,8 +273,8 @@ def compute_friction(speed_raster, dst_filename, max_time=3600):
     dst_filename : str
         Path to output raster.
     max_time : int, optional
-        Max. friction value.
-    
+        Max. friction value (seconds).
+
     Returns
     -------
     dst_filename : str
@@ -442,14 +442,16 @@ def _compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
     return
 
 
-def compute_traveltime(src_speed, src_elevation, src_target, dst_cost,
-                       dst_nearest, dst_backlink, max_memory=8000):
+def r_walk_accessmod(src_speed, src_elevation, src_target, dst_cost,
+                     dst_backlink, max_memory=8000):
     """Compute accessibility map (travel time in seconds) from friction
-    surface, elevation and destination points. Travel time is computed
-    using the r.walk modification by AccessMod:
-        * `r.walk`: https://grass.osgeo.org/grass78/manuals/r.walk.html
-        * `r.walk.accessmod`: https://github.com/fxi/AccessMod_r.walk
+    surface, elevation and destination points.
     
+    Travel time is computed using the r.walk modification by AccessMod:
+    * `r.walk`: https://grass.osgeo.org/grass78/manuals/r.walk.html
+    * `r.walk.accessmod`: https://github.com/fxi/AccessMod_r.walk
+    NB: Only works with GRASS 7.2 for now.
+
     Parameters
     ----------
     src_speed : str
@@ -460,9 +462,6 @@ def compute_traveltime(src_speed, src_elevation, src_target, dst_cost,
         Path to input destination points.
     dst_cost : str
         Path to output accumulated cost raster (i.e. the accessibility map).
-    dst_nearest : str
-        Path to output nearest entity raster (i.e. for each cell, the ID of
-        the nearest destination point).
     dst_backlink : str
         Path to output backlink raster (movement directions).
     max_memory : int, optional
@@ -477,7 +476,7 @@ def compute_traveltime(src_speed, src_elevation, src_target, dst_cost,
         the nearest destination point).
     """
     # Create output dirs if needed
-    for dst_file in (dst_cost, dst_nearest, dst_backlink):
+    for dst_file in (dst_cost, dst_backlink):
         os.makedirs(os.path.dirname(dst_file), exist_ok=True)
     
     # Create temporary GRASSDATA directory
@@ -515,35 +514,33 @@ def compute_traveltime(src_speed, src_elevation, src_target, dst_cost,
     
     # Compute travel time with GRASS r.walk.accessmod
     gscript.run_command('r.walk.accessmod',
+                        flags='s',
                         elevation='elevation',
                         friction='speed',
                         output='cost',
+                        # nearest='nearest',
                         outdir='backlink',
                         start_raster='target',
                         memory=max_memory)
     
     # Save output data to disk
     GDAL_OPT = ['TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256',
-                'COMPRESS=LZW', 'PREDICTOR=2', 'NUM_THREADS=ALL_CPUS']
+                'COMPRESS=LZW', 'NUM_THREADS=ALL_CPUS']
     gscript.run_command('r.out.gdal',
                         input='cost',
                         output=dst_cost,
                         format='GTiff',
-                        type='Int32',
+                        type='Float64',
                         createopt=','.join(GDAL_OPT),
                         nodata=-1)
     gscript.run_command('r.out.gdal',
                         input='backlink',
                         output=dst_backlink,
                         format='GTiff',
-                        createopt=','.join(GDAL_OPT))
-    gscript.run_command('r.out.gdal',
-                        input='nearest',
-                        output=dst_nearest,
-                        format='GTiff',
-                        createopt=','.join(GDAL_OPT))
+                        createopt=','.join(GDAL_OPT),
+                        nodata=-1)
 
     # Clean GRASSDATA directory
     shutil.rmtree(grass_datadir)
 
-    return dst_cost, dst_nearest, dst_backlink
+    return dst_cost, dst_backlink
