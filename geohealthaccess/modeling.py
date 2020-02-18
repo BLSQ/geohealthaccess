@@ -192,9 +192,11 @@ def speed_from_landcover(src_filename, dst_filename, water_filename,
 def combined_speed(landcover_speed, roads_speed, dst_filename, mode='car',
                    bike_basespeed=15, walk_basespeed=5):
     """Compute per-cell max. speed (in km/h) depending on the transport mode,
-    i.e. 'car', 'bike' or 'pedestrian'. Transport mode is encoded into the
-    speed values by adding 1000 for walking, 2000 for bicycling, and
-    3000 for cars.
+    i.e. 'car', 'bike' or 'pedestrian'. 
+    
+    Transport mode is encoded into the speed values by adding 1000 for walking,
+    2000 for bicycling, and 3000 for cars. Car and bike transport switch to
+    walking when no roads are available.
     
     Parameters
     ----------
