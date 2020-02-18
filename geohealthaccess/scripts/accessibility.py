@@ -16,7 +16,7 @@ from geohealthaccess.config import load_config
 
 
 def base_speed_rasters(input_dir, interm_dir, landcover_speeds,
-                       network_speeds):
+                       network_speeds, overwrite=False):
     """Compute base speed rasters, i.e. assign per-cell speed from land cover
     and road network information.
 
@@ -31,6 +31,9 @@ def base_speed_rasters(input_dir, interm_dir, landcover_speeds,
     network_speeds : dict
         Speed and adjustment factors associated with road
         types and properties.
+    overwrite : bool, optional
+        Overwrite existing base speed rasters if needed.
+        Default=False.
     
     Returns
     -------
@@ -41,30 +44,34 @@ def base_speed_rasters(input_dir, interm_dir, landcover_speeds,
     """
     # Assign per-cell speed based on land cover and surface water
     print('Assigning speed values based on land cover...')
-    landcover_speed = modeling.speed_from_landcover(
-        src_filename=os.path.join(interm_dir, 'landcover.tif'),
-        dst_filename=os.path.join(interm_dir, 'landcover_speed.tif'),
-        water_filename=os.path.join(interm_dir, 'surface_water.tif'),
-        landcover_speeds=landcover_speeds)
+    landcover_speed = os.path.join(interm_dir, 'landcover_speed.tif')
+    if not os.path.isfile(landcover_speed) or overwrite:
+        modeling.speed_from_landcover(
+            src_filename=os.path.join(interm_dir, 'landcover.tif'),
+            dst_filename=landcover_speed,
+            water_filename=os.path.join(interm_dir, 'surface_water.tif'),
+            landcover_speeds=landcover_speeds)
     
     # Assign per-cell speed based on roads and paths
     print('Assigning speed values based on the road network...')
-    with rasterio.open(landcover_speed) as src:
-        dst_transform = src.transform
-        dst_crs = src.crs
-        dst_width = src.width
-        dst_height = src.height
-    osm_dir = os.path.join(input_dir, 'openstreetmap')
-    osm_datafile = [f for f in os.listdir(osm_dir)
-                    if f.endswith('.gpkg')][0]
-    roads_speed = modeling.speed_from_roads(
-        src_filename=os.path.join(osm_dir, osm_datafile),
-        dst_filename=os.path.join(interm_dir, 'roads_speed.tif'),
-        dst_transform=dst_transform,
-        dst_crs=dst_crs,
-        dst_width=dst_width,
-        dst_height=dst_height,
-        network_speeds=network_speeds)
+    roads_speed = os.path.join(interm_dir, 'roads_speed.tif')
+    if not os.path.isfile(roads_speed) or overwrite:
+        with rasterio.open(landcover_speed) as src:
+            dst_transform = src.transform
+            dst_crs = src.crs
+            dst_width = src.width
+            dst_height = src.height
+        osm_dir = os.path.join(input_dir, 'openstreetmap')
+        osm_datafile = [f for f in os.listdir(osm_dir)
+                        if f.endswith('.gpkg')][0]
+        roads_speed = modeling.speed_from_roads(
+            src_filename=os.path.join(osm_dir, osm_datafile),
+            dst_filename=roads_speed,
+            dst_transform=dst_transform,
+            dst_crs=dst_crs,
+            dst_width=dst_width,
+            dst_height=dst_height,
+            network_speeds=network_speeds)
     
     return landcover_speed, roads_speed
 
