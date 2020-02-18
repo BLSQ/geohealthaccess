@@ -40,9 +40,14 @@ def check_location(gisdb_path, location_name, crs):
     if os.path.exists(os.path.join(gisdb_path, location_name)):
         logging.info(f'Location "{location_name}" already exists.')
     else:
-        gscript.core.create_location(
-            gisdb_path, location_name, proj4=crs.to_proj4(),
-            overwrite=False)
+        if crs.is_epsg_code:
+            gscript.core.create_location(
+                gisdb_path, location_name, epsg=crs.to_epsg(),
+                overwrite=False)
+        else:
+            gscript.core.create_location(
+                gisdb_path, location_name, proj4=crs.to_proj4(),
+                overwrite=False)
         logging.info(f'Location "{location_name}" created.')
 
 
