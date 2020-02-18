@@ -483,6 +483,8 @@ def compute_traveltime(src_speed, src_elevation, src_target, dst_cost,
     # Create temporary GRASSDATA directory
     dst_dir = os.path.dirname(dst_cost)
     grass_datadir = os.path.join(dst_dir, 'GRASSDATA')
+    if os.path.isdir(grass_datadir):
+        shutil.rmtree(grass_datadir)
     os.makedirs(grass_datadir)
 
     # Get source CRS and setup GRASS environment accordingly
