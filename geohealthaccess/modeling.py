@@ -237,26 +237,28 @@ def combined_speed(landcover_speed, roads_speed, dst_filename, mode='car',
             speed_landcover = src_landcover.read(window=window, indexes=1)
             speed_roads = src_roads.read(window=window, indexes=1)
             speed = np.maximum(speed_landcover, speed_roads)
-            
+            road = speed_roads > 0
+            noroad = speed_roads == 0
+
             if mode == 'car':
-                speed[speed_roads > 0] = speed + 3000
-                speed[speed_roads == 0] = speed + 1000  #  No roads, walking
+                speed[road] = speed[road] + 3000
+                speed[noroad] = speed[noroad] + 1000  #  No roads, walking
 
             if mode == 'bike':
                 BIKE_BASESPEED = 15
-                speed[speed_roads > 0] = 2000 + BIKE_BASESPEED
-                speed[speed_roads == 0] = speed + 1000  # No roads, walking
+                speed[road] = 2000 + BIKE_BASESPEED
+                speed[noroad] = speed[noroad] + 1000  # No roads, walking
             
             if mode == 'walk':
                 WALK_BASESPEED = 5
-                speed[speed_roads > 0] = 1000 + WALK_BASESPEED  # Walking (base speed)
-                speed[speed_roads == 0] = speed + 1000
+                speed[road] = 1000 + WALK_BASESPEED  # Walking (base speed)
+                speed[noroad] = speed[noroad] + 1000
             
             # Update nodata values and write block to disk
             speed[np.isnan(speed_landcover)] = -1
             speed[np.isnan(speed_roads)] = -1
             speed[speed < 0] = -1
-            dst.write(speed, window=window, indexes=1)
+            dst.write(speed.astype(np.int16), window=window, indexes=1)
 
     return dst_filename
 
@@ -486,7 +488,7 @@ def compute_traveltime(src_speed, src_elevation, src_target, dst_cost,
     # Get source CRS and setup GRASS environment accordingly
     with rasterio.open(src_speed) as src:
         crs = src.crs
-    grasshelper.setup_environment(grass_datadir, crs)
+    grasshelper.setup_environment(grass_datadir, crs.to_proj4())
 
     # Load input raster data into the GRASS environment
     # NB: Data will be stored in `grass_datadir`.
