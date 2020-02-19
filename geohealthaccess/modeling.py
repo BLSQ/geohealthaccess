@@ -189,14 +189,75 @@ def speed_from_landcover(src_filename, dst_filename, water_filename,
     return dst_filename
 
 
-def combined_speed(landcover_speed, roads_speed, dst_filename, mode='car',
-                   bike_basespeed=15, walk_basespeed=5):
+def combine_speed(landcover_speed, roads_speed, dst_filename, mode='car',
+                  bike_basespeed=15, walk_basespeed=5):
+    """Compute per-cell max. speed (km/h) depending on transport mode.
+
+    Parameters
+    ----------
+    landcover_speed : str
+        Path to land cover speed raster, as computed by speed_from_landcover().
+    roads_speed : str
+        Path to roads speed raster, as computed by speed_from_roads().
+    dst_filename : str
+        Path to output speed raster.
+    mode : str, optional
+        Transport mode: 'car', 'bike' or 'walk'.
+    bike_basespeed : int, optional
+        Bicycling base speed in km/h on a flat surface. Default=15.
+    walk_basespeed : int, optional
+        Walking base speed in km/h on a flat surface. Default=5.
+    
+    Returns
+    -------
+    dst_filename : str
+        Path to output speed raster.
+    """
+    with rasterio.open(landcover_speed) as src:
+        dst_profile = src.profile
+    dst_profile.update(dtype='float64', nodata=-1)
+
+    # Check mode parameter
+    if mode not in ('car', 'bike', 'walk'):
+        raise ValueError('Unrecognized transport mode.')
+
+    # Open source and destination raster datasets
+    with rasterio.open(landcover_speed) as src_landcover, \
+         rasterio.open(roads_speed) as src_roads, \
+         rasterio.open(dst_filename, 'w', **dst_profile) as dst:
+
+        # Iterate over raster block windows to use less memory
+        for _, window in dst.block_windows(1):
+            
+            speed_landcover = src_landcover.read(window=window, indexes=1)
+            speed_roads = src_roads.read(window=window, indexes=1)
+            speed = np.maximum(speed_landcover, speed_roads)
+            road = speed_roads > 0
+            noroad = speed_roads == 0
+
+            if mode == 'bike':
+                speed[road] = bike_basespeed            
+            if mode == 'walk':
+                speed[road] = walk_basespeed
+            
+            # Update nodata values and write block to disk
+            speed[np.isnan(speed_landcover)] = -1
+            speed[np.isnan(speed_roads)] = -1
+            speed[speed < 0] = -1
+            dst.write(speed.astype(np.float64), window=window, indexes=1)
+
+    return dst_filename
+
+
+def combine_speed_accessmod(landcover_speed, roads_speed, dst_filename, mode='car',
+                            bike_basespeed=15, walk_basespeed=5):
     """Compute per-cell max. speed (in km/h) depending on the transport mode,
     i.e. 'car', 'bike' or 'walk'. 
     
     Transport mode is encoded into the speed values by adding 1000 for walking,
     2000 for bicycling, and 3000 for cars. Car and bike transport switch to
-    walking when no roads are available.    
+    walking when no roads are available. This is for compatibility with
+    the `r.walk.accessmod` GRASS module.
     
     Parameters
     ----------
@@ -283,7 +344,7 @@ def compute_friction(speed_raster, dst_filename, max_time=3600):
     with rasterio.open(speed_raster) as src:
         dst_profile = src.profile
         xres, yres = abs(src.transform.a), abs(src.transform.e)
-        dst_profile.update(dtype=np.float64)
+        dst_profile.update(dtype=np.float64, nodata=-1)
     with rasterio.open(speed_raster) as src, \
          rasterio.open(dst_filename, 'w', **dst_profile) as dst:
         for _, window in dst.block_windows(1):
@@ -293,153 +354,263 @@ def compute_friction(speed_raster, dst_filename, max_time=3600):
             time_to_cross = diag_distance / speed
             # Clean bad values
             time_to_cross[speed == 0] = max_time
-            time_to_cross[np.isinf(time_to_cross)] = max_time
+            time_to_cross[np.isnan(time_to_cross)] = -1
+            time_to_cross[np.isinf(time_to_cross)] = -1
             time_to_cross[time_to_cross > max_time] = max_time
             dst.write(time_to_cross, window=window, indexes=1)
     return dst_filename
 
 
-def _compute_traveltime(src_friction, src_elevation, src_target, dst_cost,
-                       dst_nearest, dst_backlink=None, method='whitebox'):
-    """DEPERECATED. Compute accessibility map (travel time in seconds) from friction surface,
-    elevation and destination points. Travel time can be computed with 3
-    different software solutions: (1) the `CostDistance` module from Whitebox,
-    (2) the `r.cost` module from GRASS GIS, and (3) the `r.walk` module from
-    GRASS GIS. Relevant documentation can be found here:
-        * `CostDistance`: https://jblindsay.github.io/wbt_book/available_tools/gis_analysis_distance_tools.html#CostDistance
-        * `r.cost`: https://grass.osgeo.org/grass78/manuals/r.cost.html
-        * `r.walk`: https://grass.osgeo.org/grass78/manuals/r.walk.html
-        * `r.walk.accessmod`: https://github.com/fxi/AccessMod_r.walk
+def anisotropic_costdistance(src_friction, src_target, src_elevation, dst_cost,
+                             dst_nearest, dst_backlink, extent=None,
+                             max_memory=8000):
+    """Compute accessibility map (travel time in seconds) from friction
+    surface, topography and destination points.
+
+    Travel time is computed using the `r.walk` GRASS module
+    ('<https://grass.osgeo.org/grass78/manuals/r.cost.html>`_).
+    Topography is used to perform an anisotropic analysis of
+    travel time, i.e. cost of moving downhill and uphill.
+    Only relevant for pedestrian models for now, since
+    anisotropic costs when bicycling require different formula
+    parameters, and motorized vehicles are not as much influenced
+    by slope gradients.
+    
+    Parameters
+    ----------
+    src_friction : str
+        Path to input friction surface raster (seconds).
+    src_target : str
+        Path to input destination points.
+    src_elevation : str
+        Path to input elevation raster (meters).
+    dst_cost : str
+        Path to output accumulated cost raster (i.e. the accessibility map).
+    dst_nearest : str
+        Path to output nearest entity raster.
+    dst_backlink : str
+        Path to output backlink raster (movement directions).
+    extent : shapely geometry, optional
+        Limit analysis to a given extent provided as a shapely geometry.
+        By default, extent is set to match input rasters.
+    max_memory : int, optional
+        Max. memory used by the GRASS module (MB). Default = 8000 MB.
+
+    Returns
+    -------
+    dst_cost : str
+        Path to output accumulated cost raster (i.e. the accessibility map).
+    dst_nearest : str
+        Path to output nearest entity raster.
+    dst_nearest : str
+        Path to output nearest entity raster (i.e. for each cell, the ID of
+        the nearest destination point).
+    """
+    # Create output dirs if needed
+    for dst_file in (dst_cost, dst_nearest, dst_backlink):
+        os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+    
+    # Create temporary GRASSDATA directory
+    dst_dir = os.path.dirname(dst_cost)
+    grass_datadir = os.path.join(dst_dir, 'GRASSDATA')
+    if os.path.isdir(grass_datadir):
+        shutil.rmtree(grass_datadir)
+    os.makedirs(grass_datadir)
+
+    # Get source CRS and setup GRASS environment accordingly
+    with rasterio.open(src_friction) as src:
+        crs = src.crs
+    grasshelper.setup_environment(grass_datadir, crs)
+
+    # Load input raster data into the GRASS environment
+    # NB: Data will be stored in `grass_datadir`.
+    gscript.run_command('r.in.gdal',
+                        input=src_friction,
+                        output='friction',
+                        overwrite=True)
+
+    # Set computational region
+    gscript.run_command('g.region', raster='friction')
+    if extent:
+        west, south, east, north = extent.bounds
+        gscript.run_command('g.region',
+                            flags='a',  # Align with initial resolution
+                            n=north,
+                            e=east,
+                            s=south,
+                            w=west)
+
+    gscript.run_command('r.in.gdal',
+                        input=src_target,
+                        output='target',
+                        overwrite=True)
+    gscript.run_command('r.in.gdal',
+                        input=src_elevation,
+                        output='elevation',
+                        overwrite=True)
+    # In input point raster, ensure that all pixels
+    # with value = 0 are assigned a null value.
+    gscript.run_command('r.null',
+                        map='target',
+                        setnull=0)
+    
+    # Compute travel time with GRASS r.walk.accessmod
+    gscript.run_command('r.walk',
+                        flags='kn',
+                        friction='friction',
+                        elevation='elevation',
+                        output='cost',
+                        nearest='nearest',
+                        outdir='backlink',
+                        start_raster='target',
+                        memory=max_memory)
+
+    # Save output data to disk
+    GDAL_OPT = ['TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256',
+                'COMPRESS=LZW', 'NUM_THREADS=ALL_CPUS']
+    gscript.run_command('r.out.gdal',
+                        input='cost',
+                        output=dst_cost,
+                        format='GTiff',
+                        type='Float64',
+                        createopt=','.join(GDAL_OPT),
+                        nodata=-1)
+    gscript.run_command('r.out.gdal',
+                        input='backlink',
+                        output=dst_backlink,
+                        format='GTiff',
+                        createopt=','.join(GDAL_OPT),
+                        nodata=-1)
+    gscript.run_command('r.out.gdal',
+                        input='nearest',
+                        output=dst_nearest,
+                        format='GTiff',
+                        createopt=','.join(GDAL_OPT))
+
+    # Clean GRASSDATA directory
+    shutil.rmtree(grass_datadir)
+
+    return dst_cost, dst_nearest, dst_backlink
+
+
+def isotropic_costdistance(src_friction, src_target, dst_cost, dst_nearest,
+                           dst_backlink, extent=None, max_memory=8000):
+    """Compute accessibility map (travel time in seconds) from friction
+    surface and destination points.
+
+    Travel time is computed using the `r.cost` GRASS module
+    (`<https://grass.osgeo.org/grass78/manuals/r.cost.html>`_).
+    Cost of moving downhill or uphill is not taken into account.
 
     Parameters
     ----------
     src_friction : str
-        Path to input friction raster.
-    src_elevation : str
-        Path to input elevation raster.
+        Path to input friction surface raster (seconds).
     src_target : str
         Path to input destination points.
     dst_cost : str
-        Path to output accumulated cost raster (i.e. the accessibility
-        map).
+        Path to output accumulated cost raster (i.e. the accessibility map).
     dst_nearest : str
-        Path to nearest entity raster (i.e. for each cell, the ID of the
-        nearest destination point).
+        Path to output nearest entity raster.
     dst_backlink : str
         Path to output backlink raster (movement directions).
-    method : str, optional
-        Method used to compute the travel times: `whitebox`, `r.cost` or
-        `r.walk`. Defaults to `whitebox`.
-    
+    extent : shapely geometry, optional
+        Limit analysis to a given extent provided as a shapely geometry.
+        By default, extent is set to match input rasters.
+    max_memory : int, optional
+        Max. memory used by the GRASS module (MB). Default = 8000 MB.
+
     Returns
     -------
     dst_cost : str
-        Path to output accumulated cost raster (i.e. the accessibility
-        map).
+        Path to output accumulated cost raster (i.e. the accessibility map).
     dst_nearest : str
-        Path to nearest entity raster (i.e. for each cell, the ID of the
-        nearest destination point).
+        Path to output nearest entity raster.
+    dst_nearest : str
+        Path to output nearest entity raster (i.e. for each cell, the ID of
+        the nearest destination point).
     """
-    MEMORY = 8000  # TODO: Determine best amount of memory to be used.
-    if method not in ('whitebox', 'r.cost', 'r.walk'):
-        raise ValueError(f'{method} is not a valid method.')
-    
     # Create output dirs if needed
     for dst_file in (dst_cost, dst_nearest, dst_backlink):
         os.makedirs(os.path.dirname(dst_file), exist_ok=True)
-
-    if method == 'whitebox':
-        import whitebox
-        wbt = whitebox.WhiteboxTools()
-        wbt.cost_distance(source=src_target,
-                          cost=src_friction,
-                          out_accum=dst_cost,
-                          out_backlink=dst_backlink)
     
-    if method.startswith('r.'):
-        
-        from geohealthaccess import grasshelper
-        from geohealthaccess.grasshelper import gscript
+    # Create temporary GRASSDATA directory
+    dst_dir = os.path.dirname(dst_cost)
+    grass_datadir = os.path.join(dst_dir, 'GRASSDATA')
+    if os.path.isdir(grass_datadir):
+        shutil.rmtree(grass_datadir)
+    os.makedirs(grass_datadir)
 
-        # Create temporary GRASSDATA directory
-        dst_dir = os.path.dirname(dst_cost)
-        grass_datadir = os.path.join(dst_dir, 'GRASSDATA')
-        os.makedirs(grass_datadir)
+    # Get source CRS and setup GRASS environment accordingly
+    with rasterio.open(src_friction) as src:
+        crs = src.crs
+    grasshelper.setup_environment(grass_datadir, crs)
 
-        # Get source CRS and setup GRASS environment accordingly
-        with rasterio.open(src_friction) as src:
-            crs = src.crs
-        grasshelper.setup_environment(grass_datadir, crs)
+    # Load input raster data into the GRASS environment
+    # NB: Data will be stored in `grass_datadir`.
+    gscript.run_command('r.in.gdal',
+                        input=src_friction,
+                        output='friction',
+                        overwrite=True)
 
-        # Load input raster data into the GRASS environment
-        # NB: Data will be stored in `grass_datadir`.
-        gscript.run_command('r.in.gdal',
-                            input=src_friction,
-                            output='friction',
-                            overwrite=True)
-        gscript.run_command('g.region', raster='friction')
-        gscript.run_command('r.in.gdal',
-                            input=src_elevation,
-                            output='elevation',
-                            overwrite=True)
-        gscript.run_command('r.in.gdal',
-                            input=src_target,
-                            output='target',
-                            overwrite=True)
-        # In input point raster, ensure that all pixels
-        # with value = 0 are assigned a null value.
-        gscript.run_command('r.null',
-                            map='target',
-                            setnull=0)
+    # Set computational region
+    gscript.run_command('g.region', raster='friction')
+    if extent:
+        west, south, east, north = extent.bounds
+        gscript.run_command('g.region',
+                            flags='a',  # Align with initial resolution
+                            n=north,
+                            e=east,
+                            s=south,
+                            w=west)
 
-        # Compute travel time with GRASS r.cost module
-        if method == 'r.cost':
-            gscript.run_command('r.cost',
-                                overwrite=True,
-                                input='friction',
-                                output='cost',
-                                outdir='backlink',
-                                nearest='nearest',
-                                start_raster='target',
-                                memory=MEMORY)
-        
-        # Compute travel time with GRASS r.walk module
-        if method == 'r.walk':
-            gscript.run_command('r.walk',
-                                elevation='elevation',
-                                friction='friction',
-                                output='cost',
-                                outdir='backlink',
-                                start_raster='target',
-                                memory=MEMORY)
-        
-        # Save output data to disk
-        GDAL_OPT = ['TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256',
-                    'COMPRESS=LZW', 'PREDICTOR=2', 'NUM_THREADS=ALL_CPUS']
-        gscript.run_command('r.out.gdal',
-                            input='cost',
-                            output=dst_cost,
-                            format='GTiff',
-                            type='Int32',
-                            createopt=','.join(GDAL_OPT),
-                            nodata=-1)
-        gscript.run_command('r.out.gdal',
-                            input='backlink',
-                            output=dst_backlink,
-                            format='GTiff',
-                            createopt=','.join(GDAL_OPT))
-        if method == 'r.cost':
-            # Only available with `r.cost` module
-            gscript.run_command('r.out.gdal',
-                                input='nearest',
-                                output=dst_nearest,
-                                format='GTiff',
-                                createopt=','.join(GDAL_OPT))
-        
-        # Clean GRASSDATA directory
-        shutil.rmtree(grass_datadir)    
+    gscript.run_command('r.in.gdal',
+                        input=src_target,
+                        output='target',
+                        overwrite=True)
+
+    # In input point raster, ensure that all pixels
+    # with value = 0 are assigned a null value.
+    gscript.run_command('r.null',
+                        map='target',
+                        setnull=0)
     
-    return
+    # Compute travel time with GRASS r.walk.accessmod
+    gscript.run_command('r.cost',
+                        flags='kn',
+                        input='friction',
+                        output='cost',
+                        nearest='nearest',
+                        outdir='backlink',
+                        start_raster='target',
+                        memory=max_memory)
+    
+    # Save output data to disk
+    GDAL_OPT = ['TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256',
+                'COMPRESS=LZW', 'NUM_THREADS=ALL_CPUS']
+    gscript.run_command('r.out.gdal',
+                        input='cost',
+                        output=dst_cost,
+                        format='GTiff',
+                        type='Float64',
+                        createopt=','.join(GDAL_OPT),
+                        nodata=-1)
+    gscript.run_command('r.out.gdal',
+                        input='backlink',
+                        output=dst_backlink,
+                        format='GTiff',
+                        createopt=','.join(GDAL_OPT),
+                        nodata=-1)
+    gscript.run_command('r.out.gdal',
+                        input='nearest',
+                        output=dst_nearest,
+                        format='GTiff',
+                        createopt=','.join(GDAL_OPT))
+
+    # Clean GRASSDATA directory
+    shutil.rmtree(grass_datadir)
+
+    return dst_cost, dst_nearest, dst_backlink
 
 
 def r_walk_accessmod(src_speed, src_elevation, src_target, dst_cost,

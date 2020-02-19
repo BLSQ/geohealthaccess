@@ -43,7 +43,6 @@ def base_speed_rasters(input_dir, interm_dir, landcover_speeds,
         Path to output roads speed raster.
     """
     # Assign per-cell speed based on land cover and surface water
-    print('Assigning speed values based on land cover...')
     landcover_speed = os.path.join(interm_dir, 'landcover_speed.tif')
     if not os.path.isfile(landcover_speed) or overwrite:
         modeling.speed_from_landcover(
@@ -53,7 +52,6 @@ def base_speed_rasters(input_dir, interm_dir, landcover_speeds,
             landcover_speeds=landcover_speeds)
     
     # Assign per-cell speed based on roads and paths
-    print('Assigning speed values based on the road network...')
     roads_speed = os.path.join(interm_dir, 'roads_speed.tif')
     if not os.path.isfile(roads_speed) or overwrite:
         with rasterio.open(landcover_speed) as src:
@@ -76,73 +74,13 @@ def base_speed_rasters(input_dir, interm_dir, landcover_speeds,
     return landcover_speed, roads_speed
 
 
-
-
-def _compute_friction(input_dir, interm_dir, landcover_speeds, network_speeds):
-    """Assign per-cell speed from land cover and road network. Then compute
-    friction raster from speed.
-
-    DEPERECATED.
-
-    Parameters
-    ----------
-    input_dir : str
-        Path to input data directory (raw data).
-    interm_dir : str
-        Path to intermediary data directory (preprocessed data).
-    landcover_speeds : dict
-        Speed associated with each land cover category.
-    network_speeds : dict
-        Speed and adjustment factors associated with road
-        types and properties.
-    
-    Returns
-    -------
-    speed_rasters : list
-        List of paths to output speed rasters (one per transport mode).
-    """
-    # Assign per-cell speed based on land cover and surface water
-    print('Assigning speed values based on land cover...')
-    landcover_speed = modeling.speed_from_landcover(
-        src_filename=os.path.join(interm_dir, 'landcover.tif'),
-        dst_filename=os.path.join(interm_dir, 'landcover_speed.tif'),
-        water_filename=os.path.join(interm_dir, 'surface_water.tif'),
-        landcover_speeds=landcover_speeds)
-    
-    # Assign per-cell speed based on roads and paths
-    print('Assigning speed values based on the road network...')
-    with rasterio.open(landcover_speed) as src:
-        dst_transform = src.transform
-        dst_crs = src.crs
-        dst_width = src.width
-        dst_height = src.height
-    osm_dir = os.path.join(input_dir, 'openstreetmap')
-    osm_datafile = [f for f in os.listdir(osm_dir)
-                    if f.endswith('.gpkg')][0]
-    road_speed = modeling.speed_from_roads(
-        src_filename=os.path.join(osm_dir, osm_datafile),
-        dst_filename=os.path.join(interm_dir, 'road_speed.tif'),
-        dst_transform=dst_transform,
-        dst_crs=dst_crs,
-        dst_width=dst_width,
-        dst_height=dst_height,
-        network_speeds=network_speeds)
-    
-    # Compute speed rasters for bicycling, walking, and car
-    speed_rasters = []
-    for mode in ('car', 'bike', 'walk'):
-        speed = os.path.join(interm_dir, f'speed_{mode}.tif')
-        modeling.combined_speed(landcover_speed, road_speed, speed, mode=mode)
-        speed_rasters.append(speed)
-
-    return speed_rasters
-
-
 def rasterize_points(points, dst_filename, dst_transform, dst_crs,
-                     dst_height, dst_width):
+                     dst_height, dst_width, overwrite=False):
     """Rasterize a GeoDataFrame of points. TODO: Move function to
     modeling.py or preprocessing.py module.
     """
+    if os.path.isfile(dst_filename) and not overwrite:
+        return dst_filename
     if not points.crs:
         points.crs = CRS.from_epsg(4326)
     if dst_crs != points.crs:
@@ -171,64 +109,6 @@ def rasterize_points(points, dst_filename, dst_transform, dst_crs,
     return dst_filename
 
 
-def _compute_traveltime(destinations, friction, dst_dir, label):
-    """DEPRECATED."""
-    os.makedirs(dst_dir, exist_ok=True)
-    out_accum = os.path.join(dst_dir, f'accumulated_cost_{label}.tif')
-    out_backlink = os.path.join(dst_dir, f'backlink_{label}.tif')
-    wbt = whitebox.WhiteboxTools()
-    wbt.cost_distance(
-        source=destinations,
-        cost=friction,
-        out_accum=out_accum,
-        out_backlink=out_backlink)
-    return out_accum
-
-
-def compute_traveltime(destinations, speed, elevation, dst_dir,
-                       label, max_memory=8000):
-    """Compute accessibility map using r.walk.accessmod GRASS module.
-
-    Parameters
-    ----------
-    destinations : str
-        Path to the raster that contains destination points (non-null
-        values).
-    speed : str
-        Path to input speed raster (in km/h).
-    elevation : str
-        Path to input elevation raster (in meters).
-    dst_dir : str
-        Path to output directory.
-    label : str
-        Label of the analysis.
-    max_memory : int, optional
-        Max. memory (in MB) used by the GRASS module.
-
-    Returns
-    -------
-    dst_cost : str
-        Path to output accumulated cost raster (the accessibility map).
-    dst_nearest : str
-        Path to output nearest entity raster.
-    dst_backlink : str
-        Path to output movement directions raster.
-    """
-    os.makedirs(dst_dir, exist_ok=True)
-    dst_cost = os.path.join(dst_dir, f'accumulated_cost_{label}.tif')
-    dst_nearest = os.path.join(dst_dir, f'nearest_{label}.tif')
-    dst_backlink = os.path.join(dst_dir, f'backlink_{label}.tif')
-    modeling.compute_traveltime(
-        src_speed=speed,
-        src_elevation=elevation,
-        src_target=destinations,
-        dst_cost=dst_cost,
-        dst_nearest=dst_nearest,
-        dst_backlink=dst_backlink,
-        max_memory=max_memory)
-    return dst_cost, dst_nearest, dst_backlink
-
-
 def main():
     # Parse command-line arguments & load configuration
     parser = argparse.ArgumentParser()
@@ -248,51 +128,78 @@ def main():
         network_speeds = json.load(f)
 
     # Base speed rasters
+    print('Assigning per-cell travel speed...')
     landcover_speed, roads_speed = base_speed_rasters(
         input_dir, interm_dir, landcover_speeds, network_speeds)
 
-    # Take into account transport mode
-    speed_rasters = {}
+    # Compute friction for each transport mode
+    frictions = {}
     for mode in ('car', 'bike', 'walk'):
-        fname = os.path.join(interm_dir, f'speed_{mode}.tif')
-        modeling.combined_speed(landcover_speed, roads_speed, fname, mode)
-        speed_rasters[mode] = fname
+        print(f'Computing friction surface for transport mode `{mode}`...')
+        dst_speed = os.path.join(interm_dir, f'speed_{mode}.tif')
+        dst_friction = os.path.join(interm_dir, f'friction_{mode}.tif')
+        if not os.path.isfile(dst_friction):
+            modeling.combine_speed(landcover_speed, roads_speed, dst_speed,
+                                mode=mode)
+            modeling.compute_friction(dst_speed, dst_friction, max_time=3600)
+        frictions[mode] = dst_friction
     
-    # Get target raster profile from speed raster
-    with rasterio.open(speed_rasters['car']) as src:
+    # Get target raster profile from friction raster
+    with rasterio.open(frictions['car']) as src:
         dst_transform = src.transform
         dst_crs = src.crs
         dst_width = src.width
         dst_height = src.height
     
+    # Rasterize destination points
+    destinations = {}
+    for label, path in conf['DESTINATIONS'].items():
+        print(f'Rasterizing destination points `{label}`...')
+        points = gpd.read_file(path)
+        raster = os.path.join(interm_dir, f'destination_{label}.tif')
+        rasterize_points(
+            points=points,
+            dst_filename=raster,
+            dst_crs=dst_crs,
+            dst_height=dst_height,
+            dst_width= dst_width,
+            dst_transform=dst_transform)
+        destinations[label] = raster
+    
     # Iterate over both transport modes and destination categories
+    # and compute travel times for each combination
     for mode in ('car', 'bike', 'walk'):
         for label, path in conf['DESTINATIONS'].items():
-
-            print(f'Computing travel time to {label} using transport mode `{mode}`...')
+            print(f'Computing travel time to `{label}`` using transport mode `{mode}`...')
             
-            # Rasterize destination points
-            points = gpd.read_file(path)
-            points_raster = os.path.join(
-                interm_dir, f'points_{mode}_{label}.tif')
-            rasterize_points(
-                points=points,
-                dst_filename=points_raster,
-                dst_transform=dst_transform,
-                dst_crs=dst_crs,
-                dst_height=dst_height,
-                dst_width=dst_width
-            )
-
-            # Compute travel time
-            compute_traveltime(
-                destinations=points_raster,
-                speed=speed_rasters[mode],
-                elevation=os.path.join(interm_dir, 'elevation.tif'),
-                dst_dir=output_dir,
-                label=f'{mode}_{label}',
-                max_memory=8000
-            )
+            os.makedirs(output_dir, exist_ok=True)
+            dst_cost = os.path.join(
+                output_dir, f'cost_{mode}_{label}.tif')
+            dst_nearest = os.path.join(
+                output_dir, f'nearest_{mode}_{label}.tif')
+            dst_backlink = os.path.join(
+                output_dir, f'backlink_{mode}_{label}.tif')
+            
+            if mode in ('car', 'bike'):
+                modeling.isotropic_costdistance(
+                    src_friction=frictions[mode],
+                    src_target=destinations[label],
+                    dst_cost=dst_cost,
+                    dst_nearest=dst_nearest,
+                    dst_backlink=dst_backlink,
+                    extent=None,
+                    max_memory=8000)
+            
+            if mode == 'walk':
+                modeling.anisotropic_costdistance(
+                    src_friction=frictions[mode],
+                    src_target=destinations[label],
+                    src_elevation=os.path.join(interm_dir, 'elevation.tif'),
+                    dst_cost=dst_cost,
+                    dst_nearest=dst_nearest,
+                    dst_backlink=dst_backlink,
+                    extent=None,
+                    max_memory=8000)
 
     print('Done.')
     return
