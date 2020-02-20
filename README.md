@@ -26,7 +26,10 @@ mkdir <project_dir> && cd <project_dir>
 geohealthaccess-download <config_file>
 geohealthaccess-preprocess <config_file>
 geohealthaccess-accessibility <config_file>
-``` 
+```
+
+![Processing chain](/docs/images/processing-chain.png)
+: Processing chain (red=input, yellow=intermediary, green=output).
 
 ### Modules
 

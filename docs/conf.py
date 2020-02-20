@@ -49,15 +49,16 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 autodoc_mock_imports = [
         'requests',
-        'gdal',
+        'osgeo',
         'shapely',
         'pandas',
         'geopandas',
-        'beautifulsoup4',
+        'bs4',
         'tqdm',
         'rasterio',
         'appdirs',
-        'whitebox'
+        'whitebox',
+        'grass'
 ]
 
 
