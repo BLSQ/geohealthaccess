@@ -18,3 +18,4 @@
 * [ ] Write dockerfile
 * [ ] Write documentation
 * [ ] AWS deployment
+* [ ] Add preprocessing of discrete LC classification
