@@ -1,7 +1,7 @@
 # Modeling
 
 * [ ] Automatic CRS definition based on area of interest
-* [ ] Anisotropic modeling of walking
+* [x] Anisotropic modeling of walking
 * [ ] Anisotropic modeling of biking
 * [ ] Seasonality of surface water using GSW
 * [ ] Seasonality of land cover passability using climate data
