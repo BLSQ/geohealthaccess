@@ -11,6 +11,7 @@
 
 # Implementation
 
+* [ ] Option to limit computation to an AOI inside a given country
 * [ ] Optimize memory and disk usage
 * [ ] Multi-threaded data acquisition
 * [ ] Parrallel processing
