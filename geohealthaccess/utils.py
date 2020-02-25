@@ -53,7 +53,7 @@ def download_from_url(session, url, output_dir, show_progress=True,
     os.makedirs(output_dir, exist_ok=True)
     filename = url.split('/')[-1]
     local_path = os.path.join(output_dir, filename)
-    with session.get(url, stream=True) as r:
+    with session.get(url, stream=True, timeout=5) as r:
         r.raise_for_status()
         file_size = int(r.headers['Content-Length'])
         if os.path.isfile(local_path) and not overwrite:
