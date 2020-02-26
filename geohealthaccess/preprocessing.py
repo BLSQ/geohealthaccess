@@ -256,7 +256,7 @@ def compress_raster(src_raster):
     return
 
 
-def mask_raster(src_raster, country):
+def mask_raster(src_raster, country, nodata=None):
     """Assign nodata value to pixels outside a country boundaries."""
 
     with rasterio.open(src_raster) as src:
@@ -286,12 +286,21 @@ def mask_raster(src_raster, country):
     
     dst_dir = os.path.dirname(src_raster)
     dst_filename = os.path.join(dst_dir, 'masked.tif')
+
+    dst_profile = src_profile.copy()
+    if nodata:
+        dst_nodata = nodata
+        dst_profile.update(nodata=nodata)
+    else:
+        dst_nodata = src_nodata
     
     with rasterio.open(src_raster) as src, \
-         rasterio.open(dst_filename, 'w', **src_profile) as dst:
-        for id in range(0, src_profile['count']):
+         rasterio.open(dst_filename, 'w', **dst_profile) as dst:
+        for id in range(0, dst_profile['count']):
             data = src.read(indexes=id+1)
-            data[country_mask != 1] = src_nodata
+            data[country_mask != 1] = dst_nodata
+            if src_nodata:
+                data[data == src_nodata] = dst_nodata
             dst.write_band(id+1, data)
             dst.set_band_description(id+1, descriptions[id])
     

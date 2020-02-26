@@ -207,8 +207,8 @@ def main():
     rasters = [os.path.join(output_dir, f) for f in os.listdir(output_dir)
                if f.endswith('.tif')]
     for raster in rasters:
-        preprocessing.mask_raster(raster, country_code)
-        if raster.startswith('cost'):
+        if os.path.basename(raster).startswith('cost'):
+            preprocessing.mask_raster(raster, country_code, -1)
             modeling.seconds_to_minutes(raster)
 
     print('Done.')
