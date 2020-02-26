@@ -10,8 +10,8 @@ from geohealthaccess import preprocessing, utils
 from geohealthaccess.config import load_config
 
 
-def preprocess_land_cover(src_dir, dst_dir, dst_crs,
-                          dst_bounds, dst_res, remove=False):
+def preprocess_land_cover(src_dir, dst_dir, dst_crs, dst_bounds,
+                          dst_res, remove=False, process_discrete=True):
     """Merge and reproject land cover tiles.
 
     Parameters
@@ -29,37 +29,61 @@ def preprocess_land_cover(src_dir, dst_dir, dst_crs,
         Output spatial resolution in target CRS units.
     remove : bool, optional
         If set to True, raw input data will be deleted after preprocessing.
+        Defaults to False.
+    process_discrete : bool, optional
+        If set to True, discrete classification will also be preprocessed.
+        Defaults to True.
     """
     LANDCOVERS = ['bare', 'crops', 'grass', 'moss', 'shrub', 'snow',
                   'tree', 'urban', 'water-permanent', 'water-seasonal']
-    # Avoid if dst_file already exists
+    # Get list of available rasters in src_dir
+    filenames = [os.path.join(src_dir, f) for f in os.listdir(src_dir)
+                 if f.endswith('.tif')]
+
     dst_filename = os.path.join(dst_dir, 'landcover.tif')
-    if os.path.isfile(dst_filename):
-        return dst_filename
     preprocessed = []
-    for landcover in LANDCOVERS:
-        # Merge raster tiles
-        name = f'{landcover}-coverfraction-layer'
-        filenames = [os.path.join(src_dir, f) for f in os.listdir(src_dir)
-                     if name in f and f.endswith('.tif')]
-        merged = os.path.join(dst_dir, f'landcover_{landcover}_merged.tif')
+    if not os.path.isfile(dst_filename):
+        for landcover in LANDCOVERS:
+            # Merge raster tiles
+            name = f'{landcover}-coverfraction-layer'
+            tiles = [f for f in filenames if name in f]
+            merged = os.path.join(dst_dir, f'landcover_{landcover}_merged.tif')
+            reprojected = merged.replace('_merged.tif', '_reprojected.tif')
+            if os.path.isfile(reprojected):
+                continue
+            preprocessing.merge_tiles(tiles, merged, nodata=-1)
+            output = preprocessing.reproject_raster(
+                src_raster=merged,
+                dst_filename=reprojected,
+                dst_crs=dst_crs,
+                resample_algorithm='bilinear',
+                dst_bounds=dst_bounds,
+                dst_res=dst_res,
+                dst_nodata=-1,
+                dst_dtype='float32')
+            preprocessed.append(output)
+            os.remove(merged)
+        stack = os.path.join(dst_dir, 'landcover.tif')
+        preprocessing.create_landcover_stack(dst_dir, stack)
+
+    # Preprocess discrete classification if required
+    if process_discrete:
+        tiles = [f for f in filenames if 'discrete-classification_' in f]
+        merged = os.path.join(dst_dir, 'landcover_discrete-classification_merged.tif')
         reprojected = merged.replace('_merged.tif', '_reprojected.tif')
-        if os.path.isfile(reprojected):
-            continue
-        preprocessing.merge_tiles(filenames, merged, nodata=-1)
-        output = preprocessing.reproject_raster(
-            src_raster=merged,
-            dst_filename=reprojected,
-            dst_crs=dst_crs,
-            resample_algorithm='bilinear',
-            dst_bounds=dst_bounds,
-            dst_res=dst_res,
-            dst_nodata=-1,
-            dst_dtype='float32')
-        preprocessed.append(output)
-        os.remove(merged)
-    stack = os.path.join(dst_dir, 'landcover.tif')
-    preprocessing.create_landcover_stack(dst_dir, stack)
+        if not os.path.isfile(reprojected):
+            preprocessing.merge_tiles(tiles, merged, nodata=-1)
+            output = preprocessing.reproject_raster(
+                src_raster=merged,
+                dst_filename=reprojected,
+                dst_crs=dst_crs,
+                resample_algorithm='mode',
+                dst_bounds=dst_bounds,
+                dst_res=dst_res,
+                dst_nodata=-1,
+                dst_dtype='int16')
+            preprocessed.append(output)
+            os.remove(merged)
     
     # Remove individual files
     for filename in preprocessed:
