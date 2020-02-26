@@ -35,12 +35,10 @@ def download(country, dst_dir, earthdata_username,
     # Elevation
     output_dir = os.path.join(dst_dir, 'elevation')
     os.makedirs(output_dir, exist_ok=True)
-    if _empty(output_dir) or overwrite:
-        print('Downloading elevation data...')
-        srtm.download(geom, output_dir, earthdata_username, earthdata_password)
-        utils.unzip_all(output_dir, remove_archives=True)
-    else:
-        print('Elevation data already downloaded. Skipping...')
+    print('Downloading elevation data...')
+    srtm.download(geom, output_dir, earthdata_username, earthdata_password,
+                  overwrite=overwrite)
+    utils.unzip_all(output_dir, remove_archives=True)
 
     # Land cover
     output_dir = os.path.join(dst_dir, 'land_cover')
