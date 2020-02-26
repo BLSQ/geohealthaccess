@@ -2,6 +2,11 @@
 GeoHealthAccess: modeling accessibility to health facilities
 ************************************************************
 
+.. image:: images/travel-times-example.png
+    :height: 200px
+    :alt: Travel times to health facilities.
+    :align: center
+
 Modeling population accessibility to health facilities has always been
 tedious and time-consuming. From the selection of relevant data sources
 to the modeling in itself, a wide range of skills and software solutions
@@ -16,10 +21,12 @@ are automatically pulled from various sources:
 * `Shuttle Radar Topography Mission <https://www2.jpl.nasa.gov/srtm/>`_ for topography ;
 * and `WorldPop <https://www.worldpop.org/>`_ for population maps.
 
-Health facilities (i.e. the destinations from which travel times are computed) are
-the only dataset that have to be provided by the user. Travel speeds associated with
-land cover categories and road network hierarchies are defined according to the
-scientific literature, but may be adjusted by the user if needed. 
+Health facilities (i.e. the destinations from which travel times are computed)
+are the only dataset that have to be provided by the user. Travel speeds
+associated with land cover categories and road network hierarchies are defined
+according to the scientific literature, but may be adjusted by the user if
+needed.
+
 Here is an example of how the tool can be used::
 
    # Download input data
@@ -61,53 +68,20 @@ Example config file::
 
    [DESTINATIONS]
    Category1 = <your_health_facilities.shp>
+   Category2 = <other_health_facilities.shp>
 
-
-Preprocessing
-#############
-
-.. automodule:: geohealthaccess.preprocessing
-   :members:
-
-Modeling
-########
-
-.. automodule:: geohealthaccess.modeling
-   :members:
-
-Utils
-#####
-
-.. automodule:: geohealthaccess.utils
-   :members:
-
-Config
-######
-
-.. automodule:: geohealthaccess.config
-   :members:
-
-GrassHelper
-###########
-
-.. automodule:: geohealthaccess.grasshelper
-   :members:
-
-geohealthaccess.cglc
-####################
-
-.. automodule:: geohealthaccess.cglc
-   :members:
-
-geohealthaccess.geofabrik
-#########################
-
-.. automodule:: geohealthaccess.geofabrik
-   :members:
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+
+   index
+   installation
+   quick-start
+   configuration
+   methods
+   example
+   api
 
 
 Indices and tables
