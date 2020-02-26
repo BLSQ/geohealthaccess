@@ -184,6 +184,7 @@ def speed_from_landcover(src_filename, dst_filename, water_filename,
                 speed += (coverfraction / 100) * landcover_speeds[landcover]
             surface_water = src_water.read(window=window, indexes=1)
             speed[surface_water >= 2] = 0
+            speed[speed < 0] = -1
             dst.write(speed, window=window, indexes=1)
 
     return dst_filename
@@ -715,3 +716,24 @@ def r_walk_accessmod(src_speed, src_elevation, src_target, dst_cost,
     shutil.rmtree(grass_datadir)
 
     return dst_cost, dst_backlink
+
+
+def seconds_to_minutes(src_raster):
+    """Convert the units of a given accessibility raster."""
+    with rasterio.open(src_raster) as src:
+        dst_profile = src.profile
+    src_basename = os.path.basename(src_raster)
+    src_dir = os.path.abspath(os.path.dirname(src_raster))
+    tmp_filename = os.path.join(src_dir,
+                                src_basename.replace('.tif', '.tmp.tif'))
+    
+    with rasterio.open(tmp_filename, 'w', **dst_profile) as dst, \
+         rasterio.open(src_raster) as src:
+        for _, window in dst.block_windows(1):
+            seconds = src.read(window=window, indexes=1)
+            minutes = seconds / 60
+            minutes[seconds < 0] = -1
+            dst.write(minutes, window=window, indexes=1)
+    
+    shutil.move(tmp_filename, src_raster)
+    return src_raster

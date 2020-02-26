@@ -11,7 +11,7 @@ from rasterio.crs import CRS
 from rasterio.features import rasterize
 import whitebox
 
-from geohealthaccess import modeling
+from geohealthaccess import modeling, preprocessing
 from geohealthaccess.config import load_config
 
 
@@ -200,6 +200,16 @@ def main():
                     dst_backlink=dst_backlink,
                     extent=None,
                     max_memory=8000)
+
+    # Post-processing of output rasters
+    print('Post-processing output rasters...')
+    country_code = conf['AREA']['CountryCode']
+    rasters = [os.path.join(output_dir, f) for f in os.listdir(output_dir)
+               if f.endswith('.tif')]
+    for raster in rasters:
+        preprocessing.mask_raster(raster, country_code)
+        if raster.startswith('cost'):
+            modeling.seconds_to_minutes(raster)
 
     print('Done.')
     return
