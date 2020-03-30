@@ -1,6 +1,7 @@
 """Download and preprocess elevation data from the SRTM."""
 
 from pkg_resources import resource_string, resource_filename
+import os
 
 import requests
 import geopandas as gpd
@@ -137,10 +138,12 @@ def download(geom, output_dir, username, password, show_progress=True,
         List of downloaded SRTM tiles.
     """
     tiles = required_tiles(geom)
-    with requests.Session() as session:
-        authentify(session, username, password)
-        for tile in tiles:
-            url = DOWNLOAD_URL + tile
-            download_from_url(
-                session, url, output_dir, show_progress, overwrite)
+    n_files = os.listdir(output_dir)
+    if len(tiles) > len(n_files):
+        with requests.Session() as session:
+            authentify(session, username, password)
+            for tile in tiles:
+                url = DOWNLOAD_URL + tile
+                download_from_url(
+                    session, url, output_dir, show_progress, overwrite)
     return tiles
