@@ -9,6 +9,7 @@ dependencies:
   - fiona=1.8.11
   - geopandas=0.6.2
   - gdal=3.0.2
+  - libgdal
   - numpy=1.17.3
   - pandas=0.25.3
   - rasterio=1.1.1
