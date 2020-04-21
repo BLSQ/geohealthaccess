@@ -43,5 +43,7 @@ ENV PATH=/home/geohealthaccess/.conda/bin:${PATH}
 RUN git clone https://github.com/BLSQ/geohealthaccess
 WORKDIR /home/geohealthaccess/geohealthaccess
 RUN conda env create -f environment.yml && \
-    conda init bash && \
-    /home/geohealthaccess/.conda/bin/activate geohealthaccess
+    conda init bash
+
+# Install GeoHealthAccess python package inside conda environment
+RUN /bin/bash -c "source activate geohealthaccess && pip install -e ."
