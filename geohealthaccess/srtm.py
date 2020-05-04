@@ -1,11 +1,12 @@
 """Download and preprocess elevation data from the SRTM."""
 
+import os
 from pkg_resources import resource_string, resource_filename
 
 import requests
 import geopandas as gpd
 from bs4 import BeautifulSoup
-from geohealthaccess.utils import download_from_url
+from geohealthaccess.utils import download_from_url, unzip
 
 
 HOMEPAGE_URL = 'https://urs.earthdata.nasa.gov'
@@ -112,6 +113,11 @@ def authentify(session, username, password):
     return session
 
 
+def _expected_filename(tile_name):
+    """Get expected filename of a given tile after decompression."""
+    return tile_name.split('.')[0] + '.hgt'
+
+
 def download(geom, output_dir, username, password, show_progress=True,
              overwrite=False):
     """Download the SRTM tiles that intersects the area of interest.
@@ -140,7 +146,12 @@ def download(geom, output_dir, username, password, show_progress=True,
     with requests.Session() as session:
         authentify(session, username, password)
         for tile in tiles:
+            downloaded = _expected_filename(tile) in os.listdir(output_dir)
+            if downloaded and not overwrite:
+                continue
             url = DOWNLOAD_URL + tile
-            download_from_url(
-                session, url, output_dir, show_progress, overwrite)
+            archive = download_from_url(
+                session, url, output_dir, show_progress, overwrite=True)
+            unzip(archive)
+            os.remove(archive)
     return tiles

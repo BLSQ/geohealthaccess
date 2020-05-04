@@ -38,7 +38,6 @@ def download(country, dst_dir, earthdata_username,
     print('Downloading elevation data...')
     srtm.download(geom, output_dir, earthdata_username, earthdata_password,
                   overwrite=overwrite)
-    utils.unzip_all(output_dir, remove_archives=True)
 
     # Land cover
     output_dir = os.path.join(dst_dir, 'land_cover')
