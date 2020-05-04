@@ -6,6 +6,7 @@ import re
 from subprocess import run, DEVNULL
 import tempfile
 from urllib.parse import urljoin, urlsplit
+import warnings
 
 from appdirs import user_data_dir
 from bs4 import BeautifulSoup
@@ -208,8 +209,12 @@ def get_spatial_index(overwrite=False):
         spatial_index = gpd.read_file(expected_path)
     else:
         spatial_index = build_spatial_index()
-        os.makedirs(data_dir, exist_ok=True)
-        spatial_index.to_file(expected_path, driver='GPKG')
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+            spatial_index.to_file(expected_path, driver='GPKG')
+        except PermissionError:
+            warnings.warn("Unable to cache geofabrik spatial index.")
+            pass
     return spatial_index[spatial_index.geometry != None]
 
 
