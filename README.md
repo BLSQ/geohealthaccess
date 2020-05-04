@@ -31,6 +31,46 @@ geohealthaccess-accessibility <config_file>
 ![Processing chain](/docs/images/processing-chain.png)
 : Processing chain (red=input, yellow=intermediary, green=output).
 
+### Using Docker
+
+``` bash
+# Pull image from Docker Hub
+docker pull yannforget/geohealthaccess:latest
+
+# Go to project directory
+# `config.ini` and its associated input files must be
+# available in the project directory.
+cd <project_dir>
+
+# Test
+docker run \
+    -v "$PWD:$PWD" -w "$PWD" -u "$UID:$UID" \
+    yannforget/geohealthaccess:latest \
+    /bin/bash -c \
+    "source activate geohealthaccess && geohealthaccess-download --help"
+
+# Download input data
+docker run \
+    -v "$PWD:$PWD" -w "$PWD" -u "$UID:$UID" \
+    yannforget/geohealthaccess:latest \
+    /bin/bash -c \
+    "source activate geohealthaccess && geohealthaccess-download config.ini"
+
+# Preprocess input data
+docker run \
+    -v "$PWD:$PWD" -w "$PWD" -u "$UID:$UID" \
+    yannforget/geohealthaccess:latest \
+    /bin/bash -c \
+    "source activate geohealthaccess && geohealthaccess-preprocess config.ini"
+
+# Accessibility modeling
+docker run \
+    -v "$PWD:$PWD" -w "$PWD" -u "$UID:$UID" \
+    yannforget/geohealthaccess:latest \
+    /bin/bash -c \
+    "source activate geohealthaccess && geohealthaccess-accessibility config.ini"
+```
+
 ### Modules
 
 * `geohealthaccess/srtm.py` : automatic downloading of 30m SRTM tiles in a given area of interest
