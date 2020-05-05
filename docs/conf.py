@@ -57,7 +57,6 @@ autodoc_mock_imports = [
         'tqdm',
         'rasterio',
         'appdirs',
-        'whitebox',
         'grass'
 ]
 

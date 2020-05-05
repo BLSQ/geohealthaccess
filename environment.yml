@@ -16,4 +16,3 @@ dependencies:
   - requests=2.22.0
   - shapely=1.6.4
   - tqdm=4.39.0
-  - whitebox=1.1.0

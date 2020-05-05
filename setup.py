@@ -28,7 +28,6 @@ setup(
         'tqdm',
         'rasterio',
         'appdirs',
-        'whitebox'
     ],
     package_data={
         'geohealthaccess': ['resources/*.geojson', 'resources/*.json', 'resources/*.ini']

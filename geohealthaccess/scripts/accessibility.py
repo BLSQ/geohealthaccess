@@ -9,7 +9,6 @@ import geopandas as gpd
 import rasterio
 from rasterio.crs import CRS
 from rasterio.features import rasterize
-import whitebox
 
 from geohealthaccess import modeling, preprocessing
 from geohealthaccess.config import load_config
