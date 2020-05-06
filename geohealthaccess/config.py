@@ -27,13 +27,10 @@ def find_grass_dir():
     """Try to find GRASS install directory."""
     if 'GISBASE' in os.environ:
         return os.environ['GISBASE']
-    try:
-        p = run(['grass', '--config', 'path'], capture_output=True)
-        if p.returncode == 0:
-            return p.stdout.decode().strip()
-        else:
-            raise GrassNotFound()
-    except:
+    p = run(['grass', '--config', 'path'], capture_output=True)
+    if p.returncode == 0:
+        return p.stdout.decode().strip()
+    else:
         raise GrassNotFound()
 
 
