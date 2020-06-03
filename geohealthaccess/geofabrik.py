@@ -3,7 +3,7 @@
 from datetime import datetime
 import os
 import re
-from subprocess import run, DEVNULL
+from subprocess import run, PIPE, DEVNULL
 import tempfile
 from urllib.parse import urljoin, urlsplit
 import warnings
@@ -16,7 +16,9 @@ import pandas as pd
 import requests
 from shapely import wkt
 
-from geohealthaccess.exceptions import OsmiumNotFound
+from geohealthaccess.utils import download_from_url
+from geohealthaccess.exceptions import (
+    OsmiumNotFound, OsmiumArgumentsError, OsmiumProcessingError)
 
 
 BASE_URL = 'http://download.geofabrik.de'
@@ -240,40 +242,68 @@ def check_osmium():
         raise OsmiumNotFound()
 
 
+def _check_osmium_returncodes(process):
+    """Check osmium-tool return codes and raise the relevant exception
+    if needed.
+    """
+    if process.returncode == 1:
+        raise OsmiumProcessingError(process.stderr.decode())
+    elif process.returncode == 2:
+        raise OsmiumArgumentsError(process.stderr.decode())
+    return
+
+
 def download_latest_highways(region_id, dst_dir, overwrite=False):
-    """Download latest OSM road network for the given region."""
+    """Download latest OSM road and ferry network for the given region."""
     check_osmium()
     region = Region(region_id)
     url = region.latest
     filename = url.split('/')[-1]
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    if overwrite or not filename in os.listdir(dst_dir):
+        osm_pbf = download_from_url(requests.Session(), url, dst_dir)
 
-        # Download .osm.pbf file and filter highways
-        dst = os.path.join(tmpdir, filename)
-        options = [url, 'w/highway', '-o', dst]
-        if overwrite:
-            options.append('--overwrite')
-        run(['osmium', 'tags-filter'] + options)
-        
-        # Convert PBF data to GeoJSON
-        src = dst
-        dst = src.replace('.osm.pbf', '.geojson')
-        options = [src, '-o', dst]
-        if overwrite:
-            options.append('--overwrite')
-        run(['osmium', 'export'] + options)
-        
-        # Filter data and export as GPKG
-        src = dst
-        dst = os.path.join(dst_dir, filename.replace('.osm.pbf', '.gpkg'))
-        os.makedirs(dst_dir, exist_ok=True)
-        highways = gpd.read_file(src)
-        highways = highways.loc[~pd.isnull(highways.highway)]
-        columns_of_interest = ['highway', 'smoothness', 'surface', 'tracktype']
-        columns = [col for col in columns_of_interest if col in highways.columns]
-        highways = gpd.GeoDataFrame(highways[columns], geometry=highways['geometry'])
-        highways = highways[highways.geom_type == 'LineString']
-        highways.to_file(dst, driver='GPKG')
+    osm_pbf_filtered = os.path.join(
+        dst_dir, filename.replace('.osm.pbf', '_filtered.osm.pbf'))
+    options = [osm_pbf, 'w/highway,route', '-o', osm_pbf_filtered]
+    if overwrite:
+        options.append('--overwrite')
+    p = run(['osmium', 'tags-filter'] + options, stdout=PIPE, stderr=PIPE)
+    _check_osmium_returncodes(p)
 
-    return dst
+    # Convert PBF data to GeoJSON
+    osm_geojson = osm_pbf.replace('.osm.pbf', '.geojson')
+    options = [osm_pbf_filtered, '-o', osm_geojson]
+    if overwrite:
+        options.append('--overwrite')
+    p = run(['osmium', 'export'] + options, stdout=PIPE, stderr=PIPE)
+    _check_osmium_returncodes(p)
+
+    # We are gonna extract two files from main OSM data file:
+    #   * `highway.gpkg` with highways, roads, tracks, and paths
+    #   * `ferry.gpkg` with ferry ways
+    osm = gpd.read_file(osm_geojson)
+    os.makedirs(dst_dir, exist_ok=True)
+    dst_highway = os.path.join(dst_dir, 'highway.gpkg')
+    dst_ferry = os.path.join(dst_dir, 'ferry.gpkg')
+
+    # Extract road objects and save as GeoPackage
+    highway = osm.loc[~pd.isnull(osm.highway)]
+    columns = ['highway', 'smoothness', 'surface', 'tracktype']
+    columns = [col for col in columns if col in highway.columns]
+    highway = gpd.GeoDataFrame(
+        highway[columns], geometry=highway['geometry'])
+    highway = highway[highway.geom_type == 'LineString']
+    highway.to_file(dst_highway, driver='GPKG')
+
+    # Extract ferry objects and save as GeoPackage
+    ferry = osm.loc[osm.route == 'ferry']
+    columns = ['motor_vehicle', 'hgv', 'motorcar', 'motorcycle', 'bicycle',
+               'foot', 'duration', 'interface', 'fee', 'toll', 'opening_hours',
+               'maxweight', 'maxlength', 'maxwidth', 'maxheight', 'route']
+    columns = [col for col in columns if col in ferry.columns]
+    ferry = gpd.GeoDataFrame(ferry[columns], geometry=ferry['geometry'])
+    ferry = ferry[ferry.geom_type == 'LineString']
+    ferry.to_file(dst_ferry, driver='GPKG')
+
+    return dst_highway, dst_ferry
