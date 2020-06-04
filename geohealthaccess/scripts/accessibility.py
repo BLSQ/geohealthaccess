@@ -58,11 +58,9 @@ def base_speed_rasters(input_dir, interm_dir, landcover_speeds,
             dst_crs = src.crs
             dst_width = src.width
             dst_height = src.height
-        osm_dir = os.path.join(input_dir, 'openstreetmap')
-        osm_datafile = [f for f in os.listdir(osm_dir)
-                        if f.endswith('.gpkg')][0]
+        highway = os.path.join(input_dir, 'openstreetmap', 'highway.gpkg')
         roads_speed = modeling.speed_from_roads(
-            src_filename=os.path.join(osm_dir, osm_datafile),
+            src_filename=highway,
             dst_filename=roads_speed,
             dst_transform=dst_transform,
             dst_crs=dst_crs,
