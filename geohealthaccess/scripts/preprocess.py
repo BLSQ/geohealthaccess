@@ -70,7 +70,7 @@ def preprocess_land_cover(src_dir, dst_dir, dst_crs, dst_bounds,
     if process_discrete:
         tiles = [f for f in filenames if 'discrete-classification_' in f]
         merged = os.path.join(dst_dir, 'landcover_discrete-classification_merged.tif')
-        reprojected = merged.replace('_merged.tif', '_reprojected.tif')
+        reprojected = merged.replace('_merged.tif', '.tif')
         if not os.path.isfile(reprojected):
             preprocessing.merge_tiles(tiles, merged, nodata=-1)
             output = preprocessing.reproject_raster(
@@ -82,7 +82,6 @@ def preprocess_land_cover(src_dir, dst_dir, dst_crs, dst_bounds,
                 dst_res=dst_res,
                 dst_nodata=-1,
                 dst_dtype='int16')
-            preprocessed.append(output)
             os.remove(merged)
     
     # Remove individual files
