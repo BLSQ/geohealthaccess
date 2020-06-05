@@ -1,10 +1,9 @@
 """Acquisition and preprocessing of WorldPop population data."""
 
-import os
 import logging
+import os
 
 from geohealthaccess.utils import download_from_ftp
-
 
 log = logging.getLogger(__name__)
 
