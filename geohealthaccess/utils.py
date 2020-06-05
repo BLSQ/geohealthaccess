@@ -1,6 +1,7 @@
 import json
+import logging
 import os
-from ftplib import FTP
+from ftplib import FTP, error_reply
 from pkg_resources import resource_string
 from urllib.parse import urlparse
 import zipfile
@@ -8,6 +9,18 @@ import zipfile
 import requests
 from shapely.geometry import shape
 from tqdm.auto import tqdm
+
+
+log = logging.getLogger(__name__)
+
+
+def human_readable_size(size, decimals=1):
+    """Transform size in bytes into human readable text."""
+    for unit in ['B','KB','MB','GB','TB']:
+        if size < 1000:
+            break
+        size /= 1000
+    return f'{size:.{decimals}f} {unit}'
 
 
 def country_geometry(country):
@@ -73,6 +86,16 @@ def download_from_url(session, url, output_dir, show_progress=True,
     return local_path
 
 
+def _check_ftp_login(ftp):
+    """Check if FTP login was successfull. If not, raise
+    an exception.
+    """
+    if ftp.lastresp == '230':
+        return True
+    else:
+        raise error_reply('FTP login error.')
+
+
 def download_from_ftp(url, output_dir, overwrite=False):
     """Download a file from a public FTP server.
 
@@ -93,6 +116,15 @@ def download_from_ftp(url, output_dir, overwrite=False):
     url = urlparse(url)
     ftp = FTP(url.netloc)
     ftp.login()
+
+    # Check if login was successfull
+    try:
+        _check_ftp_login(ftp)
+    except error_reply as e:
+        log.exception(e)
+    else:
+        log.info(f'Logged-in to FTP {url.netloc}.')
+
     parts = url.path.split('/')
     filename = parts[-1]
     directory = '/'.join(parts[:-1])
@@ -100,11 +132,16 @@ def download_from_ftp(url, output_dir, overwrite=False):
     file_size = ftp.size(filename)
     local_path = os.path.join(output_dir, filename)
 
-    # Exit if overwrite is set to False and file sizes are equal
-    if os.path.isfile(local_path) and not overwrite:
+    # Do not download again if local and remote file sizes are equal
+    if os.path.isfile(local_path):
         if os.path.getsize(local_path) == file_size:
+            log.info(f'File {local_path} already exists. Skipping download.')
             return local_path
+        else:
+            log.info(f'File {local_path} already exists but its size differ. Removing old file.')
+            os.remove(local_path)
 
+    log.info(f'Downloading file {url} to {local_path}.')
     progress = tqdm(total=file_size, desc=filename, unit_scale=True, unit='B')
 
     with open(local_path, 'wb') as f:
@@ -118,6 +155,8 @@ def download_from_ftp(url, output_dir, overwrite=False):
         
         ftp.retrbinary(f'RETR {filename}', write_and_progress)
     
+    size = human_readable_size(os.path.getsize(local_path))
+    log.info(f'Downloaded file {local_path} ({size}).')
     progress.close()
     ftp.close()
     return local_path
