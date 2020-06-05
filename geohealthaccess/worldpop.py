@@ -1,8 +1,12 @@
 """Acquisition and preprocessing of WorldPop population data."""
 
+import os
+import logging
 
 from geohealthaccess.utils import download_from_ftp
 
+
+log = logging.getLogger(__name__)
 
 FTP_HOST = 'ftp.worldpop.org.uk'
 BASE_DIR = 'GIS/Population/Global_2000_2020'
@@ -45,5 +49,7 @@ def download(country, year, output_dir, overwrite=False):
         Path to downloaded file.
     """
     url = build_url(country, year)
+    log.info(f'Downloading worldpop data from URL {url}.')
     local_path = download_from_ftp(url, output_dir)
+    log.info(f'Downloaded worldpop data to {os.path.abspath(local_path)}.')
     return local_path
