@@ -8,8 +8,8 @@ from geohealthaccess.utils import download_from_ftp
 
 log = logging.getLogger(__name__)
 
-FTP_HOST = 'ftp.worldpop.org.uk'
-BASE_DIR = 'GIS/Population/Global_2000_2020'
+FTP_HOST = "ftp.worldpop.org.uk"
+BASE_DIR = "GIS/Population/Global_2000_2020"
 
 
 def build_url(country, year):
@@ -27,9 +27,9 @@ def build_url(country, year):
     remote_path : tuple of str
         Path to remote file: (directory, filename).
     """
-    directory = f'{BASE_DIR}/{year}/{country.upper()}'
-    filename = f'{country.lower()}_ppp_{year}.tif'
-    return f'ftp://{FTP_HOST}/{directory}/{filename}'
+    directory = f"{BASE_DIR}/{year}/{country.upper()}"
+    filename = f"{country.lower()}_ppp_{year}.tif"
+    return f"ftp://{FTP_HOST}/{directory}/{filename}"
 
 
 def download(country, year, output_dir, overwrite=False):
@@ -49,7 +49,7 @@ def download(country, year, output_dir, overwrite=False):
         Path to downloaded file.
     """
     url = build_url(country, year)
-    log.info(f'Downloading worldpop data from URL {url}.')
+    log.info(f"Downloading worldpop data from URL {url}.")
     local_path = download_from_ftp(url, output_dir)
-    log.info(f'Downloaded worldpop data to {os.path.abspath(local_path)}.')
+    log.info(f"Downloaded worldpop data to {os.path.abspath(local_path)}.")
     return local_path
