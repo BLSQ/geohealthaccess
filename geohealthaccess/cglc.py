@@ -4,6 +4,7 @@ https://lcviewer.vito.be/
 """
 
 import os
+import logging
 
 import requests
 from rasterio.crs import CRS
@@ -12,6 +13,7 @@ import geopandas as gpd
 
 from geohealthaccess.utils import download_from_url
 
+log = logging.getLogger(__name__)
 
 # A manifest text file keeps track of all the URLs of the available tiles
 MANIFEST_URL = 'https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/manifest_cgls_lc_v2_100m_global_2015.txt'
@@ -53,6 +55,7 @@ def build_tiles_index():
         crs=CRS.from_epsg(4326))
     tiles['url'] = urls
     tiles['geometry'] = [to_geom(name) for name in tiles.index]
+    log.info(f"CGLC tiles index has been built ({len(tiles)} records).")
     return tiles
 
 
@@ -62,6 +65,7 @@ def required_tiles(geom):
     """
     tiles_index = build_tiles_index()
     tiles = tiles_index[tiles_index.intersects(geom)]
+    log.info(f"{len(tiles)} CGLC tiles required to cover the area of interest.")
     return list(tiles.url)
 
 
@@ -82,9 +86,11 @@ def download(geom, output_dir, overwrite=False):
             tilename = fname.split("_")[0]
             available_files = _available_files(tilename, output_dir)
             if len(available_files) >= 14 and not overwrite:
+                log.info(f"All {tilename} CGLC tiles already downloaded. Skipping download.")
                 continue
             else:
                 for f in available_files:
+                    log.info(f"Removing old file {f}.")
                     os.remove(os.path.join(output_dir, f))
                 download_from_url(s, tile, output_dir, overwrite=overwrite)
     return output_dir
@@ -100,4 +106,5 @@ def coverfraction_layers(data_dir):
             file_name = os.path.join(data_dir, fname)
             layer_name = fname.split('-')[0]
             layers.append((layer_name, file_name))
+    log.info(f"Found {len(layers)} CGLC coverfraction layers.")
     return layers
