@@ -3,26 +3,26 @@ Copernicus Global Land Cover product.
 https://lcviewer.vito.be/
 """
 
-import os
 import logging
+import os
 
+import geopandas as gpd
 import requests
 from rasterio.crs import CRS
 from shapely.geometry import Polygon
-import geopandas as gpd
 
 from geohealthaccess.utils import download_from_url
 
 log = logging.getLogger(__name__)
 
 # A manifest text file keeps track of all the URLs of the available tiles
-MANIFEST_URL = 'https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/manifest_cgls_lc_v2_100m_global_2015.txt'
+MANIFEST_URL = "https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/manifest_cgls_lc_v2_100m_global_2015.txt"
 
 
 def tile_name(url):
     """Extract tile name from URL."""
-    filename = url.split('/')[-1]
-    return filename.split('_')[0]
+    filename = url.split("/")[-1]
+    return filename.split("_")[0]
 
 
 def to_geom(name):
@@ -32,29 +32,28 @@ def to_geom(name):
     """
     xmin = int(name[1:4])
     ymax = int(name[5:7])
-    if name[0] == 'W':
+    if name[0] == "W":
         xmin *= -1
-    if name[4] == 'S':
+    if name[4] == "S":
         ymax *= -1
     ymin = ymax - 20
     xmax = xmin + 20
-    coords = ((xmin, ymax), (xmin, ymin), (xmax, ymin),
-              (xmax, ymax), (xmin, ymax))
+    coords = ((xmin, ymax), (xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax))
     return Polygon(coords)
 
 
 def build_tiles_index():
     """Build the tiles index as a geodataframe."""
     # Build a list of URLs
-    urls = requests.get(MANIFEST_URL).text.split('\r\n')
+    urls = requests.get(MANIFEST_URL).text.split("\r\n")
     # Ignore empty URLs
     urls = [url for url in urls if url]
     # Build the geodataframe
     tiles = gpd.GeoDataFrame(
-        index=[tile_name(url) for url in urls],
-        crs=CRS.from_epsg(4326))
-    tiles['url'] = urls
-    tiles['geometry'] = [to_geom(name) for name in tiles.index]
+        index=[tile_name(url) for url in urls], crs=CRS.from_epsg(4326)
+    )
+    tiles["url"] = urls
+    tiles["geometry"] = [to_geom(name) for name in tiles.index]
     log.info(f"CGLC tiles index has been built ({len(tiles)} records).")
     return tiles
 
@@ -73,7 +72,11 @@ def _available_files(tile_name, directory):
     """List available .tif rasters for a given tile name in a specified
     directory.
     """
-    return [f for f in os.listdir(directory) if f.startswith(tile_name) and f.endswith(".tif") and "StdDev" not in f]
+    return [
+        f
+        for f in os.listdir(directory)
+        if f.startswith(tile_name) and f.endswith(".tif") and "StdDev" not in f
+    ]
 
 
 def download(geom, output_dir, overwrite=False):
@@ -86,7 +89,9 @@ def download(geom, output_dir, overwrite=False):
             tilename = fname.split("_")[0]
             available_files = _available_files(tilename, output_dir)
             if len(available_files) >= 14 and not overwrite:
-                log.info(f"All {tilename} CGLC tiles already downloaded. Skipping download.")
+                log.info(
+                    f"All {tilename} CGLC tiles already downloaded. Skipping download."
+                )
                 continue
             else:
                 for f in available_files:
@@ -102,9 +107,9 @@ def coverfraction_layers(data_dir):
     """
     layers = []
     for fname in os.listdir(data_dir):
-        if 'coverfraction' in fname and fname.endswith('.tif'):
+        if "coverfraction" in fname and fname.endswith(".tif"):
             file_name = os.path.join(data_dir, fname)
-            layer_name = fname.split('-')[0]
+            layer_name = fname.split("-")[0]
             layers.append((layer_name, file_name))
     log.info(f"Found {len(layers)} CGLC coverfraction layers.")
     return layers
