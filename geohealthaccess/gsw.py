@@ -4,25 +4,30 @@ https://global-surface-water.appspot.com/
 """
 
 
-import requests
 import geopandas as gpd
+import requests
 from rasterio.crs import CRS
 from shapely.geometry import Polygon
 
 from geohealthaccess.utils import download_from_url
 
-
-BASE_URL = 'https://storage.googleapis.com/global-surface-water/downloads2'
-PRODUCTS = ['occurence', 'change', 'seasonality',
-            'recurrence', 'transitions', 'extent']
-VERSION = '1_1'
+BASE_URL = "https://storage.googleapis.com/global-surface-water/downloads2"
+PRODUCTS = [
+    "occurrence",
+    "change",
+    "seasonality",
+    "recurrence",
+    "transitions",
+    "extent",
+]
+VERSION = "1_1"
 
 
 def build_url(product, location_id):
     """Build download URL for a given tile location and product type."""
     if product not in PRODUCTS:
-        raise ValueError('Invalid GSW product name.')
-    return f'{BASE_URL}/{product}/{product}_{location_id}_v{VERSION}.tif'
+        raise ValueError("Invalid GSW product name.")
+    return f"{BASE_URL}/{product}/{product}_{location_id}_v{VERSION}.tif"
 
 
 def generate_location_id(lon, lat):
@@ -31,7 +36,7 @@ def generate_location_id(lon, lat):
     """
     lon_str = f'{abs(lon)}{"E" if lon >= 0 else "W"}'
     lat_str = f'{abs(lat)}{"N" if lat >= 0 else "S"}'
-    return f'{lon_str}_{lat_str}'
+    return f"{lon_str}_{lat_str}"
 
 
 def to_geom(name):
@@ -40,17 +45,16 @@ def to_geom(name):
         - The ID designates the coordinates of the top left corner
         - One tile covers a surface of 10 x 10 degrees.
     """
-    lon, lat = name.split('_')
+    lon, lat = name.split("_")
     xmin = int(lon[:-1])
     ymax = int(lat[:-1])
-    if lon[-1] == 'W':
+    if lon[-1] == "W":
         xmin *= -1
-    if lat[-1] == 'S':
+    if lat[-1] == "S":
         ymax *= -1
     ymin = ymax - 10
     xmax = xmin + 10
-    coords = ((xmin, ymax), (xmin, ymin), (xmax, ymin),
-              (xmax, ymax), (xmin, ymax))
+    coords = ((xmin, ymax), (xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax))
     return Polygon(coords)
 
 
@@ -66,11 +70,12 @@ def build_tiles_index():
                 (lon, lat),
                 (lon + 10, lat),
                 (lon + 10, lat + 10),
-                (lon, lat + 10))
+                (lon, lat + 10),
+            )
             names.append(generate_location_id(lon, lat))
             geoms.append(Polygon(coords))
     tiles_index = gpd.GeoDataFrame(index=names)
-    tiles_index['geometry'] = geoms
+    tiles_index["geometry"] = geoms
     tiles_index.crs = CRS.from_epsg(4326)
     return tiles_index
 
