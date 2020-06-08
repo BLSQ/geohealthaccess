@@ -1,14 +1,17 @@
 import os
+import tempfile
 
 import pytest
 from shapely import wkt
-import tempfile
 
 from geohealthaccess import cglc
 
 
 def test_tile_name():
-    URL = "https://s3-eu-west-1.amazonaws.com/vito.landcover.global/2015/E000N40_ProbaV_LC100_epoch2015_global_v2.0.2_products_EPSG-4326.zip"
+    URL = (
+        "https://s3-eu-west-1.amazonaws.com/vito.landcover.global/2015/"
+        "E000N40_ProbaV_LC100_epoch2015_global_v2.0.2_products_EPSG-4326.zip"
+    )
     assert cglc.tile_name(URL) == "E000N40"
 
 
@@ -62,46 +65,46 @@ def test_required_tiles():
 
 # List of files for Madagascar
 LISTDIR = [
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-StdDev_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-StdDev_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_DataDensityIndicator_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-layer_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_water-permanent-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-StdDev_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-StdDev_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification-proba_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-layer_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_snow-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-StdDev_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-StdDev_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification-proba_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-StdDev_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_water-seasonal-coverfraction-layer_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_water-seasonal-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_forest-type-layer_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-StdDev_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-StdDev_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_water-permanent-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_DataDensityIndicator_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-StdDev_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_forest-type-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-layer_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_urban-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_snow-coverfraction-layer_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-layer_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-StdDev_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_urban-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-StdDev_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-layer_EPSG-4326.tif',
-    'E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-layer_EPSG-4326.tif',
-    'E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-layer_EPSG-4326.tif'
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-StdDev_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-StdDev_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_DataDensityIndicator_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-layer_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_water-permanent-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-StdDev_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-StdDev_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification-proba_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-layer_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_snow-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-StdDev_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-StdDev_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification-proba_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-StdDev_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_water-seasonal-coverfraction-layer_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_water-seasonal-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_forest-type-layer_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-StdDev_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-StdDev_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_water-permanent-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_DataDensityIndicator_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-StdDev_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_forest-type-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-layer_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_urban-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_snow-coverfraction-layer_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-layer_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-StdDev_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_urban-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-StdDev_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-layer_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-layer_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-layer_EPSG-4326.tif",
 ]
 
 
