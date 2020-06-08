@@ -68,36 +68,12 @@ def required_tiles(geom):
     return list(tiles.url)
 
 
-def _available_files(tile_name, directory):
-    """List available .tif rasters for a given tile name in a specified
-    directory.
-    """
-    return [
-        f
-        for f in os.listdir(directory)
-        if f.startswith(tile_name) and f.endswith(".tif") and "StdDev" not in f
-    ]
-
-
 def download(geom, output_dir, overwrite=False):
     """Download all the CGLC tiles required to cover the area of interest."""
     tiles = required_tiles(geom)
     with requests.Session() as s:
         for tile in tiles:
-            # Do not download anything if all files are already available
-            fname = tile.split("/")[-1]
-            tilename = fname.split("_")[0]
-            available_files = _available_files(tilename, output_dir)
-            if len(available_files) >= 14 and not overwrite:
-                log.info(
-                    f"All {tilename} CGLC tiles already downloaded. Skipping download."
-                )
-                continue
-            else:
-                for f in available_files:
-                    log.info(f"Removing old file {f}.")
-                    os.remove(os.path.join(output_dir, f))
-                download_from_url(s, tile, output_dir, overwrite=overwrite)
+            download_from_url(s, tile, output_dir, overwrite=overwrite)
     return output_dir
 
 

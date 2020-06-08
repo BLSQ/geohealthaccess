@@ -113,16 +113,6 @@ def _touch(filename):
     open(filename, "a").close()
 
 
-def test__available_files():
-    TILE_NAME = "E040S20"
-    # Create temp dir with empty files from LISTDIR
-    with tempfile.TemporaryDirectory() as tmpdir:
-        for f in LISTDIR:
-            open(os.path.join(tmpdir, f), "a").close()
-        available_files = cglc._available_files(TILE_NAME, tmpdir)
-    assert len(available_files) == 14
-
-
 def test_coverfraction_layers():
     # Create temp dir with empty files from LISTDIR
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -130,3 +120,32 @@ def test_coverfraction_layers():
             open(os.path.join(tmpdir, f), "a").close()
         layers = cglc.coverfraction_layers(tmpdir)
     assert len(layers) == 32
+
+
+def test_download():
+    # This a simplified geometry of Tonga
+    TONGA = (
+        "POLYGON ("
+        "(-175.32 -21.12, -175.22 -21.17, -175.05 -21.15, -175.15 -21.27, "
+        "-175.33 -21.17, -175.36 -21.11, -175.31 -21.06, -175.32 -21.12))"
+    )
+    geom = wkt.loads(TONGA)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+
+        # Get expected file path
+        url = cglc.required_tiles(geom)[0]
+        fname = os.path.join(tmpdir, url.split("/")[-1])
+
+        # Simple download
+        outputdir = cglc.download(geom, tmpdir, overwrite=False)
+        mtime = os.path.getmtime(fname)
+        assert os.path.isfile(os.path.join(tmpdir, fname))
+
+        # Should not be downloaded again
+        cglc.download(geom, tmpdir, overwrite=False)
+        assert os.path.getmtime(fname) == mtime
+
+        # Should be download again
+        cglc.download(geom, tmpdir, overwrite=True)
+        assert os.path.getmtime(fname) != mtime
