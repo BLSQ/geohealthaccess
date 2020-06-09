@@ -2,7 +2,7 @@
 Global Surface Water products.
 https://global-surface-water.appspot.com/
 """
-
+import logging
 
 import geopandas as gpd
 import requests
@@ -10,6 +10,8 @@ from rasterio.crs import CRS
 from shapely.geometry import Polygon
 
 from geohealthaccess.utils import download_from_url
+
+log = logging.getLogger(__name__)
 
 BASE_URL = "https://storage.googleapis.com/global-surface-water/downloads2"
 PRODUCTS = [
@@ -77,6 +79,7 @@ def build_tiles_index():
     tiles_index = gpd.GeoDataFrame(index=names)
     tiles_index["geometry"] = geoms
     tiles_index.crs = CRS.from_epsg(4326)
+    log.info(f"GSW tiles indexed ({len(tiles_index)} records).")
     return tiles_index
 
 
@@ -99,6 +102,7 @@ def required_tiles(geom, product):
     """
     tiles = build_tiles_index()
     tiles = tiles[tiles.intersects(geom)]
+    log.info(f"{len(tiles)} GSW tiles required to cover the area of interest.")
     return [build_url(product, loc_id) for loc_id in tiles.index]
 
 
