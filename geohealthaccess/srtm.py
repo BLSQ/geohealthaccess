@@ -2,12 +2,14 @@
 
 import os
 from pkg_resources import resource_string, resource_filename
+import logging
 
 import requests
 import geopandas as gpd
 from bs4 import BeautifulSoup
 from geohealthaccess.utils import download_from_url, unzip
 
+log = logging.getLogger(__name__)
 
 HOMEPAGE_URL = 'https://urs.earthdata.nasa.gov'
 LOGIN_URL = 'https://urs.earthdata.nasa.gov/login'
@@ -34,6 +36,7 @@ def required_tiles(geom):
         resource_filename(__name__, 'resources/srtm.geojson')
     )
     tiles = tiles[tiles.intersects(geom)]
+    log.info(f"{len(tiles)} SRTM tiles required to cover the area of interest.")
     return list(tiles.dataFile)
 
 
@@ -110,6 +113,7 @@ def authentify(session, username, password):
     r.raise_for_status()
     if not logged_in(r):
         raise requests.exceptions.ConnectionError('Log-in to EarthData failed.')
+    log.info(f"Successfully logged-in to EarthData with username <{username}>.")
     return session
 
 
