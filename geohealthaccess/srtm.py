@@ -146,12 +146,7 @@ def download(geom, output_dir, username, password, show_progress=True,
     with requests.Session() as session:
         authentify(session, username, password)
         for tile in tiles:
-            downloaded = _expected_filename(tile) in os.listdir(output_dir)
-            if downloaded and not overwrite:
-                continue
             url = DOWNLOAD_URL + tile
-            archive = download_from_url(
+            download_from_url(
                 session, url, output_dir, show_progress, overwrite=True)
-            unzip(archive)
-            os.remove(archive)
     return tiles
