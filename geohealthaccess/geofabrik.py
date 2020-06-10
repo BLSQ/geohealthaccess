@@ -12,6 +12,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import requests
+from requests_file import FileAdapter
 from appdirs import user_data_dir
 from bs4 import BeautifulSoup
 from osgeo import ogr
@@ -39,7 +40,9 @@ class Page:
         """Webpage to parse."""
         # Store URL and parse page
         self.url = url
-        with requests.get(url) as r:
+        self.sess = requests.Session()
+        self.sess.mount("file://", FileAdapter())
+        with self.sess.get(url) as r:
             r.encoding = "UTF-8"
             self.soup = BeautifulSoup(r.text, "html.parser")
         # Parse tables
@@ -477,3 +480,5 @@ def thematic_extract(osm_pbf, theme, dst_fname):
         )
 
     return dst_fname
+
+
