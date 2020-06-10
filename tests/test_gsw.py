@@ -64,6 +64,7 @@ def test_required_tiles():
     assert set(tiles) == set(EXPECTED_TILES)
 
 
+@pytest.mark.http
 def test_download():
     mdg = wkt.loads(MADAGASCAR)
     PRODUCT = "seasonality"

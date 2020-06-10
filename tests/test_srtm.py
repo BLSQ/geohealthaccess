@@ -31,6 +31,7 @@ def test_required_tiles(geom, ntiles):
         assert tile.endswith(".hgt.zip")
 
 
+@pytest.mark.http
 def test_find_authenticity_token():
     with requests.Session() as s:
         r = s.get(srtm.HOMEPAGE_URL)

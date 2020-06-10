@@ -68,6 +68,7 @@ def test__clean_datadir():
         assert set(remaining) == set(expected)
 
 
+@pytest.mark.http
 def test_download():
     COUNTRY = "TON"  # Tonga
     with tempfile.TemporaryDirectory() as tmpdir:

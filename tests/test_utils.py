@@ -20,6 +20,7 @@ def test_human_readable_size(size, expected):
     assert utils.human_readable_size(size) == expected
 
 
+@pytest.mark.http
 def test_http_same_size():
     """Ignore error if a new countries.geojson is being pushed."""
     fname = resource_filename("geohealthaccess", "resources/countries.geojson")
@@ -37,6 +38,7 @@ def test_country_geometry():
     assert mdg.area == pytest.approx(51.07, 0.01)
 
 
+@pytest.mark.http
 def test_download_from_url():
     with tempfile.TemporaryDirectory() as tmpdir:
 
@@ -60,6 +62,7 @@ def test_download_from_url():
         assert mtime != os.path.getmtime(fname)
 
 
+@pytest.mark.http
 def test_download_from_ftp():
     with tempfile.TemporaryDirectory() as tmpdir:
 
