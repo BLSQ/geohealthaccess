@@ -86,6 +86,7 @@ class Page:
             # Raw details
             if _header(table) == "Other Formats and Auxiliary Files":
                 self.raw_details = self._parse_table(table)
+                log.info(f"Found {len(self.raw_details)} auxiliary files.")
             # Subregions
             elif _header(table) == "Sub Regions":
                 self.subregions = self._parse_table(table)
