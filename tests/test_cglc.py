@@ -122,6 +122,7 @@ def test_coverfraction_layers():
     assert len(layers) == 32
 
 
+@pytest.mark.http
 def test_download():
     # This a simplified geometry of Tonga
     TONGA = (
