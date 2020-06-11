@@ -6,8 +6,6 @@ from bs4.element import Tag, NavigableString
 from datetime import datetime
 from geohealthaccess import geofabrik
 
-print(resource_filename(__name__, "data/kenya.html"))
-
 
 @pytest.fixture(scope="module")
 def geofabrik_samples():
@@ -16,23 +14,6 @@ def geofabrik_samples():
     for page in ("index.html", "africa.html", "kenya.html"):
         with open(resource_filename(__name__, f"data/{page}")) as f:
             samples[page] = BeautifulSoup(f, "html.parser")
-
-@pytest.fixture(scope="module")
-def geofabrik_kenya():
-    with open(resource_filename(__name__, "data/kenya.html")) as f:
-        return BeautifulSoup(f, "html.parser")
-
-
-@pytest.fixture(scope="module")
-def geofabrik_africa():
-    with open(resource_filename(__name__, "data/africa.html")) as f:
-        return BeautifulSoup(f, "html.parser")
-
-
-@pytest.fixture(scope="module")
-def geofabrik_index():
-    with open(resource_filename(__name__, "data/index.html")) as f:
-        return BeautifulSoup(f, "html.parser")
 
 
 def resource_to_url(resource):
@@ -123,7 +104,8 @@ def test_parse_tables(page, n_details, n_subregions, n_special, n_continents):
     page = geofabrik.Page(url)
     for attribute, expected in zip(
         [page.raw_details, page.subregions, page.special_subregions, page.continents],
-        [n_details, n_subregions, n_special, n_continents],funcname
+        [n_details, n_subregions, n_special, n_continents],
+    ):
         if expected > 0:
             assert len(attribute) == expected
         else:
@@ -160,5 +142,3 @@ def test_datasets(sample_regions):
             assert isinstance(dataset["date"], datetime)
             assert isinstance(dataset["file"], str)
             assert isinstance(dataset["url"], str)
-
-
