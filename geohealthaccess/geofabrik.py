@@ -174,13 +174,40 @@ class Region:
         return wkt.loads(geom)
 
 
-def build_spatial_index():
+def build_spatial_index(include=None, exclude=None):
     """Get the geometry of each available subregion and
     summarize the information as a geodataframe.
+
+    Parameters
+    ----------
+    include : list, optional
+        A whitelist of continents to parse.
+    exclude : list, optional
+        A blacklist of continents to not parse.
+    
+    Returns
+    -------
+    spatial_index : GeoDataFrame
+        Spatial index of available regions and subregions with their id,
+        their name and their geometry.
     """
+    if include and exclude:
+        raise ValueError("Cannot set both include and exclude parameters.")
+
     home = Page(BASE_URL)
     regions = []
+
     for continent in home.continents:
+
+        # include/exclude check
+        name = continent["Sub Region"].text.lower()
+        if include:
+            if name not in include:
+                continue
+        if exclude:
+            if name in exclude:
+                continue
+
         path = continent["Sub Region"].attrs["href"]
         region_id = path.replace(".html", "")
         region = Region(region_id)
