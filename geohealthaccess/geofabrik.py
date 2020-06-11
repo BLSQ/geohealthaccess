@@ -102,11 +102,12 @@ class Page:
 
 
 class Region:
-    def __init__(self, region_id):
+    def __init__(self, region_id, parse=True):
         self.id = region_id
-        self.page = Page(self.url)
-        self.name = self.page.name
-        self.extent = self.get_geometry()
+        if parse:
+            self.page = Page(self.url)
+            self.name = self.page.name
+            self.extent = self.get_geometry()
 
     @property
     def url(self):
