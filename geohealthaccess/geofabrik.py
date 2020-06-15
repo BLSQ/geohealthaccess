@@ -10,19 +10,18 @@ from urllib.parse import urljoin, urlsplit
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import requests
-from requests_file import FileAdapter
 from appdirs import user_data_dir
 from bs4 import BeautifulSoup
 from osgeo import ogr
+from requests_file import FileAdapter
 from shapely import wkt
 
 from geohealthaccess.exceptions import (
+    MissingData,
     OsmiumArgumentsError,
     OsmiumNotFound,
     OsmiumProcessingError,
-    MissingData,
 )
 from geohealthaccess.utils import download_from_url, human_readable_size
 
