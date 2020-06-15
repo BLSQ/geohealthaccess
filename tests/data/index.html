@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+  <head>
+<meta charset="UTF-8">
+<title>Geofabrik Download Server</title>
+    <script type="text/javascript" src="//static.geofabrik.de/ol212/OpenLayers.js"></script>
+    <script type="text/javascript">
+        var map, layer, countryLayer;
+        function init()
+        {
+            map = new OpenLayers.Map('map');
+            layer = new OpenLayers.Layer.OSM("",
+                                             ["https://a.tile.geofabrik.de/549e80f319af070f8ea8d0f149a149c2/${z}/${x}/${y}.png",
+                                              "https://b.tile.geofabrik.de/549e80f319af070f8ea8d0f149a149c2/${z}/${x}/${y}.png",
+                                              "https://c.tile.geofabrik.de/549e80f319af070f8ea8d0f149a149c2/${z}/${x}/${y}.png",
+					     ],
+                                             { attribution: "", tileOptions : {crossOriginKeyword: null} }
+                                            ); // attribution in page footer
+            map.addLayer(layer);
+map.setCenter(new OpenLayers.LonLat(0, 0), 1);        }
+        function loadkml(kmlname)
+        {
+            if (countryLayer) map.removeLayer(countryLayer);
+            countryLayer = 
+                new OpenLayers.Layer.Vector("KML", {
+                strategies: [new OpenLayers.Strategy.Fixed()],
+                protocol: new OpenLayers.Protocol.HTTP({
+                    url: kmlname,
+                    format: new OpenLayers.Format.KML({
+                        extractStyles: true,
+                        extractAttributes: true,
+                        maxDepth: 2
+                    })
+                })
+                });
+            map.addLayer(countryLayer);
+        }
+    </script>
+<link rel="stylesheet" type="text/css" href="/download.css">
+</head><body onload='init();'><div id="download-top">
+   <div id="download-top-right">
+      <img alt="header image" src="/img/geofabrik-downloads.png" height="20">
+   </div>
+</div>
+<div id="download-titlebar">
+<p></p></div>
+<div class="download-main">
+<div class="leftColumn"><h2>OpenStreetMap Data Extracts</h2>
+    <p class="isPublicInfo">
+        The OpenStreetMap data files provided on this server do <b>not</b> contain the user names, user
+        IDs and changeset IDs of the OSM objects because these fields are assumed to contain personal
+        information about the OpenStreetMap contributors and are therefore subject to data protection regulations
+        in the European Union. 
+        <br>
+        <a href="https://osm-internal.download.geofabrik.de/index.html">Extracts with full metadata</a> are available to OpenStreetMap
+        contributors only.
+    </p>
+<p>
+Welcome to Geofabrik's free download server. This server has data extracts from the 
+<a href="http://www.openstreetmap.org/">OpenStreetMap project</a> which are normally
+updated every day. Select your continent and then your country of interest from the list below.
+(If you have been directed to this page from elsewhere and are
+not familiar with OpenStreetMap, we highly recommend that you read up on OSM before
+you use the data.) This open data download service is offered free of charge by Geofabrik GmbH.
+</p>
+<p>&nbsp;</p>
+
+<p>
+Willkommen auf dem Geofabrik-Downloadserver. Hier gibt es Daten-Ausz&uuml;ge aus dem
+<a href="http://www.openstreetmap.org/">OpenStreetMap-Projekt,</a> die normalerweise
+t&auml;glich aktualisiert werden. W&auml;hlen Sie aus dem Verzeichnis unten den Kontient
+und ggf. das Land, f&uuml;r die Sie Daten ben&ouml;tigen. (Wenn Sie von anderswo auf dieser Seite gelandet
+sind und von OpenStreetMap nichts wissen, dann ist es empfehlenswert, sich mit dem 
+Projekt vertraut zu machen, bevor Sie mit den Daten arbeiten.) Diese Downloads werden
+von der Geofabrik GmbH kostenlos angeboten.
+
+</p>
+<p>&nbsp;</p>
+<p>Click on the region name to see the overview page for that region, or select one of the
+file extension links for quick access.</p>
+<table id="subregions">
+<tr>
+   <th class="subregion">Sub Region</th>
+   <th colspan="4">Quick Links</th>
+</tr>
+<tr>
+   <th>&nbsp;</th>
+   <th colspan="2">.osm.pbf</th>
+   <th>.shp.zip</th>
+   <th>.osm.bz2</th>
+</tr>
+<tr onMouseOver="loadkml('africa.kml')"><td class="subregion"><a href="africa.html">Africa</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="africa-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(3.8&nbsp;GB)</td><td> <img alt="not available" src="/img/cross.png"></td><td> <a href="africa-latest.osm.bz2">[.osm.bz2]</a></td></tr>
+<tr onMouseOver="loadkml('antarctica.kml')"><td class="subregion"><a href="antarctica.html">Antarctica</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="antarctica-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(29.0&nbsp;MB)</td><td> <a href="antarctica-latest-free.shp.zip">[.shp.zip]</a></td><td> <a href="antarctica-latest.osm.bz2">[.osm.bz2]</a></td></tr>
+<tr onMouseOver="loadkml('asia.kml')"><td class="subregion"><a href="asia.html">Asia</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="asia-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(8.2&nbsp;GB)</td><td> <img alt="not available" src="/img/cross.png"></td><td> <a href="asia-latest.osm.bz2">[.osm.bz2]</a></td></tr>
+<tr onMouseOver="loadkml('australia-oceania.kml')"><td class="subregion"><a href="australia-oceania.html">Australia and Oceania</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia-oceania-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(783&nbsp;MB)</td><td> <img alt="not available" src="/img/cross.png"></td><td> <a href="australia-oceania-latest.osm.bz2">[.osm.bz2]</a></td></tr>
+<tr onMouseOver="loadkml('central-america.kml')"><td class="subregion"><a href="central-america.html">Central America</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="central-america-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(380&nbsp;MB)</td><td> <img alt="not available" src="/img/cross.png"></td><td> <a href="central-america-latest.osm.bz2">[.osm.bz2]</a></td></tr>
+<tr onMouseOver="loadkml('europe.kml')"><td class="subregion"><a href="europe.html">Europe</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="europe-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(21.6&nbsp;GB)</td><td> <img alt="not available" src="/img/cross.png"></td><td> <a href="europe-latest.osm.bz2">[.osm.bz2]</a></td></tr>
+<tr onMouseOver="loadkml('north-america.kml')"><td class="subregion"><a href="north-america.html">North America</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="north-america-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(9.3&nbsp;GB)</td><td> <img alt="not available" src="/img/cross.png"></td><td> <a href="north-america-latest.osm.bz2">[.osm.bz2]</a></td></tr>
+<tr onMouseOver="loadkml('south-america.kml')"><td class="subregion"><a href="south-america.html">South America</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="south-america-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(2.0&nbsp;GB)</td><td> <img alt="not available" src="/img/cross.png"></td><td> <a href="south-america-latest.osm.bz2">[.osm.bz2]</a></td></tr>
+</table>
+    <br/>
+    <p>
+        <a href="technical.html">Technical details</a> about this download service.
+    </p>
+</div>
+<div id="download-right">
+   <div id="noscroll">
+   <div id="map"></div>
+
+   <div class="customized_shapes">
+<p>
+      <img alt="small flag of UK" src="/img/en.png">
+Not what you were looking for?
+Geofabrik is a consulting and software development firm based in Karlsruhe, Germany
+specializing in OpenStreetMap services. We're happy to help you with data
+preparation, processing, server setup and the like. <a href="http://www.geofabrik.de/data/shapefiles.html">Check out our web site</a>
+and contact us if we can be of service.
+
+      </p>
+   </div>
+   
+   <div class="customized_shapes">
+      <p>
+      <img alt="small flag of Germany" src="/img/de.png">
+      Nicht das Richtige dabei? 
+Die Geofabrik ist ein auf OpenStreetMap spezialisiertes Beratungs- und Softwareentwicklungsunternehmen in Karlsruhe.
+Gern helfen wir Ihnen bei der Datenaufbereitung, Datenkonvertierung, Serverinstallation und &auml;hnlichen Aufgaben.
+<a href="http://www.geofabrik.de/data/shapefiles.html">Besuchen Sie unsere Webseite</a> und sprechen Sie mit uns, wenn wir Ihnen 
+helfen k&ouml;nnen.
+      </p>
+   </div>
+   </div>
+</div>
+</div>
+<div id="download-copyright">
+Data/Maps Copyright 2018
+<a href="http://www.geofabrik.de/">Geofabrik GmbH</a>
+and
+<a href="http://www.openstreetmap.org/">OpenStreetMap Contributors</a>
+|
+<a href="http://creativecommons.org/licenses/by-sa/2.0/" rel="license">Map tiles: Creative Commons BY-SA 2.0</a>
+<a href="http://opendatacommons.org/licenses/odbl/">Data: ODbL 1.0</a>
+|
+<a href="http://www.geofabrik.de/geofabrik/contact.html">Contact</a>
+|
+<a href="http://www.geofabrik.de/geofabrik/imprint.html">Legal Notice/Privacy Policy</a>
