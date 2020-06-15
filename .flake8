@@ -1,0 +1,5 @@
+[flake8]
+jobs = auto
+max-line-length = 88
+max-complexity = 10
+docstring-convention = numpy
