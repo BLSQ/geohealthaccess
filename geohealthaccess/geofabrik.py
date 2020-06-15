@@ -265,7 +265,7 @@ def get_spatial_index(overwrite=False):
 def _cover(geom_a, geom_b):
     union = geom_a.union(geom_b)
     intersection = geom_a.intersection(geom_b)
-    return round(intersection.area / union.area, 2)
+    return intersection.area / union.area
 
 
 def find_best_region(spatial_index, geom):
