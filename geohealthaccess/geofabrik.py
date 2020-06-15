@@ -239,6 +239,7 @@ def build_spatial_index(include=None, exclude=None):
                     }
                 )
     spatial_index = gpd.GeoDataFrame(regions)
+    spatial_index = spatial_index.set_index(["id"], drop=True)
     log.info(f"Created spatial index with {len(spatial_index)} records.")
     return spatial_index
 
@@ -272,7 +273,7 @@ def find_best_region(spatial_index, geom):
     index_cover = spatial_index.copy()
     index_cover["cover"] = index_cover.geometry.apply(lambda x: _cover(x, geom))
     index_cover = index_cover.sort_values(by="cover", ascending=False)
-    region_id, cover = index_cover.id.values[0], index_cover.cover.values[0]
+    region_id, cover = index_cover.index[0], index_cover.cover.values[0]
     log.info(f"Selected region {region_id}.")
     return region_id, cover
 
