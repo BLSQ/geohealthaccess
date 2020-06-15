@@ -33,3 +33,11 @@ class OsmiumArgumentsError(GeoHealthAccessError):
         if msg is None:
             msg = "There was a problem with the command line arguments."
         super(OsmiumArgumentsError, self).__init__(msg)
+
+
+class MissingData(GeoHealthAccessError):
+    """Command-line arguments in an Osmium subprocess are not correct."""
+    def __init__(self, msg=None):
+        if msg is None:
+            msg = "Missing data."
+        super(MissingData, self).__init__(msg)
