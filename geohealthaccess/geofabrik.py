@@ -22,6 +22,7 @@ from geohealthaccess.exceptions import (
     OsmiumArgumentsError,
     OsmiumNotFound,
     OsmiumProcessingError,
+    MissingData,
 )
 from geohealthaccess.utils import download_from_url, human_readable_size
 
@@ -450,6 +451,25 @@ def _filter_columns(geodataframe, valid_columns):
     return geodataframe
 
 
+def count_osm_objects(osm_pbf):
+    """Count objects of each type in an .osm.pbf file."""
+    p = run(["osmium", "fileinfo", "-e", osm_pbf], stdout=PIPE)
+    fileinfo = p.stdout.decode()
+    n_objects = {"nodes": 0, "ways": 0, "relations": 0}
+    for line in fileinfo.split("\n"):
+        for obj in n_objects:
+            if f"Number of {obj}" in line:
+                n_objects[obj] = int(line.split(":")[-1])
+    return n_objects
+
+
+def osmpbf_is_empty(osm_pbf):
+    """Check if a given .osm.pbf is empty."""
+    count = count_osm_objects(osm_pbf)
+    n_objects = sum((n for n in count.values()))
+    return not bool(n_objects)
+
+
 def thematic_extract(osm_pbf, theme, dst_fname):
     """Extract a category of objects from an .osm.pbf file into a GeoPackage.
 
@@ -461,11 +481,17 @@ def thematic_extract(osm_pbf, theme, dst_fname):
         Category of objects to extract (roads, water, health or ferry).
     dst_fname : str
         Path to output GeoPackage.
-    
+
     Returns
     -------
     dst_fname : str
         Path to output GeoPackage.
+
+    Raises
+    ------
+    MissingData
+        If the input .osm.pbf file does not contain any feature related to
+        the selected theme.
     """
     if theme not in EXTRACTS:
         raise ValueError(
@@ -483,6 +509,11 @@ def thematic_extract(osm_pbf, theme, dst_fname):
         filtered = tags_filter(
             osm_pbf, os.path.join(tmpdir, "filtered.osm.pbf"), expression
         )
+
+        # Abort if .osm.pbf is empty
+        if osmpbf_is_empty(filtered):
+            raise MissingData(f"No {theme} features in {os.path.basename(osm_pbf)}.")
+
         intermediary = to_geojson(
             filtered, os.path.join(tmpdir, "intermediary.geojson")
         )
@@ -510,5 +541,3 @@ def thematic_extract(osm_pbf, theme, dst_fname):
         )
 
     return dst_fname
-
-
