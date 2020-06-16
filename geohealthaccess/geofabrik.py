@@ -184,7 +184,7 @@ def build_spatial_index(include=None, exclude=None):
         A whitelist of continents to parse.
     exclude : list, optional
         A blacklist of continents to not parse.
-    
+
     Returns
     -------
     spatial_index : GeoDataFrame
@@ -258,7 +258,7 @@ def get_spatial_index(overwrite=False):
         except PermissionError:
             log.warning("Unable to cache geofabrik spatial index.")
             pass
-    spatial_index = spatial_index[spatial_index.geometry != None]
+    spatial_index = spatial_index[spatial_index.geometry is not None]
     return spatial_index
 
 
@@ -308,7 +308,7 @@ def download_latest_data(region_id, dst_dir, overwrite=False):
         Path to output directory.
     overwrite : bool, optional
         Forces overwrite of existing files.
-    
+
     Returns
     -------
     osm_pbf : str
@@ -320,7 +320,6 @@ def download_latest_data(region_id, dst_dir, overwrite=False):
         log.exception(e)
     region = Region(region_id)
     url = region.latest
-    fname = url.split("/")[-1]
     log.info(f"Downloading latest OSM data for {region.name}.")
     with requests.Session() as s:
         osm_pbf = download_from_url(s, url, dst_dir, overwrite=overwrite)
@@ -330,7 +329,7 @@ def download_latest_data(region_id, dst_dir, overwrite=False):
 def tags_filter(osm_pbf, dst_fname, expression, overwrite=True):
     """Extract OSM objects from an input .osm.pbf file using an Osmium tags-filter
     expression (https://docs.osmcode.org/osmium/latest/osmium-tags-filter.html).
-    
+
     Parameters
     ----------
     osm_pbf : str
@@ -376,7 +375,7 @@ def to_geojson(osm_pbf, dst_fname, overwrite=True):
         Path to output .osm.pbf file.
     overwrite : bool, optional
         Overwrite existing file.
-    
+
     Returns
     -------
     dst_fname : str
@@ -411,7 +410,7 @@ EXTRACTS = {
         "geom_types": ["LineString", "Polygon", "MultiPolygon"],
     },
     "health": {
-        "expression": "nwr/amenity=clinic,doctors,hospital,dentist,pharmacy nwr/healthcare",
+        "expression": "nwr/amenity=clinic,doctors,hospital,pharmacy nwr/healthcare",
         "properties": ["amenity", "name", "healthcare", "dispensing", "description"],
         "geom_types": ["Point"],
     },
@@ -440,7 +439,6 @@ def _centroid(geom):
 
 def _filter_columns(geodataframe, valid_columns):
     """Filter columns of a given geodataframe."""
-    n_columns = len(geodataframe.columns)
     n_removed = 0
     for column in geodataframe.columns:
         if column not in valid_columns and column != "geometry":
@@ -525,7 +523,7 @@ def thematic_extract(osm_pbf, theme, dst_fname):
         # Convert Polygon or MultiPolygon features to Point
         if theme == "health":
             geodf["geometry"] = geodf.geometry.apply(_centroid)
-            log.info(f"Converted Polygon and MultiPolygon to Point features.")
+            log.info("Converted Polygon and MultiPolygon to Point features.")
 
         geodf = geodf[np.isin(geodf.geom_type, geom_types)]
         log.info(f"Removed objects with invalid geom types ({len(geodf)} remaining).")
