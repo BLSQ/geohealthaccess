@@ -1,13 +1,47 @@
-"""Helper functions for automatic data acquisition of the
-Copernicus Global Land Cover product.
-https://lcviewer.vito.be/
+"""Search and download tiles from the Copernicus Global Land Cover product.
+
+The module provides a `Tile` and a `Catalog` classes to search and download CGLC
+products based on an input shapely geometry. It also contains helper functions to
+make sense of CGLC files in a local directory.
+
+
+Examples
+--------
+Building the catalog::
+
+    from geohealthaccess import cglc
+    catalog = cglc.Catalog()
+
+Searching for tiles intersecting an area of interest::
+
+    tiles = catalog.search(area_of_interest)
+    for tile in tiles:
+        print(tile.id_)
+
+Downloading tiles::
+
+    for tile in tiles:
+        tile.download(output_dir)
+
+Notes
+-----
+See `<https://lcviewer.vito.be/>`_ for more information.
+
+Attributes
+----------
+CGLC_MANIFEST : str
+    A manifest text file keeps track of the URLs of all available CGLC tiles. This
+    is the default URL if none is provided by the user when building the catalog.
 """
+
 
 import logging
 import os
+from collections import namedtuple
 
 import geopandas as gpd
 import requests
+from requests_file import FileAdapter
 from rasterio.crs import CRS
 from shapely.geometry import Polygon
 
@@ -16,76 +50,258 @@ from geohealthaccess.utils import download_from_url
 log = logging.getLogger(__name__)
 
 # A manifest text file keeps track of all the URLs of the available tiles
-MANIFEST_URL = "https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/manifest_cgls_lc_v2_100m_global_2015.txt"
+CGLC_MANIFEST = (
+    "https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/"
+    "manifest_cgls_lc_v2_100m_global_2015.txt"
+)
 
 
-def tile_name(url):
-    """Extract tile name from URL."""
-    filename = url.split("/")[-1]
-    return filename.split("_")[0]
+class Tile:
+    """A single CGLC tile."""
+
+    def __init__(self, url):
+        """Initialize a CGLC tile.
+
+        Parameters
+        ----------
+        url : str
+            URL of the tile.
+        """
+        self.url = url
+
+    def __repr__(self):
+        return f'Tile(id="{self.id_}")'
+
+    @property
+    def id_(self):
+        """Tile ID extracted from its URL.
+
+        Returns
+        -------
+        str
+            Tile ID.
+        """
+        basename = self.url.split("/")[-1]
+        return basename.split("_")[0]
+
+    @property
+    def geom(self):
+        """Tile geometry as a shapely polygon."""
+        xmin = int(self.id_[1:4])
+        ymax = int(self.id_[5:7])
+        if self.id_[0] == "W":
+            xmin *= -1
+        if self.id_[4] == "S":
+            ymax *= -1
+        ymin = ymax - 20
+        xmax = xmin + 20
+        coords = ((xmin, ymax), (xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax))
+        return Polygon(coords)
+
+    def download(self, dst_dir, show_progress=True, overwrite=False):
+        """Download the CGLC tile.
+
+        Parameters
+        ----------
+        dst_dir : str
+            Path to output directory. Filename will be guessed from the URL.
+        show_progress : bool, optional
+            Show the download progress bar.
+        overwrite : bool, optional
+            Force overwrite of existing data.
+
+        Returns
+        -------
+        fname : str
+            Local path to downloaded file.
+        """
+        with requests.Session() as s:
+            fname = download_from_url(
+                s, self.url, dst_dir, show_progress=show_progress, overwrite=overwrite
+            )
+        return fname
 
 
-def to_geom(name):
-    """Convert a given land cover tile name to a geometry.
-    Tile name is composed of the 3-digit longitude and 2-digit
-    latitude of the top-left corner (example: "W180N80").
+class Catalog:
+    """A catalog of all available CGLC tiles."""
+
+    def __init__(self, url=None):
+        """Initialize catalog.
+
+        Parameters
+        ----------
+        url : str, optional
+            URL to the CGLC manifest text file. A default one is provided.
+        """
+        self.url = url
+        if self.url is None:
+            self.url = CGLC_MANIFEST
+        self.tiles = self.build()
+        log.info(f"CGLC catalog has been built ({len(self.tiles)} tiles).")
+
+    def __repr__(self):
+        return f'Catalog(url="{self.url}")'
+
+    @staticmethod
+    def parse_manifest(url):
+        """Parse manifest text file.
+
+        Parameters
+        ----------
+        url : str
+            URL of the manifest.
+
+        Returns
+        -------
+        list of tiles
+            A list of all the available CGLC tiles as ``Tile()`` objects.
+
+        Raises
+        ------
+        HTTPError
+            If connection to manifest URL is not sucessfull.
+        """
+        log.info(f"Parsing CGLC manifest from {url}.")
+        s = requests.Session()
+        s.mount("file://", FileAdapter())
+        r = s.get(url)
+        r.raise_for_status()
+        return [Tile(url) for url in r.text.split("\r\n") if url]
+
+    def build(self):
+        """Build the catalog from the Manifest text file.
+
+        Returns
+        -------
+        geodataframe
+            GeoDataFrame version of the catalog with tile IDs, URL and geometry.
+        """
+        tiles = self.parse_manifest(self.url)
+        return gpd.GeoDataFrame(
+            index=[tile.id_ for tile in tiles],
+            data=[tile.url for tile in tiles],
+            columns=["url"],
+            geometry=[tile.geom for tile in tiles],
+            crs=CRS.from_epsg(4326),
+        )
+
+    def search(self, geom):
+        """Search the CGLC tiles required to cover a given geometry.
+
+        Parameters
+        ----------
+        geom : shapely geometry
+            Area of interest.
+
+        Returns
+        -------
+        list of tiles
+            Required CGLC tiles as ``Tile`` objects.
+        """
+        required = self.tiles[self.tiles.intersects(geom)]
+        log.info(f"Found {len(required)} CGLC tiles.")
+        return list(required.url.apply(Tile))
+
+
+def parse_filename(path):
+    """Parse a CGLC filename.
+
+    Parameters
+    ----------
+    path : str
+        Path to CGLC file.
+
+    Returns
+    -------
+    layer : namedtuple
+        Parsed filename as a namedtuple.
     """
-    xmin = int(name[1:4])
-    ymax = int(name[5:7])
-    if name[0] == "W":
-        xmin *= -1
-    if name[4] == "S":
-        ymax *= -1
-    ymin = ymax - 20
-    xmax = xmin + 20
-    coords = ((xmin, ymax), (xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax))
-    return Polygon(coords)
+    fname = os.path.basename(path)
+    parts = fname.split("_")
+    if len(parts) != 8:
+        raise ValueError("Not a CGLC file.")
+    if not fname.lower().endswith(".tif"):
+        raise ValueError("Not a GeoTIFF file.")
 
-
-def build_tiles_index():
-    """Build the tiles index as a geodataframe."""
-    # Build a list of URLs
-    urls = requests.get(MANIFEST_URL).text.split("\r\n")
-    # Ignore empty URLs
-    urls = [url for url in urls if url]
-    # Build the geodataframe
-    tiles = gpd.GeoDataFrame(
-        index=[tile_name(url) for url in urls], crs=CRS.from_epsg(4326)
+    parts = fname.split("_")
+    Layer = namedtuple("Layer", ["path", "name", "tile", "epoch", "version"])
+    return Layer(
+        path=os.path.abspath(path),
+        name=parts[6],
+        tile=parts[0],
+        epoch=int(parts[3][-4:]),
+        version=parts[5],
     )
-    tiles["url"] = urls
-    tiles["geometry"] = [to_geom(name) for name in tiles.index]
-    log.info(f"CGLC tiles index has been built ({len(tiles)} records).")
-    return tiles
 
 
-def required_tiles(geom):
-    """Get the URLs of the tiles required to cover a given
-    area of interest.
+def _is_cglc(fname):
+    """Check if a filename can be a CGLC raster."""
+    if len(fname.split("_")) != 8:
+        return False
+    if not fname.lower().endswith(".tif") or "_ProbaV_LC100_" not in fname:
+        return False
+    return True
+
+
+def unique_tiles(directory):
+    """List unique CGLC tiles in a local directory.
+
+    Parameters
+    ----------
+    directory : str
+        Path to directory with CGLC files.
+
+    Returns
+    -------
+    list of str
+        List of unique tile IDs.
     """
-    tiles_index = build_tiles_index()
-    tiles = tiles_index[tiles_index.intersects(geom)]
-    log.info(f"{len(tiles)} CGLC tiles required to cover the area of interest.")
-    return list(tiles.url)
+    files = [f for f in os.listdir(directory) if _is_cglc(f)]
+    tiles = [f.split("_")[0] for f in files]
+    unique = list(set(tiles))
+    log.info(f"Found {len(unique)} unique CGLC tiles.")
+    return unique
 
 
-def download(geom, output_dir, overwrite=False):
-    """Download all the CGLC tiles required to cover the area of interest."""
-    tiles = required_tiles(geom)
-    with requests.Session() as s:
-        for tile in tiles:
-            download_from_url(s, tile, output_dir, overwrite=overwrite)
-    return output_dir
+def list_layers(directory, tile):
+    """List available layers for a given tile ID.
 
+    Parameters
+    ----------
+    directory : str
+        Directory with CGLC files.
+    tile : str
+        Tile ID.
 
-def coverfraction_layers(data_dir):
-    """Get the list of tuples (layer_name, file_name) corresponding to each
-    available layer.
+    Returns
+    -------
+    list of str
+        List of layer names.
     """
-    layers = []
-    for fname in os.listdir(data_dir):
-        if "coverfraction" in fname and fname.endswith(".tif"):
-            file_name = os.path.join(data_dir, fname)
-            layer_name = fname.split("-")[0]
-            layers.append((layer_name, file_name))
-    log.info(f"Found {len(layers)} CGLC coverfraction layers.")
-    return layers
+    files = [f for f in os.listdir(directory) if _is_cglc(f) and f.startswith(tile)]
+    return [f.split("_")[6] for f in files]
+
+
+def find_layer(directory, tile, name):
+    """Find a CGLC layer in a local directory.
+
+    Parameters
+    ----------
+    directory : str
+        Path to directory with CGLC files.
+    tile : str
+        Tile ID.
+    name : str
+        Layer name (e.g. ``grass-coverfraction-layer`` or ``discrete-classification``).
+
+    Returns
+    -------
+    str
+        Path to CGLC layer.
+    """
+    files = [f for f in os.listdir(directory) if _is_cglc(f)]
+    for f in files:
+        if f.startswith(tile) and f.split("_")[6] == name:
+            return os.path.join(directory, f)
+    log.warning(f"Layer {name} not found.")
+    return None

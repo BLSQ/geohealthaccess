@@ -1,152 +1,148 @@
 import os
 import tempfile
 
+import geopandas as gpd
 import pytest
+from pkg_resources import resource_filename
 from shapely import wkt
 
 from geohealthaccess import cglc
 
 
-def test_tile_name():
-    URL = (
-        "https://s3-eu-west-1.amazonaws.com/vito.landcover.global/2015/"
-        "E000N40_ProbaV_LC100_epoch2015_global_v2.0.2_products_EPSG-4326.zip"
+def resource_to_url(resource):
+    """Get file:// url corresponding to a given pkg resource."""
+    fname = resource_filename(__name__, resource)
+    return f"file://{fname}"
+
+
+@pytest.fixture(scope="module")
+def tile():
+    """Return an initialized CGLC Tile."""
+    return cglc.Tile(
+        "https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/"
+        "E000N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip"
     )
-    assert cglc.tile_name(URL) == "E000N40"
 
 
-@pytest.mark.parametrize(
-    "name, expected_geom",
-    [
-        ("E000N00", "POLYGON ((0.0 0.0, 0.0 -20.0, 20.0 -20.0, 20.0 0.0, 0.0 0.0))"),
-        (
-            "W080S40",
-            "POLYGON ((-80.0 -40.0, -80.0 -60.0, -60.0 -60.0, -60.0 -40.0, -80.0 -40.0))",
-        ),
-        (
-            "E160N80",
-            "POLYGON ((160.0 80.0, 160.0 60.0, 180.0 60.0, 180.0 80.0, 160.0 80.0))",
-        ),
-    ],
-)
-def test_to_geom(name, expected_geom):
-    geom = cglc.to_geom(name)
-    expected_geom = wkt.loads(expected_geom)
-    assert geom.almost_equals(expected_geom, decimal=1)
+@pytest.fixture(scope="module")
+def catalog():
+    """Return a CGLC Catalog initialized with a local manifest file."""
+    return cglc.Catalog(resource_to_url("data/cglc-manifest.txt"))
 
 
-def test_build_tiles_index():
-    tilename = "E160N80"
-    expected_geom = wkt.loads(
-        "POLYGON ((160.0 80.0, 160.0 60.0, 180.0 60.0, 180.0 80.0, 160.0 80.0))"
-    )
-    tiles = cglc.build_tiles_index()
-    url = tiles.loc[tilename].url
-    geom = tiles.loc[tilename].geometry
-    assert url.startswith("https://")
-    assert url.endswith(".zip")
-    assert geom.almost_equals(expected_geom, decimal=1)
+def test_tile_id(tile):
+    assert tile.id_ == "E000N20"
 
 
-def test_required_tiles():
-    # This is a simplified polygon of Madagascar
-    MDG_SIMPLIFIED = """MULTIPOLYGON (
-        ((49.84 -17.07, 49.86 -16.92, 50.02 -16.69, 49.96 -16.86, 49.84 -17.07)),
-        ((48.32 -13.25, 48.37 -13.40, 48.22 -13.39, 48.19 -13.26, 48.32 -13.25)),
-        ((49.35 -12.09, 50.48 -15.44, 47.13 -24.93, 45.15 -25.60, 43.22 -22.25,
-        43.93 -17.48, 49.35 -12.09)))"""
-    geom = wkt.loads(MDG_SIMPLIFIED)
-    tiles = cglc.required_tiles(geom)
-    assert len(tiles) == 2
-    for url in tiles:
-        assert url.startswith("https://")
-        assert url.endswith(".zip")
-
-
-# List of files for Madagascar
-LISTDIR = [
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-StdDev_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-StdDev_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_DataDensityIndicator_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-layer_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_water-permanent-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-StdDev_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-StdDev_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification-proba_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-layer_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_snow-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-StdDev_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-StdDev_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification-proba_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-StdDev_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_water-seasonal-coverfraction-layer_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_water-seasonal-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_forest-type-layer_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_discrete-classification_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-StdDev_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-StdDev_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_water-permanent-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_DataDensityIndicator_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-StdDev_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_forest-type-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-layer_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_urban-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_snow-coverfraction-layer_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-layer_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-StdDev_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_urban-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_bare-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-StdDev_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_tree-coverfraction-layer_EPSG-4326.tif",
-    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_moss-coverfraction-layer_EPSG-4326.tif",
-    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_shrub-coverfraction-layer_EPSG-4326.tif",
-]
-
-
-def _touch(filename):
-    """Create empty file."""
-    open(filename, "a").close()
-
-
-def test_coverfraction_layers():
-    # Create temp dir with empty files from LISTDIR
-    with tempfile.TemporaryDirectory() as tmpdir:
-        for f in LISTDIR:
-            open(os.path.join(tmpdir, f), "a").close()
-        layers = cglc.coverfraction_layers(tmpdir)
-    assert len(layers) == 32
+def test_tile_geom(tile):
+    assert tile.geom == wkt.loads("POLYGON ((0 20, 0 0, 20 0, 20 20, 0 20))")
 
 
 @pytest.mark.http
-def test_download():
-    # This a simplified geometry of Tonga
-    TONGA = (
-        "POLYGON ("
-        "(-175.32 -21.12, -175.22 -21.17, -175.05 -21.15, -175.15 -21.27, "
-        "-175.33 -21.17, -175.36 -21.11, -175.31 -21.06, -175.32 -21.12))"
+def test_tile_download():
+    tile = cglc.Tile(
+        "https://s3-eu-west-1.amazonaws.com/vito.landcover.global/2015/"
+        "W180N40_ProbaV_LC100_epoch2015_global_v2.0.2_products_EPSG-4326.zip"
     )
-    geom = wkt.loads(TONGA)
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-
-        # Get expected file path
-        url = cglc.required_tiles(geom)[0]
-        fname = os.path.join(tmpdir, url.split("/")[-1])
-
-        # Simple download
-        outputdir = cglc.download(geom, tmpdir, overwrite=False)
+        fname = tile.download(tmpdir, show_progress=False, overwrite=False)
         mtime = os.path.getmtime(fname)
-        assert os.path.isfile(os.path.join(tmpdir, fname))
+        assert os.path.isfile(fname)
 
-        # Should not be downloaded again
-        cglc.download(geom, tmpdir, overwrite=False)
+        # tile should not be downloaded again
+        tile.download(tmpdir, show_progress=False, overwrite=False)
         assert os.path.getmtime(fname) == mtime
 
-        # Should be download again
-        cglc.download(geom, tmpdir, overwrite=True)
+        # tile should be downloaded again
+        tile.download(tmpdir, show_progress=False, overwrite=True)
         assert os.path.getmtime(fname) != mtime
+
+
+def test_parse_manifest(catalog):
+    tiles = catalog.parse_manifest(catalog.url)
+    assert len(tiles) == 94
+    for tile in tiles:
+        assert isinstance(tile, cglc.Tile)
+        assert tile.url
+        assert tile.id_
+        assert tile.geom
+
+
+def test_parse_build(catalog):
+    sindex = catalog.build()
+    assert isinstance(sindex, gpd.GeoDataFrame)
+    assert len(sindex) == 94
+    assert sindex.index[0] == "E000N00"
+    assert sindex.is_valid.all()
+
+
+def test_search(catalog, senegal):
+    tiles = catalog.search(senegal)
+    assert len(tiles) == 1
+    assert tiles[0].id_ == "W020N20"
+
+
+def test_parse_filename():
+    FNAME = (
+        "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1"
+        "_grass-coverfraction-StdDev_EPSG-4326.tif"
+    )
+    layer = cglc.parse_filename(FNAME)
+    assert layer.name == "grass-coverfraction-StdDev"
+    assert layer.tile == "E040N00"
+    assert layer.epoch == 2015
+    assert layer.version == "v2.0.1"
+
+
+def test_is_cglc():
+    FNAME1 = (
+        "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1"
+        "_grass-coverfraction-StdDev_EPSG-4326.tif"
+    )
+    FNAME2 = (
+        "E040N00_ProbaV_LC100_epoch2015"
+        "_grass-coverfraction-StdDev_EPSG-4326.tif"
+    )
+    assert cglc._is_cglc(FNAME1)
+    assert not cglc._is_cglc(FNAME2)
+
+
+FNAMES = [
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-StdDev_EPSG-4326.tif",
+    "E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_crops-coverfraction-layer_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-layer_EPSG-4326.tif",
+    "E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_grass-coverfraction-StdDev_EPSG-4326.tif",
+]
+
+
+def test_unique_tiles():
+    # create temporary dir with empty files named after FNAMES
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
+        for fname in FNAMES:
+            open(os.path.join(tmpdir, fname), "a").close()
+        unique = cglc.unique_tiles(tmpdir)
+        assert len(unique) == 2
+        assert "E040N00" in unique and "E040S20" in unique
+
+
+def test_list_layers():
+    # create temporary dir with empty files named after FNAMES
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
+        for fname in FNAMES:
+            open(os.path.join(tmpdir, fname), "a").close()
+        layernames = cglc.list_layers(tmpdir, "E040S20")
+        print(layernames)
+        assert len(layernames) == 2
+        assert "grass-coverfraction-layer" in layernames
+        assert "grass-coverfraction-StdDev" in layernames
+
+
+def test_find_layer():
+    # create temporary dir with empty files named after FNAMES
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
+        for fname in FNAMES:
+            open(os.path.join(tmpdir, fname), "a").close()
+        layerpath = cglc.find_layer(tmpdir, "E040S20", "grass-coverfraction-layer")
+        assert os.path.isfile(layerpath)
+        assert "grass-coverfraction-layer" in os.path.basename(layerpath)
