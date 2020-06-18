@@ -152,5 +152,5 @@ def download(geom, output_dir, username, password, show_progress=True,
         for tile in tiles:
             url = DOWNLOAD_URL + tile
             download_from_url(
-                session, url, output_dir, show_progress, overwrite=True)
+                session, url, output_dir, show_progress, overwrite=overwrite)
     return tiles
