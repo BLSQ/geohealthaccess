@@ -38,7 +38,7 @@ def build_url(country, year):
         Country ISO A3 code (example: 'COD').
     year : int
         Year of interest (between 2000 and 2020).
-    
+
     Returns
     -------
     remote_path : tuple of str
@@ -64,7 +64,7 @@ def download(country, output_dir, year=None, overwrite=False):
         latest year available is used.
     overwrite : bool, optional
         Force overwrite of existing data.
-    
+
     Returns
     -------
     local_path : str
@@ -102,7 +102,7 @@ def _clean_datadir(directory):
     """
     rasters = [f for f in os.listdir(directory) if f.lower().endswith(".tif")]
     if len(rasters) <= 1:
-        log.info(f"Data directory does not require cleaning.")
+        log.info("Data directory does not require cleaning.")
         return
 
     # Make a summary of all years available for each prefix/suffix combination
