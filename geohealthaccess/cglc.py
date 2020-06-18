@@ -98,13 +98,15 @@ class Tile:
         coords = ((xmin, ymax), (xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax))
         return Polygon(coords)
 
-    def download(self, dst_dir, show_progress=True, overwrite=False):
+    def download(self, dst_dir, session=None, show_progress=True, overwrite=False):
         """Download the CGLC tile.
 
         Parameters
         ----------
         dst_dir : str
             Path to output directory. Filename will be guessed from the URL.
+        session : requests session, optional
+            Use an existing requests session.
         show_progress : bool, optional
             Show the download progress bar.
         overwrite : bool, optional
@@ -115,10 +117,23 @@ class Tile:
         fname : str
             Local path to downloaded file.
         """
-        with requests.Session() as s:
+        if session:
             fname = download_from_url(
-                s, self.url, dst_dir, show_progress=show_progress, overwrite=overwrite
+                session,
+                self.url,
+                dst_dir,
+                show_progress=show_progress,
+                overwrite=overwrite,
             )
+        else:
+            with requests.Session() as s:
+                fname = download_from_url(
+                    s,
+                    self.url,
+                    dst_dir,
+                    show_progress=show_progress,
+                    overwrite=overwrite,
+                )
         return fname
 
 
