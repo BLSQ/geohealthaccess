@@ -17,13 +17,6 @@ directory `output_dir`::
 Notes
 -----
 See `<https://lcviewer.vito.be/>`_ for more information.
-
-Attributes
-----------
-CGLC_MANIFEST : str
-    A manifest text file keeps track of the URLs of all available CGLC tiles.
-    This is the default URL if none is provided by the user when building the
-    catalog.
 """
 
 
