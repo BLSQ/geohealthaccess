@@ -1,27 +1,18 @@
 """Search and download tiles from the Copernicus Global Land Cover product.
 
-The module provides a `Tile` and a `Catalog` classes to search and download CGLC
-products based on an input shapely geometry. It also contains helper functions to
-make sense of CGLC files in a local directory.
-
+The module provides a `CGLC` class to search and download CGLC products based on
+an input shapely geometry. It also contains helper functions to make sense of
+CGLC files in a local directory.
 
 Examples
 --------
-Building the catalog::
+Downloading all CGLC tiles that intersect an area of interest `geom` into a
+directory `output_dir`::
 
-    from geohealthaccess import cglc
-    catalog = cglc.Catalog()
-
-Searching for tiles intersecting an area of interest::
-
-    tiles = catalog.search(area_of_interest)
+    cglc = CGLC()
+    tiles = cglc.search(geom)
     for tile in tiles:
-        print(tile.id_)
-
-Downloading tiles::
-
-    for tile in tiles:
-        tile.download(output_dir)
+        cglc.download(tile, output_dir)
 
 Notes
 -----
@@ -30,8 +21,9 @@ See `<https://lcviewer.vito.be/>`_ for more information.
 Attributes
 ----------
 CGLC_MANIFEST : str
-    A manifest text file keeps track of the URLs of all available CGLC tiles. This
-    is the default URL if none is provided by the user when building the catalog.
+    A manifest text file keeps track of the URLs of all available CGLC tiles.
+    This is the default URL if none is provided by the user when building the
+    catalog.
 """
 
 
@@ -45,117 +37,71 @@ from requests_file import FileAdapter
 from rasterio.crs import CRS
 from shapely.geometry import Polygon
 
-from geohealthaccess.utils import download_from_url
+from geohealthaccess.utils import download_from_url, size_from_url
 
 log = logging.getLogger(__name__)
 
-# A manifest text file keeps track of all the URLs of the available tiles
-CGLC_MANIFEST = (
-    "https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/"
-    "manifest_cgls_lc_v2_100m_global_2015.txt"
-)
+
+def tile_id(url):
+    """Extract tile ID from its URL.
+
+    Returns
+    -------
+    str
+        Tile ID.
+    """
+    basename = url.split("/")[-1]
+    return basename.split("_")[0]
 
 
-class Tile:
-    """A single CGLC tile."""
+def tile_geom(id_):
+    """Get tile geometry from its ID.
 
-    def __init__(self, url):
-        """Initialize a CGLC tile.
+    Returns
+    -------
+    Polygon
+        Shapely geometry of the tile.
+    """
+    xmin = int(id_[1:4])
+    ymax = int(id_[5:7])
+    if id_[0] == "W":
+        xmin *= -1
+    if id_[4] == "S":
+        ymax *= -1
+    ymin = ymax - 20
+    xmax = xmin + 20
+    coords = ((xmin, ymax), (xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax))
+    return Polygon(coords)
+
+
+class CGLC:
+    """A catalog of all available CGLC tiles.
+
+    Attributes
+    ----------
+    MANIFEST_URL : str
+        URL to the manifest text file that is used to create the spatial index.
+    """
+
+    def __init__(self, build_index=True):
+        """Initialize CGLC catalog.
 
         Parameters
         ----------
-        url : str
-            URL of the tile.
+        build_index : bool, optional
+            Build the spatial index. Requires the manifest URL to be reachable.
         """
-        self.url = url
+        self.MANIFEST_URL = (
+            "https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/"
+            "manifest_cgls_lc_v2_100m_global_2015.txt"
+        )
+        self.session = requests.Session()
+        self.session.mount("file://", FileAdapter())
+        if build_index:
+            self.sindex = self.spatial_index()
 
     def __repr__(self):
-        return f'Tile(id="{self.id_}")'
-
-    @property
-    def id_(self):
-        """Tile ID extracted from its URL.
-
-        Returns
-        -------
-        str
-            Tile ID.
-        """
-        basename = self.url.split("/")[-1]
-        return basename.split("_")[0]
-
-    @property
-    def geom(self):
-        """Tile geometry as a shapely polygon."""
-        xmin = int(self.id_[1:4])
-        ymax = int(self.id_[5:7])
-        if self.id_[0] == "W":
-            xmin *= -1
-        if self.id_[4] == "S":
-            ymax *= -1
-        ymin = ymax - 20
-        xmax = xmin + 20
-        coords = ((xmin, ymax), (xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax))
-        return Polygon(coords)
-
-    def download(self, dst_dir, session=None, show_progress=True, overwrite=False):
-        """Download the CGLC tile.
-
-        Parameters
-        ----------
-        dst_dir : str
-            Path to output directory. Filename will be guessed from the URL.
-        session : requests session, optional
-            Use an existing requests session.
-        show_progress : bool, optional
-            Show the download progress bar.
-        overwrite : bool, optional
-            Force overwrite of existing data.
-
-        Returns
-        -------
-        fname : str
-            Local path to downloaded file.
-        """
-        if session:
-            fname = download_from_url(
-                session,
-                self.url,
-                dst_dir,
-                show_progress=show_progress,
-                overwrite=overwrite,
-            )
-        else:
-            with requests.Session() as s:
-                fname = download_from_url(
-                    s,
-                    self.url,
-                    dst_dir,
-                    show_progress=show_progress,
-                    overwrite=overwrite,
-                )
-        return fname
-
-
-class Catalog:
-    """A catalog of all available CGLC tiles."""
-
-    def __init__(self, url=None):
-        """Initialize catalog.
-
-        Parameters
-        ----------
-        url : str, optional
-            URL to the CGLC manifest text file. A default one is provided.
-        """
-        self.url = url
-        if self.url is None:
-            self.url = CGLC_MANIFEST
-        self.tiles = self.build()
-        log.info(f"CGLC catalog has been built ({len(self.tiles)} tiles).")
-
-    def __repr__(self):
-        return f'Catalog(url="{self.url}")'
+        return "geohealthaccess.cglc.CGLC()"
 
     @staticmethod
     def parse_manifest(url):
@@ -181,24 +127,26 @@ class Catalog:
         s.mount("file://", FileAdapter())
         r = s.get(url)
         r.raise_for_status()
-        return [Tile(url) for url in r.text.split("\r\n") if url]
+        return [url for url in r.text.split("\r\n") if url]
 
-    def build(self):
-        """Build the catalog from the Manifest text file.
+    def spatial_index(self):
+        """Build a spatial index from the Manifest text file.
 
         Returns
         -------
         geodataframe
             GeoDataFrame version of the catalog with tile IDs, URL and geometry.
         """
-        tiles = self.parse_manifest(self.url)
-        return gpd.GeoDataFrame(
-            index=[tile.id_ for tile in tiles],
-            data=[tile.url for tile in tiles],
+        tiles = self.parse_manifest(self.MANIFEST_URL)
+        sindex = gpd.GeoDataFrame(
+            index=[tile_id(tile) for tile in tiles],
+            data=tiles,
             columns=["url"],
-            geometry=[tile.geom for tile in tiles],
+            geometry=[tile_geom(tile_id(tile)) for tile in tiles],
             crs=CRS.from_epsg(4326),
         )
+        log.info(f"CGLC spatial index has been built ({len(sindex)} tiles).")
+        return sindex
 
     def search(self, geom):
         """Search the CGLC tiles required to cover a given geometry.
@@ -210,12 +158,50 @@ class Catalog:
 
         Returns
         -------
-        list of tiles
-            Required CGLC tiles as ``Tile`` objects.
+        list of namedtuples
+            Required CGLC tiles as namedtuples.
         """
-        required = self.tiles[self.tiles.intersects(geom)]
-        log.info(f"Found {len(required)} CGLC tiles.")
-        return list(required.url.apply(Tile))
+        tiles = self.sindex[self.sindex.intersects(geom)].index
+        log.info(f"{len(tiles)} CGLC tiles required to cover the area of interest.")
+        return tiles
+
+    def download(self, tile, output_dir, show_progress=True, overwrite=False):
+        """Download a CGLC tile.
+
+        Parameters
+        ----------
+        tile : str
+            CGLC tile ID.
+        output_dir : str
+            Path to output directory.
+        show_progress : bool, optional
+            Show download progress bar.
+        overwrite : bool, optional
+            Force overwrite of existing files.
+
+        Returns
+        -------
+        str
+            Path to output file.
+        """
+        url = self.sindex.url[tile]
+        return download_from_url(self.session, url, output_dir, show_progress, overwrite)
+
+    def download_size(self, tile):
+        """Get download size of a tile.
+
+        Parameters
+        ----------
+        tile : str
+            CGLC tile ID.
+
+        Returns
+        -------
+        int
+            Size in bytes.
+        """
+        url = self.sindex.url[tile]
+        return size_from_url(self.session, url)
 
 
 def parse_filename(path):
