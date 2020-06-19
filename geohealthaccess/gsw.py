@@ -36,6 +36,7 @@ from shapely.geometry import Polygon
 
 from geohealthaccess.utils import download_from_url, size_from_url
 
+
 log = logging.getLogger(__name__)
 
 

@@ -19,7 +19,6 @@ Notes
 See `<https://lcviewer.vito.be/>`_ for more information.
 """
 
-
 import logging
 import os
 from collections import namedtuple
@@ -31,6 +30,7 @@ from rasterio.crs import CRS
 from shapely.geometry import Polygon
 
 from geohealthaccess.utils import download_from_url, size_from_url
+
 
 log = logging.getLogger(__name__)
 
@@ -178,7 +178,9 @@ class CGLC:
             Path to output file.
         """
         url = self.sindex.url[tile]
-        return download_from_url(self.session, url, output_dir, show_progress, overwrite)
+        return download_from_url(
+            self.session, url, output_dir, show_progress, overwrite
+        )
 
     def download_size(self, tile):
         """Get download size of a tile.
