@@ -1,45 +1,79 @@
+"""Tests for SRTM module."""
+
+import os
+import tempfile
+
 import pytest
-import requests
-from shapely import wkt
 
-from geohealthaccess import srtm
-
-# A simplified geometry of Madagascar
-MADAGASCAR = (
-    "POLYGON ("
-    "(49.35 -12.09, 49.94 -13.03, 50.48 -15.44, 50.17 -15.98, 49.90 -15.42, "
-    "49.64 -15.54, 49.84 -16.83, 47.13 -24.93, 45.15 -25.60, 44.03 -25.00, "
-    "43.22 -22.25, 44.48 -19.96, 43.93 -17.48, 44.45 -16.19, 46.14 -15.70, "
-    "46.47 -15.96, 46.33 -15.63, 46.95 -15.20, 46.96 -15.55, 47.23 -15.43, "
-    "47.44 -14.67, 47.43 -15.11, 47.80 -14.57, 48.00 -14.76, 47.70 -14.45, "
-    "48.03 -14.26, 47.90 -13.60, 48.30 -13.80, 48.78 -13.38, 48.73 -12.43, "
-    "49.35 -12.09))"
-)
-
-# A simplified geometry of Tonga
-TONGA = (
-    "POLYGON ("
-    "(-175.32 -21.12, -175.22 -21.17, -175.05 -21.15, -175.15 -21.27, -175.32 -21.12))"
-)
+from geohealthaccess.srtm import SRTM
 
 
-@pytest.mark.parametrize("geom, ntiles", [(MADAGASCAR, 72), (TONGA, 1)])
-def test_required_tiles(geom, ntiles):
-    tiles = srtm.required_tiles(wkt.loads(geom))
-    assert len(tiles) == ntiles
-    for tile in tiles:
-        assert tile.endswith(".hgt.zip")
+@pytest.fixture(scope="module")
+def srtm():
+    """Authentified EarthData session."""
+    srtm_ = SRTM()
+    srtm_.authentify(
+        os.environ.get("EARTHDATA_USERNAME"), os.environ.get("EARTHDATA_PASSWORD")
+    )
+    return srtm_
 
 
-@pytest.mark.http
-def test_find_authenticity_token():
-    with requests.Session() as s:
-        r = s.get(srtm.HOMEPAGE_URL)
-        token = srtm.find_authenticity_token(r.text)
-    assert len(token) == 88
+@pytest.mark.remote
+def test_srtm_authenticity_token():
+    srtm = SRTM()
+    assert srtm.authenticity_token
+    assert srtm.authenticity_token.endswith("==")
 
 
-def test__expected_filename():
-    TILE_NAME = "S16E048.SRTMGL1.hgt.zip"
-    EXPECTED_FILE_NAME = "S16E048.hgt"
-    assert srtm._expected_filename(TILE_NAME) == EXPECTED_FILE_NAME
+@pytest.mark.remote
+def test_srtm_authentify():
+    srtm = SRTM()
+    srtm.authentify(
+        os.environ.get("EARTHDATA_USERNAME"), os.environ.get("EARTHDATA_PASSWORD")
+    )
+
+
+@pytest.mark.remote
+def test_srtm_logged_in(srtm):
+    srtm_ = SRTM()
+    assert not srtm_.logged_in
+    assert srtm.logged_in
+
+
+def test_srtm_spatial_index():
+    srtm = SRTM()
+    sindex = srtm.spatial_index()
+    assert len(sindex) == 14295
+    assert sindex.is_valid.all()
+    assert "S56W070.SRTMGL1.hgt.zip" in sindex.dataFile.values
+
+
+def test_srtm_search(senegal, madagascar):
+    srtm = SRTM()
+    sen_tiles = srtm.search(senegal)
+    mdg_tiles = srtm.search(madagascar)
+    assert len(sen_tiles) == 29
+    assert len(mdg_tiles) == 75
+    assert sorted(mdg_tiles)[0] == "S12E049.SRTMGL1.hgt.zip"
+    assert sorted(sen_tiles)[0] == "N12W012.SRTMGL1.hgt.zip"
+
+
+@pytest.mark.remote
+def test_srtm_download(srtm):
+    TILE = "N12W012.SRTMGL1.hgt.zip"
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
+        fpath = srtm.download(TILE, tmpdir)
+        assert os.path.isfile(fpath)
+        mtime = os.path.getmtime(fpath)
+        # should not be downloaded again
+        srtm.download(TILE, tmpdir, overwrite=False)
+        assert os.path.getmtime(fpath) == mtime
+        # should be downloaded again
+        srtm.download(TILE, tmpdir, overwrite=True)
+        assert os.path.getmtime(fpath) != mtime
+
+
+@pytest.mark.remote
+def test_srtm_download_size(srtm):
+    TILE = "N12W012.SRTMGL1.hgt.zip"
+    assert srtm.download_size(TILE) == 10087801

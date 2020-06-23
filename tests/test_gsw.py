@@ -1,86 +1,83 @@
+"""Tests for GSW module."""
+
 import os
 import tempfile
 
 import pytest
-from shapely import wkt
-from shapely.geometry import Polygon
 
-from geohealthaccess import gsw
+from geohealthaccess.gsw import GSW
 
 
-def test_build_url():
-    EXPECTED = "https://storage.googleapis.com/global-surface-water/downloads2/occurrence/occurrence_180W_30S_v1_1.tif"
-    assert gsw.build_url("occurrence", "180W_30S") == EXPECTED
+@pytest.fixture(scope="module")
+def gsw():
+    return GSW()
 
 
-@pytest.mark.parametrize(
-    "lon, lat, expected",
-    [(-180, -30, "180W_30S"), (0, 90, "0E_90N"), (-90, 60, "90W_60N")],
-)
-def test_generate_location_id(lon, lat, expected):
-    assert gsw.generate_location_id(lon, lat) == expected
+def test_gsw_checkproduct(gsw):
+    with pytest.raises(ValueError):
+        gsw._checkproduct("random_product_name")
 
 
 @pytest.mark.parametrize(
-    "location_id, expected_geom",
+    "lat, lon, locid",
     [
-        (
-            "180W_30S",
-            "POLYGON ((-180.0 -30.0, -180.0 -40.0, -170.0 -40.0, -170.0 -30.0, -180.0 -30.0))",
-        ),
-        ("0E_90N", "POLYGON ((0.0 90.0, 0.0 80.0, 10.0 80.0, 10.0 90.0, 0.0 90.0))",),
-        (
-            "90W_60N",
-            "POLYGON ((-90.0 60.0, -90.0 50.0, -80.0 50.0, -80.0 60.0, -90.0 60.0))",
-        ),
+        (40, 30, "30E_40N"),
+        (40.1, 30.1, "30E_50N"),
+        (-40.1, 30.1, "30E_40S"),
+        (-0.1, 0.1, "0E_0N"),
     ],
 )
-def test_to_geom(location_id, expected_geom):
-    expected_geom = wkt.loads(expected_geom)
-    assert gsw.to_geom(location_id).almost_equals(expected_geom, decimal=1)
+def test_gsw_location_id(gsw, lat, lon, locid):
+    assert gsw.location_id(lat, lon) == locid
 
 
-def test_build_tiles_index():
-    idx = gsw.build_tiles_index()
-    assert len(idx) == 648
-    assert isinstance(idx.geometry[0], Polygon)
+def test_gsw_spatial_index(gsw):
+    assert len(gsw.sindex) == 504
+    assert "50E_50N" in gsw.sindex.index
+    assert gsw.sindex.is_valid.all()
+    assert gsw.sindex.unary_union.bounds == (-180, -60, 180, 80)
 
 
-MADAGASCAR = (
-    "MULTIPOLYGON ("
-    "((49.8 -17.1, 49.9 -16.9, 50.0 -16.7, 50.0 -16.9, 49.8 -17.1)), "
-    "((48.3 -13.3, 48.4 -13.4, 48.2 -13.4, 48.2 -13.3, 48.3 -13.3)), "
-    "((49.4 -12.1, 50.5 -15.4, 47.1 -24.9, 45.1 -25.6, 43.2 -22.3, 43.9 -17.5, 49.4 -12.1)))"
+def test_gsw_search(gsw, madagascar, senegal):
+    assert sorted(gsw.search(madagascar)) == ["40E_10S", "40E_20S", "50E_10S"]
+    assert sorted(gsw.search(senegal)) == ["20W_20N"]
+
+
+@pytest.mark.parametrize(
+    "tile, product, url",
+    [
+        ("30W_20N", "occurrence", "occurrence/occurrence_30W_20N_v1_1.tif"),
+        ("50E_20S", "seasonality", "seasonality/seasonality_50E_20S_v1_1.tif"),
+        ("190W_20S", "transitions", "transitions/transitions_190W_20S_v1_1.tif"),
+    ],
 )
+def test_gsw_url(gsw, tile, product, url):
+    BASE_URL = "https://storage.googleapis.com/global-surface-water/downloads2/"
+    assert gsw.url(tile, product) == BASE_URL + url
 
 
-def test_required_tiles():
-    EXPECTED_TILES = [
-        "https://storage.googleapis.com/global-surface-water/downloads2/seasonality/seasonality_40E_30S_v1_1.tif",
-        "https://storage.googleapis.com/global-surface-water/downloads2/seasonality/seasonality_40E_20S_v1_1.tif",
-        "https://storage.googleapis.com/global-surface-water/downloads2/seasonality/seasonality_50E_20S_v1_1.tif",
-    ]
-    tiles = gsw.required_tiles(wkt.loads(MADAGASCAR), "seasonality")
-    assert set(tiles) == set(EXPECTED_TILES)
+@pytest.mark.remote
+def test_gsw_download(gsw):
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
+        fpath = gsw.download("190W_20S", "extent", tmpdir)
+        assert os.path.isfile(fpath)
+        mtime = os.path.getmtime(fpath)
+        # should not be downloaded again
+        gsw.download("190W_20S", "extent", tmpdir, overwrite=False)
+        assert os.path.getmtime(fpath) == mtime
+        # should be downloaded again
+        gsw.download("190W_20S", "extent", tmpdir, overwrite=True)
+        assert os.path.getmtime(fpath) != mtime
 
 
-@pytest.mark.http
-def test_download():
-    mdg = wkt.loads(MADAGASCAR)
-    PRODUCT = "seasonality"
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-
-        # Simple download
-        gsw.download(mdg, PRODUCT, tmpdir)
-        fname = os.path.join(tmpdir, os.listdir(tmpdir)[0])
-        assert os.path.isfile(fname)
-        mtime = os.path.getmtime(fname)
-
-        # Should not be downloaded again
-        gsw.download(mdg, PRODUCT, tmpdir, overwrite=False)
-        assert os.path.getmtime(fname) == mtime
-
-        # Should be downloaded again
-        gsw.download(mdg, PRODUCT, tmpdir, overwrite=True)
-        assert os.path.getmtime(fname) != mtime
+@pytest.mark.remote
+@pytest.mark.parametrize(
+    "tile, product, size",
+    [
+        ("30W_20N", "extent", 11137774),
+        ("50W_20S", "occurrence", 31769600),
+        ("20E_70N", "seasonality", 25245280),
+    ],
+)
+def test_gsw_download_size(gsw, tile, product, size):
+    assert gsw.download_size(tile, product) == size
