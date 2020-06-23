@@ -3,3 +3,4 @@ jobs = auto
 max-line-length = 88
 max-complexity = 10
 docstring-convention = numpy
+ignore = D105,E501
