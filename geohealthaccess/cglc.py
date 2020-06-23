@@ -16,7 +16,7 @@ directory `output_dir`::
 
 Notes
 -----
-See `<https://lcviewer.vito.be/>`_ for more information.
+See `<https://lcviewer.vito.be/about>`_ for more information about the CGLC project.
 """
 
 import logging
@@ -76,22 +76,15 @@ class CGLC:
         URL to the manifest text file that is used to create the spatial index.
     """
 
-    def __init__(self, build_index=True):
-        """Initialize CGLC catalog.
-
-        Parameters
-        ----------
-        build_index : bool, optional
-            Build the spatial index. Requires the manifest URL to be reachable.
-        """
+    def __init__(self):
+        """Initialize CGLC catalog."""
         self.MANIFEST_URL = (
             "https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/"
             "manifest_cgls_lc_v2_100m_global_2015.txt"
         )
         self.session = requests.Session()
         self.session.mount("file://", FileAdapter())
-        if build_index:
-            self.sindex = self.spatial_index()
+        self.sindex = self.spatial_index()
 
     def __repr__(self):
         return "geohealthaccess.cglc.CGLC()"
@@ -156,7 +149,7 @@ class CGLC:
         """
         tiles = self.sindex[self.sindex.intersects(geom)].index
         log.info(f"{len(tiles)} CGLC tiles required to cover the area of interest.")
-        return tiles
+        return list(tiles)
 
     def download(self, tile, output_dir, show_progress=True, overwrite=False):
         """Download a CGLC tile.

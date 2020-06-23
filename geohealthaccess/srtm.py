@@ -1,147 +1,181 @@
-"""Download and preprocess elevation data from the SRTM."""
+"""Search and download SRTM tiles.
+
+The module provides a `SRTM` class to search and download SRTM tiles from the
+NASA EarthData server.
+
+Examples
+--------
+Downloading SRTM tiles to cover the area of interest `geom` into `output_dir`::
+
+    srtm = SRTM()
+    srtm.authentify(username, password)
+    tiles = srtm.search(geom)
+    for tile in tiles:
+        srtm.download(tile, output_dir)
+
+Notes
+-----
+EarthData credentials are required. Registration [1]_ is free.
+
+References
+----------
+.. [1] `NASA EarthData Register <https://urs.earthdata.nasa.gov/users/new>`_
+"""
 
 import logging
 
 import geopandas as gpd
 import requests
+from requests_file import FileAdapter
 from bs4 import BeautifulSoup
 from pkg_resources import resource_filename
 
-from geohealthaccess.utils import download_from_url
+from geohealthaccess.utils import download_from_url, size_from_url
 
 log = logging.getLogger(__name__)
 
-HOMEPAGE_URL = "https://urs.earthdata.nasa.gov"
-LOGIN_URL = "https://urs.earthdata.nasa.gov/login"
-PROFILE_URL = "https://urs.earthdata.nasa.gov/profile"
-DOWNLOAD_URL = "http://e4ftl01.cr.usgs.gov/MEASURES/SRTMGL1.003/2000.02.11/"
 
+class SRTM:
+    """Access SRTM data."""
 
-def required_tiles(geom):
-    """List SRTM tiles required to cover the area of interest.
+    def __init__(self):
+        """Initialize SRTM tiles index."""
+        self.HOMEPAGE_URL = "https://urs.earthdata.nasa.gov"
+        self.LOGIN_URL = "https://urs.earthdata.nasa.gov/login"
+        self.PROFILE_URL = "https://urs.earthdata.nasa.gov/profile"
+        self.DOWNLOAD_URL = (
+            "http://e4ftl01.cr.usgs.gov/MEASURES/SRTMGL1.003/2000.02.11/"
+        )
+        self.sindex = self.spatial_index()
+        self.session = requests.Session()
+        self.session.mount("file://", FileAdapter)
 
-    Parameters
-    ----------
-    geom : shapely geometry
-        The area of interest.
+    @property
+    def authenticity_token(self):
+        """Find authentiticy token in EarthData homepage as it is required to login.
 
-    Returns
-    -------
-    tiles : list
-        List of the SRTM tiles (filenames) that intersects the area
-        of interest.
-    """
-    tiles = gpd.read_file(resource_filename(__name__, "resources/srtm.geojson"))
-    tiles = tiles[tiles.intersects(geom)]
-    log.info(f"{len(tiles)} SRTM tiles required to cover the area of interest.")
-    return list(tiles.dataFile)
+        Returns
+        -------
+        token : str
+            Authenticity token.
+        """
+        page = self.session.get(self.HOMEPAGE_URL).text
+        soup = BeautifulSoup(page, "html.parser")
+        token = ""
+        for element in soup.find_all("input"):
+            if element.attrs.get("name") == "authenticity_token":
+                token = element.attrs.get("value")
+        if not token:
+            raise ValueError("Token not found in EarthData login page.")
+        return token
 
+    @property
+    def logged_in(self):
+        """Check if log-in to EarthData succeeded based on cookie values.
 
-def find_authenticity_token(login_page):
-    """Find authentiticy token in EarthData homepage as it is required to login.
+        Returns
+        -------
+        user_logged : bool
+            `True` if the login was successfull.
+        """
+        response_cookies = self.session.cookies.get_dict()
+        user_logged = response_cookies.get("urs_user_already_logged")
+        return user_logged == "yes"
 
-    Parameters
-    ----------
-    login_page : str
-        HTML source code of the login page.
+    def authentify(self, username, password):
+        """Log-in to NASA EarthData platform.
 
-    Returns
-    -------
-    token : str
-        Authenticity token.
-    """
-    soup = BeautifulSoup(login_page, "html.parser")
-    token = ""
-    for element in soup.find_all("input"):
-        if element.attrs.get("name") == "authenticity_token":
-            token = element.attrs.get("value")
-    if not token:
-        raise ValueError("Token not found in EarthData login page.")
-    return token
+        Parameters
+        ----------
+        username : str
+            NASA EarthData username.
+        password : str
+            NASA EarthData password.
 
+        Returns
+        -------
+        session : requests.Session()
+            Updated requests session object with authentified cookies
+            and headers.
+        """
+        r = self.session.get(self.HOMEPAGE_URL)
+        r.raise_for_status()
+        payload = {
+            "username": username,
+            "password": password,
+            "authenticity_token": self.authenticity_token,
+        }
+        r = self.session.post(self.LOGIN_URL, data=payload)
+        r.raise_for_status()
+        if not self.logged_in:
+            raise requests.exceptions.ConnectionError("Log-in to EarthData failed.")
+        log.info(f"Successfully logged-in to EarthData with username `{username}`.")
 
-def logged_in(login_response):
-    """Check if log-in to EarthData succeeded based on cookie values.
+    def spatial_index(self):
+        """Load spatial index of SRTM tiles.
 
-    Parameters
-    ----------
-    login_response : request object
-        Response to the login POST request.
+        Returns
+        -------
+        geodataframe
+            SRTM tiles spatial index.
+        """
+        sindex = gpd.read_file(resource_filename(__name__, "resources/srtm.geojson"))
+        log.info(f"SRTM spatial index loaded ({len(sindex)} tiles).")
+        return sindex
 
-    Returns
-    -------
-    user_logged : bool
-        `True` if the login was successfull.
-    """
-    response_cookies = login_response.cookies.get_dict()
-    user_logged = response_cookies.get("urs_user_already_logged")
-    return user_logged == "yes"
+    def search(self, geom):
+        """List SRTM tiles required to cover the area of interest.
 
+        Parameters
+        ----------
+        geom : shapely geometry
+            Area of interest as a shapely geometry.
 
-def authentify(session, username, password):
-    """Authentify a requests session by logging into NASA EarthData platform.
+        Returns
+        -------
+        list of str
+            List of SRTM tile filenames.
+        """
+        tiles = self.sindex[self.sindex.intersects(geom)]
+        log.info(f"{len(tiles)} SRTM tiles required to cover the area of interest.")
+        return list(tiles.dataFile)
 
-    Parameters
-    ----------
-    session : requests.Session()
-        An initialized requests session object.
-    username : str
-        NASA EarthData username.
-    password : str
-        NASA EarthData password.
+    def download(self, tile, output_dir, show_progress=True, overwrite=False):
+        """Download a SRTM tile.
 
-    Returns
-    -------
-    session : requests.Session()
-        Updated requests session object with authentified cookies
-        and headers.
-    """
-    r = session.get(HOMEPAGE_URL)
-    r.raise_for_status()
-    token = find_authenticity_token(r.text)
-    payload = {"username": username, "password": password, "authenticity_token": token}
-    r = session.post(LOGIN_URL, data=payload)
-    r.raise_for_status()
-    if not logged_in(r):
-        raise requests.exceptions.ConnectionError("Log-in to EarthData failed.")
-    log.info(f"Successfully logged-in to EarthData with username <{username}>.")
-    return session
+        Parameters
+        ----------
+        tile : str
+            Tile name.
+        output_dir : str
+            Path to output directory.
+        show_progress : bool, optional
+            Show download progress bar.
+        overwrite : bool, optional
+            Force overwrite of existing file.
 
+        Returns
+        -------
+        str
+            Path to outptut file.
+        """
+        url = self.DOWNLOAD_URL + tile
+        return download_from_url(
+            self.session, url, output_dir, show_progress, overwrite
+        )
 
-def _expected_filename(tile_name):
-    """Get expected filename of a given tile after decompression."""
-    return tile_name.split(".")[0] + ".hgt"
+    def download_size(self, tile):
+        """Get download size of a SRTM tile.
 
+        Parameters
+        ----------
+        tile : str
+            Tile name.
 
-def download(geom, output_dir, username, password, show_progress=True, overwrite=False):
-    """Download the SRTM tiles that intersects the area of interest.
-
-    Parameters
-    ----------
-    geom : shapely geometry
-        Area of interest.
-    output_dir : str
-        Output directory where SRTM tiles will be downloaded.
-    username : str
-        NASA EarthData username.
-    password : str
-        NASA EarthData password.
-    show_progress : bool, optional (default=True)
-        Show progress bars.
-    overwrite : bool, optional (default=False)
-        Overwrite existing files.
-
-    Returns
-    -------
-    tiles : list of str
-        List of downloaded SRTM tiles.
-    """
-    tiles = required_tiles(geom)
-    with requests.Session() as session:
-        authentify(session, username, password)
-        for tile in tiles:
-            url = DOWNLOAD_URL + tile
-            download_from_url(
-                session, url, output_dir, show_progress, overwrite=overwrite
-            )
-    return tiles
+        Returns
+        -------
+        int
+            Size in bytes.
+        """
+        url = self.DOWNLOAD_URL + tile
+        return size_from_url(self.session, url)

@@ -1,13 +1,11 @@
+"""Utility functions."""
+
 import json
 import logging
 import os
 import zipfile
-from datetime import datetime
-from ftplib import FTP, error_reply
-from time import ctime
 from urllib.parse import urlparse
 
-import requests
 from pkg_resources import resource_string
 from shapely.geometry import shape
 from tqdm.auto import tqdm
@@ -24,42 +22,43 @@ def human_readable_size(size, decimals=1):
     return f"{size:.{decimals}f} {unit}"
 
 
-def http_same_size(url, fname, session=None):
-    """Compare remote and local sizes using the Content-Length
-    HTTP header.
+def size_from_url(session, url):
+    """Get size of a distant file based on HTTP headers.
+
+    Parameters
+    ----------
+    session : requests session
+        Initialized requests session object.
+    url : str
+        URL of the file.
+
+    Returns
+    -------
+    size : int
+        Size in bytes.
+    """
+    r = session.head(url, allow_redirects=True, headers={"Accept-Encoding": "identity"})
+    content_length = r.headers.get("Content-Length")
+    return int(content_length)
+
+
+def http_same_size(session, url, fname):
+    """Compare local and remote sizes of a file.
+
+    Parameters
+    ----------
+    session : requests session"osmium" "citation" "openstreetmap"
+        An initialized requests session object.
+    url : str
+        URL of the file.
+    fname : str
+        Path to local file.
     """
     if not os.path.isfile(fname):
         return False
-    headers = {"Accept-Encoding": "identity"}
-    if session:
-        r = session.head(url, allow_redirects=True, headers=headers)
-    else:
-        r = requests.head(url, allow_redirects=True, headers=headers)
-    content_length = int(r.headers.get("Content-Length"))
+    remote_size = size_from_url(session, url)
     local_size = os.path.getsize(fname)
-    return content_length == local_size
-
-
-def http_newer(url, fname, session=None):
-    """Compare Last-Modified HTTP header and file metadata to
-    check for changes.
-    """
-    if not os.path.isfile(fname):
-        return True
-    if session:
-        r = session.head(url, allow_redirects=True)
-    else:
-        r = requests.head(url, allow_redirects=True)
-
-    mtime_http = datetime.strptime(
-        r.headers.get("Last-Modified"), "%a, %d %b %Y %H:%M:%S %Z"
-    )
-
-    mtime_local = datetime.strptime(
-        ctime(os.path.getmtime(fname)), "%a %b %d %H:%M:%S %Y"
-    )
-
-    return mtime_http > mtime_local
+    return remote_size == local_size
 
 
 def country_geometry(country):
@@ -116,7 +115,7 @@ def download_from_url(session, url, output_dir, show_progress=True, overwrite=Fa
             os.remove(local_path)
 
         # Skip download if remote and local sizes are equal
-        if http_same_size(url, local_path, session):
+        if http_same_size(session, url, local_path):
             log.info(
                 f"Remote and local sizes of {filename} are equal. Skipping download."
             )
@@ -125,7 +124,15 @@ def download_from_url(session, url, output_dir, show_progress=True, overwrite=Fa
         # Setup progress bar
         if show_progress:
             size = int(r.headers.get("Content-Length"))
-            progress_bar = tqdm(desc=filename, total=size, unit_scale=True, unit="B")
+            bar_format = "{desc} | {percentage:3.0f}% | {rate_fmt}"
+            progress_bar = tqdm(
+                desc=filename,
+                bar_format=bar_format,
+                total=size,
+                unit_scale=True,
+                unit="B",
+                leave=True,
+            )
 
         with open(local_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=1024):
@@ -143,87 +150,89 @@ def download_from_url(session, url, output_dir, show_progress=True, overwrite=Fa
     return local_path
 
 
-def _check_ftp_login(ftp):
-    """Check if FTP login was successfull. If not, raise
-    an exception.
-    """
-    if ftp.lastresp == "230":
-        return True
-    else:
-        raise error_reply("FTP login error.")
-
-
-def download_from_ftp(url, output_dir, overwrite=False):
+def download_from_ftp(ftp, url, output_dir, show_progress=True, overwrite=False):
     """Download a file from a public FTP server.
 
     Parameters
     ----------
+    ftp : FTP
+        A logged-in ftplib.FTP session.
     url : str
         Path to remote file (ftp://<ftp_server>/<dir>/<file>).
     output_dir : str
         Path to local output directory.
+    show_progress : bool, optional
+        Show download progress bar.
     overwrite : bool, optional
         Overwrite local file.
-    
+
     Returns
     -------
     local_path : str
         Local path to downloaded file.
     """
     url = urlparse(url)
-    ftp = FTP(url.netloc)
-    ftp.login()
+    if url.scheme != "ftp":
+        raise ValueError("Invalid FTP URL.")
 
-    # Check if login was successfull
-    try:
-        _check_ftp_login(ftp)
-    except error_reply as e:
-        log.exception(e)
-    else:
-        log.info(f"Logged-in to FTP {url.netloc}.")
-
-    parts = url.path.split("/")
-    filename = parts[-1]
-    directory = "/".join(parts[:-1])
-    ftp.cwd(directory)
-    file_size = ftp.size(filename)
-    local_path = os.path.join(output_dir, filename)
+    size = ftp.size(url.path)
+    fname = url.path.split("/")[-1]
+    local_path = os.path.join(output_dir, fname)
 
     # Remove old file if overwrite
     if os.path.isfile(local_path) and overwrite:
-        log.info(f"File {filename} already exists. Removing it.")
+        log.info(f"File {fname} already exists. Removing it.")
         os.remove(local_path)
 
     # Do not download again if local and remote file sizes are equal
     if os.path.isfile(local_path):
-        if os.path.getsize(local_path) == file_size:
-            log.info(f"File {filename} already exists. Skipping download.")
+        if os.path.getsize(local_path) == size:
+            log.info(f"File {fname} already exists. Skipping download.")
             return local_path
         else:
             log.info(
-                f"File {filename} already exists but size differs. Removing old file."
+                f"File {fname} already exists but size differs. Removing old file."
             )
             os.remove(local_path)
 
-    log.info(f"Downloading {url} to {local_path}.")
-    progress = tqdm(total=file_size, desc=filename, unit_scale=True, unit="B")
+    log.info(f"Downloading {fname} to {local_path}.")
+    if show_progress:
+        progress = tqdm(total=size, desc=fname, unit_scale=True, unit="B")
 
     with open(local_path, "wb") as f:
 
         def write_and_progress(chunk):
-            """Custom callback function that write data chunk to disk and
-            update the progress bar accordingly.
-            """
+            """Write chunk to disk and update the progress bar."""
             f.write(chunk)
-            progress.update(len(chunk))
+            if show_progress:
+                progress.update(len(chunk))
 
-        ftp.retrbinary(f"RETR {filename}", write_and_progress)
+        ftp.retrbinary(f"RETR {url.path}", write_and_progress)
 
     size = human_readable_size(os.path.getsize(local_path))
-    log.info(f"Downloaded {filename} ({size}).")
-    progress.close()
-    ftp.close()
+    log.info(f"Downloaded {fname} ({size}).")
+    if show_progress:
+        progress.close()
     return local_path
+
+
+def size_from_ftp(ftp, url):
+    """Get size of a file on an FTP server.
+
+    Parameters
+    ----------
+    ftp : FTP
+        An open ftplib FTP session.
+    url : str
+        File URL.
+
+    Returns
+    -------
+    int
+        Size in bytes.
+    """
+    url = urlparse(url)
+    return ftp.size(url.path)
 
 
 def unzip(src, dst_dir=None):

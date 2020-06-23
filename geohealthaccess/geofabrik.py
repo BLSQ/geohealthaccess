@@ -1,47 +1,59 @@
-"""Parse Geofabrik website for automatic data acquisition."""
+"""Parse Geofabrik website for automatic data acquisition.
+
+The module provides a `Region` class to access Geofabrik data files for
+a given region.
+
+Examples
+--------
+Downloading OSM data for a geometry `geom` in `output_dir`::
+
+    geofab = SpatialIndex()
+    geofab.get()  # build the spatial index or load it from cache
+    region_id, matching_score = geofab.search(geom)
+    geofab.download(region_id, output_dir)
+
+Notes
+-----
+See `<http://www.geofabrik.de/>`_ for more information about the Geofabrik project.
+"""
 
 import logging
 import os
 import re
 import tempfile
 from datetime import datetime
-from subprocess import DEVNULL, PIPE, run
 from urllib.parse import urljoin, urlsplit
 
 import geopandas as gpd
-import numpy as np
 import requests
-from appdirs import user_data_dir
+from appdirs import user_cache_dir
 from bs4 import BeautifulSoup
 from osgeo import ogr
+from rasterio.crs import CRS
 from requests_file import FileAdapter
 from shapely import wkt
 
-from geohealthaccess.exceptions import (
-    MissingData,
-    OsmiumArgumentsError,
-    OsmiumNotFound,
-    OsmiumProcessingError,
-)
-from geohealthaccess.utils import download_from_url, human_readable_size
+from geohealthaccess.utils import download_from_url
 
 log = logging.getLogger(__name__)
 
-BASE_URL = "http://download.geofabrik.de"
-
-
-def _header(element):
-    """Find parent header of a given html element."""
-    return element.find_previous(re.compile("^h[1-6]$")).text
-
 
 class Page:
-    def __init__(self, url):
-        """Webpage to parse."""
+    """A Geofabrik webpage."""
+
+    def __init__(self, session, url):
+        """Parse a Geofabrik webpage.
+
+        Parameters
+        ----------
+        session : requests session
+            An open requests session object.
+        url : str
+            URL of the page to parse.
+        """
         # Store URL and parse page
         self.url = url
-        self.sess = requests.Session()
-        self.sess.mount("file://", FileAdapter())
+        self.sess = session
         with self.sess.get(url) as r:
             r.encoding = "UTF-8"
             self.soup = BeautifulSoup(r.text, "html.parser")
@@ -57,9 +69,23 @@ class Page:
         """Page name."""
         return self.soup.find("h2").text
 
+    @staticmethod
+    def _header(element):
+        """Find parent header of a given html element."""
+        return element.find_previous(re.compile("^h[1-6]$")).text
+
     def _parse_table(self, table):
-        """Parse a BeautifulSoup table element and returns
-        a list of dictionnaries (one per row).
+        """Parse an HTML data table.
+
+        Parameters
+        ----------
+        table : BeautifulSoup element
+            Table to parse.
+
+        Returns
+        -------
+        list of dicts
+            Available datasets.
         """
         row = table.find("tr")
         columns = [cell.text for cell in row.find_all("th")]
@@ -84,35 +110,51 @@ class Page:
         log.info(f"Parsing geofabrik page `{self.name}`.")
         for table in self.soup.find_all("table"):
             # Raw details
-            if _header(table) == "Other Formats and Auxiliary Files":
+            if self._header(table) == "Other Formats and Auxiliary Files":
                 self.raw_details = self._parse_table(table)
                 log.info(f"Found {len(self.raw_details)} auxiliary files.")
             # Subregions
-            elif _header(table) == "Sub Regions":
+            elif self._header(table) == "Sub Regions":
                 self.subregions = self._parse_table(table)
                 log.info(f"Found {len(self.subregions)} subregions.")
             # Special Subregions
-            elif _header(table) == "Special Sub Regions":
+            elif self._header(table) == "Special Sub Regions":
                 self.special_subregions = self._parse_table(table)
                 log.info(f"Found {len(self.special_subregions)} special subregions.")
             # Continents
-            elif _header(table) == "OpenStreetMap Data Extracts":
+            elif self._header(table) == "OpenStreetMap Data Extracts":
                 self.continents = self._parse_table(table)
                 log.info(f"Found {len(self.continents)} continents.")
 
 
 class Region:
-    def __init__(self, region_id, parse=True):
+    """Geofabrik OSM region."""
+
+    def __init__(self, session, region_id, parse=True):
+        """Initialize a Geofabrik region.
+
+        Parameters
+        ----------
+        session : requests session
+            An open requests session object.
+        region_id : str
+            Geofabrik region ID. This is the path to access the page of the region
+            in the website, e.g: `africa`, `africa/kenya`, `africa/senegal-and-gambia`.
+        parse : bool, optional
+            Automatically parse the page (True by default).
+        """
+        self.BASE_URL = "http://download.geofabrik.de"
+        self.session = session
         self.id = region_id
         if parse:
-            self.page = Page(self.url)
+            self.page = Page(self.session, self.url)
             self.name = self.page.name
             self.extent = self.get_geometry()
 
     @property
     def url(self):
         """URL of the region."""
-        return urljoin(BASE_URL, f"{self.id}.html")
+        return urljoin(self.BASE_URL, f"{self.id}.html")
 
     @property
     def files(self):
@@ -164,7 +206,7 @@ class Region:
         kml_fname = [f for f in self.files if f.endswith(".kml")][0]
         kml_url = urljoin(self.url, kml_fname)
         with tempfile.NamedTemporaryFile(suffix=".kml") as tmp:
-            r = requests.get(kml_url)
+            r = self.session.get(kml_url)
             tmp.write(r.content)
             tmp.seek(0)
             src = ogr.Open(tmp.name)
@@ -174,367 +216,171 @@ class Region:
         return wkt.loads(geom)
 
 
-def build_spatial_index(include=None, exclude=None):
-    """Get the geometry of each available subregion and
-    summarize the information as a geodataframe.
+class SpatialIndex:
+    """Geofabrik spatial index."""
 
-    Parameters
-    ----------
-    include : list, optional
-        A whitelist of continents to parse.
-    exclude : list, optional
-        A blacklist of continents to not parse.
+    def __init__(self):
+        """Initialize Geofabrik spatial index.
 
-    Returns
-    -------
-    spatial_index : GeoDataFrame
-        Spatial index of available regions and subregions with their id,
-        their name and their geometry.
-    """
-    if include and exclude:
-        raise ValueError("Cannot set both include and exclude parameters.")
+        Parameters
+        ----------
+        build_index : bool, optional
+            Automatically build the spatial index. True by default.
+        """
+        self.BASE_URL = "http://download.geofabrik.de"
+        self.CONTINENTS = [
+            "africa",
+            "antarctica",
+            "asia",
+            "australia-oceania",
+            "central-america",
+            "europe",
+            "north-america",
+            "south-america",
+        ]
+        self.cache_path = os.path.join(
+            user_cache_dir(appname="geohealthaccess"), "geofabrik.gpkg"
+        )
+        self.session = requests.Session()
+        self.session.mount("file://", FileAdapter())
+        self.sindex = None
 
-    home = Page(BASE_URL)
-    regions = []
+    def build(self):
+        """Build a spatial index of Geofabrik datasets.
 
-    for continent in home.continents:
+        Returns
+        -------
+        spatial_index : GeoDataFrame
+            Spatial index of available regions and subregions with their id,
+            their name and their geometry.
 
-        # include/exclude check
-        name = continent["Sub Region"].text.lower()
-        if include:
-            if name not in include:
+        Notes
+        -----
+        The function can take more than a minute to parse all the continents.
+        """
+        regions = []
+
+        # Continent level
+        for continent in self.CONTINENTS:
+            region = Region(self.session, continent)
+            regions.append(region)
+            if not region.subregions:
                 continue
-        if exclude:
-            if name in exclude:
-                continue
 
-        path = continent["Sub Region"].attrs["href"]
-        region_id = path.replace(".html", "")
-        region = Region(region_id)
-        regions.append(
-            {"id": region.id, "name": region.name, "geometry": region.get_geometry()}
+            # Country level
+            for subregion in region.subregions:
+                region = Region(self.session, subregion)
+                regions.append(region)
+                if not region.subregions:
+                    continue
+
+                # Sub-country level
+                for subregion in region.subregions:
+                    region = Region(self.session, subregion)
+                    regions.append(region)
+
+        sindex = gpd.GeoDataFrame(
+            index=[region.id for region in regions],
+            data=[region.name for region in regions],
+            columns=["name"],
+            geometry=[region.get_geometry() for region in regions],
+            crs=CRS.from_epsg(4326),
         )
-        if not region.subregions:
-            continue
-        # Subregions
-        for subregion_id in region.subregions:
-            subregion = Region(subregion_id)
-            regions.append(
-                {
-                    "id": subregion.id,
-                    "name": subregion.name,
-                    "geometry": subregion.get_geometry(),
-                }
-            )
-            if not subregion.subregions:
-                continue
-            # Subsubregions
-            for subsubregion_id in subregion.subregions:
-                subsubregion = Region(subsubregion_id)
-                regions.append(
-                    {
-                        "id": subsubregion.id,
-                        "name": subsubregion.name,
-                        "geometry": subsubregion.get_geometry(),
-                    }
-                )
-    spatial_index = gpd.GeoDataFrame(regions)
-    spatial_index = spatial_index.set_index(["id"], drop=True)
-    log.info(f"Created spatial index with {len(spatial_index)} records.")
-    return spatial_index
+        log.info(f"Created spatial index with {len(sindex)} records.")
+        self.sindex = sindex
 
+    def cache(self, overwrite=False):
+        """Cache spatial index for future use."""
+        if os.path.isfile(self.cache_path):
+            if overwrite:
+                log.info("Spatial index cache already exists. Removing old file.")
+                os.remove(self.cache_path)
+            else:
+                log.info("Spatial index cache already exists. Skipping.")
+                return
+        sindex_ = self.sindex.copy()
+        sindex_["id"] = sindex_.index
+        log.info(f"Caching spatial index to {self.cache_path}.")
+        sindex_.to_file(self.cache_path, driver="GPKG")
 
-def get_spatial_index(overwrite=False):
-    """Load spatial index. Use existing one if available."""
-    data_dir = user_data_dir(appname="GeoHealthAccess")
-    expected_path = os.path.join(data_dir, "spatial_index.gpkg")
-    if os.path.isfile(expected_path) and not overwrite:
-        spatial_index = gpd.read_file(expected_path)
-    else:
-        spatial_index = build_spatial_index()
-        try:
-            os.makedirs(data_dir, exist_ok=True)
-            spatial_index.to_file(expected_path, driver="GPKG")
-        except PermissionError:
-            log.warning("Unable to cache geofabrik spatial index.")
-            pass
-    spatial_index = spatial_index[spatial_index.geometry is not None]
-    return spatial_index
+    def get(self, overwrite=False):
+        """Build or load a cached version of the spatial index.
 
+        Parameters
+        ----------
+        overwrite : bool, optional
+            Overwrite cached version of the spatial index.
 
-def _cover(geom_a, geom_b):
-    union = geom_a.union(geom_b)
-    intersection = geom_a.intersection(geom_b)
-    return intersection.area / union.area
+        Returns
+        -------
+        geodataframe
+            Geofabrik spatial index.
+        """
+        if os.path.isfile(self.cache_path):
+            if overwrite:
+                os.remove(self.cache_path)
+            else:
+                sindex = gpd.read_file(self.cache_path)
+                sindex = sindex.set_index(["id"], drop=True)
+                self.sindex = sindex
+                return
+        self.build()
+        self.cache(overwrite=overwrite)
 
+    @staticmethod
+    def _match(geom_a, geom_b):
+        """Calculate ratio of matching intersection between two geometries."""
+        union = geom_a.union(geom_b)
+        intersection = geom_a.intersection(geom_b)
+        return intersection.area / union.area
 
-def find_best_region(spatial_index, geom):
-    """Find the most suited region for a given area of interest."""
-    index_cover = spatial_index.copy()
-    index_cover["cover"] = index_cover.geometry.apply(lambda x: _cover(x, geom))
-    index_cover = index_cover.sort_values(by="cover", ascending=False)
-    region_id, cover = index_cover.index[0], index_cover.cover.values[0]
-    log.info(f"Selected region {region_id}.")
-    return region_id, cover
+    def search(self, geom):
+        """Find the geofabrik region ID matching a given geometry.
 
+        Parameters
+        ----------
+        geom : shapely geometry
+            Area of interest.
 
-def check_osmium():
-    """Check if osmium-tool is available."""
-    check = run(["which", "osmium"], stdout=DEVNULL)
-    if check.returncode == 1:
-        raise OsmiumNotFound()
-
-
-def _check_osmium_returncodes(process):
-    """Check osmium-tool return codes and raise the relevant exception
-    if needed.
-    """
-    if process.returncode == 1:
-        raise OsmiumProcessingError(process.stderr.decode())
-    elif process.returncode == 2:
-        raise OsmiumArgumentsError(process.stderr.decode())
-    return
-
-
-def download_latest_data(region_id, dst_dir, overwrite=False):
-    """Download latest OSM data for a given region identified by its ID
-    in Geofabrik, as returned by the geofabrik.Region.id property.
-
-    Parameters
-    ----------
-    region_id : str
-        Region of interest identified by its Geofabrik ID.
-    dst_dir : str
-        Path to output directory.
-    overwrite : bool, optional
-        Forces overwrite of existing files.
-
-    Returns
-    -------
-    osm_pbf : str
-        Path to downloaded .osm.pbf file.
-    """
-    try:
-        check_osmium()
-    except OsmiumNotFound as e:
-        log.exception(e)
-    region = Region(region_id)
-    url = region.latest
-    log.info(f"Downloading latest OSM data for {region.name}.")
-    with requests.Session() as s:
-        osm_pbf = download_from_url(s, url, dst_dir, overwrite=overwrite)
-    return osm_pbf
-
-
-def tags_filter(osm_pbf, dst_fname, expression, overwrite=True):
-    """Extract OSM objects from an input .osm.pbf file using an Osmium tags-filter
-    expression (https://docs.osmcode.org/osmium/latest/osmium-tags-filter.html).
-
-    Parameters
-    ----------
-    osm_pbf : str
-        Path to input .osm.pbf file.
-    dst_fname : str
-        Path to output .osm.pbf file.
-    expression : str
-        Osmium tags-filter expression. See `osmium tags-filter` manpage for details.
-    overwrite : bool, optional
-        Overwrite existing file.
-
-    Returns
-    -------
-    dst_fname : str
-        Path to output .osm.pbf file.
-    """
-    expression_parts = expression.split(" ")
-    command = ["osmium", "tags-filter", osm_pbf]
-    command += expression_parts
-    command += ["-o", dst_fname]
-    if overwrite:
-        command += ["--overwrite"]
-    log.info(f"Running command: {' '.join(command)}")
-    p = run(command, stdout=PIPE, stderr=PIPE)
-    _check_osmium_returncodes(p)
-    src_size = human_readable_size(os.path.getsize(osm_pbf))
-    dst_size = human_readable_size(os.path.getsize(dst_fname))
-    log.info(
-        f"Extracted {os.path.basename(dst_fname)} ({dst_size}) "
-        f"from {os.path.basename(osm_pbf)} ({src_size})."
-    )
-    return dst_fname
-
-
-def to_geojson(osm_pbf, dst_fname, overwrite=True):
-    """Convert an input .osm.pbf file to a GeoJSON file.
-
-    Parameters
-    ----------
-    osm_pbf : str
-        Path to input .osm.pbf file.
-    dst_fname : str
-        Path to output .osm.pbf file.
-    overwrite : bool, optional
-        Overwrite existing file.
-
-    Returns
-    -------
-    dst_fname : str
-        Path to output GeoJSON file.
-    """
-    command = ["osmium", "export", osm_pbf, "-o", dst_fname]
-    if overwrite:
-        command += ["--overwrite"]
-    log.info(f"Running command: {' '.join(command)}")
-    p = run(command, stdout=PIPE, stderr=PIPE)
-    _check_osmium_returncodes(p)
-    src_size = human_readable_size(os.path.getsize(osm_pbf))
-    dst_size = human_readable_size(os.path.getsize(dst_fname))
-    log.info(
-        f"Created {os.path.basename(dst_fname)} ({dst_size}) "
-        f"from {os.path.basename(osm_pbf)} ({src_size})."
-    )
-    return dst_fname
-
-
-# Osmium tags-filter expression and properties of interest for each supported
-# thematic extract.
-EXTRACTS = {
-    "roads": {
-        "expression": "w/highway",
-        "properties": ["highway", "smoothness", "surface", "tracktype"],
-        "geom_types": ["LineString"],
-    },
-    "water": {
-        "expression": "nwr/natural=water nwr/waterway nwr/water",
-        "properties": ["waterway", "natural", "water", "wetland", "boat"],
-        "geom_types": ["LineString", "Polygon", "MultiPolygon"],
-    },
-    "health": {
-        "expression": "nwr/amenity=clinic,doctors,hospital,pharmacy nwr/healthcare",
-        "properties": ["amenity", "name", "healthcare", "dispensing", "description"],
-        "geom_types": ["Point"],
-    },
-    "ferry": {
-        "expression": "w/route=ferry",
-        "properties": [
-            "route",
-            "duration",
-            "motor_vehicle",
-            "motorcar",
-            "motorcycle",
-            "bicycle",
-            "foot",
-        ],
-        "geom_types": ["LineString"],
-    },
-}
-
-
-def _centroid(geom):
-    """Get centroid if possible."""
-    if geom.geom_type in ("Polygon", "MultiPolygon"):
-        return geom.centroid
-    return geom
-
-
-def _filter_columns(geodataframe, valid_columns):
-    """Filter columns of a given geodataframe."""
-    n_removed = 0
-    for column in geodataframe.columns:
-        if column not in valid_columns and column != "geometry":
-            geodataframe = geodataframe.drop([column], axis=1)
-            n_removed += 1
-    log.info(f"Removed {n_removed} columns. {len(geodataframe.columns)} remaining.")
-    return geodataframe
-
-
-def count_osm_objects(osm_pbf):
-    """Count objects of each type in an .osm.pbf file."""
-    p = run(["osmium", "fileinfo", "-e", osm_pbf], stdout=PIPE)
-    fileinfo = p.stdout.decode()
-    n_objects = {"nodes": 0, "ways": 0, "relations": 0}
-    for line in fileinfo.split("\n"):
-        for obj in n_objects:
-            if f"Number of {obj}" in line:
-                n_objects[obj] = int(line.split(":")[-1])
-    return n_objects
-
-
-def osmpbf_is_empty(osm_pbf):
-    """Check if a given .osm.pbf is empty."""
-    count = count_osm_objects(osm_pbf)
-    n_objects = sum((n for n in count.values()))
-    return not bool(n_objects)
-
-
-def thematic_extract(osm_pbf, theme, dst_fname):
-    """Extract a category of objects from an .osm.pbf file into a GeoPackage.
-
-    Parameters
-    ----------
-    osm_pbf : str
-        Path to input .osm.pbf file.
-    theme : str
-        Category of objects to extract (roads, water, health or ferry).
-    dst_fname : str
-        Path to output GeoPackage.
-
-    Returns
-    -------
-    dst_fname : str
-        Path to output GeoPackage.
-
-    Raises
-    ------
-    MissingData
-        If the input .osm.pbf file does not contain any feature related to
-        the selected theme.
-    """
-    if theme not in EXTRACTS:
-        raise ValueError(
-            f"Theme `{theme}` is not supported. Please choose one of the following "
-            f"options: {', '.join(EXTRACTS.keys())}."
+        Returns
+        -------
+        str
+            Region ID.
+        float
+            Intersection ratio.
+        """
+        candidates = self.sindex[self.sindex.intersects(geom)].copy()
+        candidates["match"] = candidates.geometry.apply(
+            lambda region: self._match(region, geom)
         )
-    expression = EXTRACTS[theme.lower()]["expression"]
-    properties = EXTRACTS[theme.lower()]["properties"] + ["geometry"]
-    geom_types = EXTRACTS[theme.lower()]["geom_types"]
-    log.info(f"Starting thematic extraction of {theme} objects...")
+        candidates.sort_values(by="match", ascending=False, inplace=True)
+        return candidates.iloc[0].name, candidates.iloc[0].match
 
-    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
+    def download(self, region_id, output_dir, show_progress=True, overwrite=False):
+        """Download OSM data for a given region.
 
-        # Filter input .osm.pbf file and export to GeoJSON with osmium-tools
-        filtered = tags_filter(
-            osm_pbf, os.path.join(tmpdir, "filtered.osm.pbf"), expression
+        Parameters
+        ----------
+        region_id : str
+            Geofabrik region ID.
+        output_dir : str
+            Path to output directory.
+        show_progress : bool, optional
+            Show download progress bar.
+        overwrite : bool, optional
+            Overwrite existing file.
+
+        Returns
+        -------
+        str
+            Path to downloaded file.
+        """
+        region = Region(self.session, region_id)
+        log.info(f"Downloading latest OSM data for {region.name}.")
+        return download_from_url(
+            self.session,
+            region.latest,
+            output_dir,
+            show_progress=show_progress,
+            overwrite=overwrite,
         )
-
-        # Abort if .osm.pbf is empty
-        if osmpbf_is_empty(filtered):
-            raise MissingData(f"No {theme} features in {os.path.basename(osm_pbf)}.")
-
-        intermediary = to_geojson(
-            filtered, os.path.join(tmpdir, "intermediary.geojson")
-        )
-
-        # Drop useless columns
-        geodf = gpd.read_file(intermediary)
-        log.info(f"Loaded OSM data into a GeoDataFrame with {len(geodf)} records.")
-        geodf = _filter_columns(geodf, properties)
-
-        # Convert Polygon or MultiPolygon features to Point
-        if theme == "health":
-            geodf["geometry"] = geodf.geometry.apply(_centroid)
-            log.info("Converted Polygon and MultiPolygon to Point features.")
-
-        geodf = geodf[np.isin(geodf.geom_type, geom_types)]
-        log.info(f"Removed objects with invalid geom types ({len(geodf)} remaining).")
-        geodf = geodf.reset_index(drop=True)
-        if not geodf.crs:
-            geodf.crs = {"init": "epsg:4326"}
-        geodf.to_file(dst_fname, driver="GPKG")
-        dst_size = human_readable_size(os.path.getsize(dst_fname))
-        log.info(
-            f"Saved thematric extract into {os.path.basename(dst_fname)} "
-            f"({dst_size})."
-        )
-
-    return dst_fname

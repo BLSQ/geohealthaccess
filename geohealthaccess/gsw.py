@@ -89,30 +89,45 @@ class GSW:
         `50W_20S`.
         """
         if lat < 0:
-            lat = abs(lat)
-            lat = f"{int(lat - lat % 10)}S"
+            latpol = "S"
         else:
-            lat = f"{int(lat - lat % 10 + 10)}N"
+            latpol = "N"
         if lon < 0:
-            lon = abs(lon)
-            lon = f"{int(lon - lon % 10 + 10)}W"
+            lonpol = "W"
         else:
-            lon = f"{int(lon - lon % 10)}E"
-        return f"{lon}_{lat}"
+            lonpol = "E"
+
+        lat, lon = abs(lat), abs(lon)
+
+        if lat % 10 != 0:
+            lat = int(lat - lat % 10)
+            if latpol == "N":
+                lat += 10
+        if lat == 0:
+            latpol = "N"
+
+        if lon % 10 != 0:
+            lon = int(lon - lon % 10)
+            if lonpol == "W":
+                lon += 10
+        if lon == 0:
+            lonpol = "E"
+
+        return f"{lon}{lonpol}_{lat}{latpol}"
 
     def spatial_index(self):
         """Build the spatial index."""
         geoms, names = [], []
         # Build a grid with 10 x 10 degrees cells
-        for lon, lat in itertools.product(range(-180, 180, 10), range(-90, 90, 10)):
+        for lon, lat in itertools.product(range(-180, 180, 10), range(-50, 90, 10)):
             geoms.append(
                 Polygon(
                     (
-                        (lon, lat + 10),
                         (lon, lat),
                         (lon + 10, lat),
-                        (lon + 10, lat + 10),
-                        (lon, lat + 10),
+                        (lon + 10, lat - 10),
+                        (lon, lat - 10),
+                        (lon, lat),
                     )
                 )
             )
