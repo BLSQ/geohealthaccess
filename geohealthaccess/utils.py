@@ -136,7 +136,7 @@ def download_from_url(
                 total=size,
                 unit_scale=True,
                 unit="B",
-                leave=False,
+                leave=True,
                 position=pbar_position,
             )
 
@@ -146,8 +146,8 @@ def download_from_url(
                     f.write(chunk)
                     if show_progress:
                         progress_bar.update(1024)
-
         if show_progress:
+            progress_bar.n = progress_bar.total
             progress_bar.close()
 
     filesize = human_readable_size(os.path.getsize(local_path))
