@@ -140,7 +140,9 @@ class SRTM:
         log.info(f"{len(tiles)} SRTM tiles required to cover the area of interest.")
         return list(tiles.dataFile)
 
-    def download(self, tile, output_dir, show_progress=True, overwrite=False):
+    def download(
+        self, tile, output_dir, show_progress=True, overwrite=False, pbar_position=0
+    ):
         """Download a SRTM tile.
 
         Parameters
@@ -153,6 +155,8 @@ class SRTM:
             Show download progress bar.
         overwrite : bool, optional
             Force overwrite of existing file.
+        pbar_position : bool, optional (default=0)
+            Set the absolute position of the progress bar.
 
         Returns
         -------
@@ -161,7 +165,7 @@ class SRTM:
         """
         url = self.DOWNLOAD_URL + tile
         return download_from_url(
-            self.session, url, output_dir, show_progress, overwrite
+            self.session, url, output_dir, show_progress, overwrite, pbar_position
         )
 
     def download_size(self, tile):

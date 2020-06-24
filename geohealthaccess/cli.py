@@ -14,6 +14,7 @@ Getting help for a specific subcommand::
 """
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import click
 
@@ -83,7 +84,7 @@ def download(country, output_dir, earthdata_user, earthdata_pass, overwrite):
     region_id, _ = geofab.search(geom)
     geofab.download(region_id, os.path.join(output_dir, NAMES[2]), overwrite=overwrite)
 
-    # Global Surface Water
+    # Global Surface WaterTrue
     gsw = GSW()
     tiles = gsw.search(geom)
     for tile in tiles:
@@ -95,8 +96,12 @@ def download(country, output_dir, earthdata_user, earthdata_pass, overwrite):
     srtm = SRTM()
     srtm.authentify(earthdata_user, earthdata_pass)
     tiles = srtm.search(geom)
-    for tile in tiles:
-        srtm.download(tile, os.path.join(output_dir, NAMES[4]), overwrite=overwrite)
+    dst_dir = os.path.join(output_dir, NAMES[4])
+    with ThreadPoolExecutor(max_workers=10) as e:
+        for i, tile in enumerate(tiles):
+            e.submit(
+                srtm.download, tile, dst_dir, True, overwrite, i + 1,
+            )
 
 
 if __name__ == "__main__":
