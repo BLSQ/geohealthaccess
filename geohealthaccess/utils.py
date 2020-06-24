@@ -77,7 +77,9 @@ def country_geometry(country):
     return geom
 
 
-def download_from_url(session, url, output_dir, show_progress=True, overwrite=False):
+def download_from_url(
+    session, url, output_dir, show_progress=True, overwrite=False, pbar_position=0
+):
     """Download remote file from URL in a given requests session.
 
     Params
@@ -92,6 +94,9 @@ def download_from_url(session, url, output_dir, show_progress=True, overwrite=Fa
         Show a progress bar.
     overwrite : bool, optional (default=False)
         If set to `True`, output file will be removed before download.
+    pbar_position : int, optional (default=0)
+        Optionally set the absolute position of the progress bar in case several
+        threads display a progress bar simultaneously.
 
     Returns
     -------
@@ -131,7 +136,8 @@ def download_from_url(session, url, output_dir, show_progress=True, overwrite=Fa
                 total=size,
                 unit_scale=True,
                 unit="B",
-                leave=True,
+                leave=False,
+                position=pbar_position,
             )
 
         with open(local_path, "wb") as f:
