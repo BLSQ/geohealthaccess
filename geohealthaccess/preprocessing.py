@@ -71,29 +71,35 @@ def create_grid(geom, dst_crs, dst_res):
     return dst_transform, dst_width, dst_height, dst_bounds
 
 
-def merge_tiles(filenames, dst_filename, nodata=-1):
-    """Merge multiple rasters with same CRS and spatial resolution into
-    a single GTiff file. Use gdal_merge.py CLI utility.
+def merge_tiles(src_files, dst_file, nodata=-1):
+    """Merge multiple raster tiles into a single raster.
+
+    The functions wraps the `gdal_merge.py` command-line script. Input raster tiles
+    must share the same CRS and spatial resolution. Output format is guessed from
+    the extension of the source rasters.
+
+    Note
+    ----
+    See `documentation <https://gdal.org/programs/gdal_merge.html>`_.
 
     Parameters
     ----------
-    filenames : list
+    src_files : list of str
         Paths to raster tiles.
-    dst_filename : str
+    dst_file : str
         Path to output raster.
     nodata : float, optional
         Nodata value of the output raster.
 
     Returns
     -------
-    dst_filename : str
+    dst_file : str
         Path to output raster.
     """
-    args = ["-o", dst_filename]
-    args += ["-a_nodata", str(nodata)]
-    args += filenames
-    subprocess.run(["gdal_merge.py"] + args)
-    return dst_filename
+    subprocess.run(
+        ["gdal_merge.py", "-o", dst_file, "-a_nodata", nodata] + src_files, check=True
+    )
+    return dst_file
 
 
 def reproject_raster(
