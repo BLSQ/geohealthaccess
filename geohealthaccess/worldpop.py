@@ -114,7 +114,7 @@ class WorldPop:
             Path to downloaded file.
         """
         if not year:
-            year = max(self.available_years(country))
+            year = max(self.available_years())
             log.info(f"No year specified. Selected latest year available ({year}).")
         url = self.url(country, year)
         local_path = download_from_ftp(
