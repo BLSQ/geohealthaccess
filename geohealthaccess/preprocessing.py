@@ -1,24 +1,47 @@
 """Preprocessing of input data."""
 
-import json
 import os
-import shutil
 import subprocess
 from math import ceil
+import logging
 
-import geopandas as gpd
 import rasterio
 from osgeo import gdal
-from pkg_resources import resource_filename, resource_string
-from rasterio import Affine
 from rasterio.crs import CRS
-from rasterio.features import rasterize
 from rasterio.transform import from_origin
 from rasterio.warp import transform_geom
 from shapely.geometry import shape
-from tqdm import tqdm
 
-from geohealthaccess import utils
+
+log = logging.getLogger(__name__)
+
+
+# Default GDAL creation options
+# NB: PREDICTOR=3 is better for floating point data
+GDAL_CO = [
+    "TILED=YES",
+    "BLOCKXSIZE=256",
+    "BLOCKYSIZE=256",
+    "COMPRESS=DEFLATE",
+    "NUM_THREADS=ALL_CPUS",
+    "PREDICTOR=2",
+    "ZLEVEL=6",
+]
+
+# GDAL data types supported for the GeoTIFF driver
+GDAL_DTYPES = [
+    "Byte",
+    "UInt16",
+    "Int16",
+    "UInt32",
+    "Int32",
+    "Float32",
+    "Float64",
+    "CInt16",
+    "CInt32",
+    "CFloat32",
+    "CFloat64",
+]
 
 
 def gdal_dtype(dtype):
@@ -42,23 +65,21 @@ def create_grid(geom, dst_crs, dst_res):
 
     Parameters
     ----------
-    geom: shapely geometry
+    geom : shapely geometry
         Area of interest.
-    dst_crs : dict-like CRS object
-        Target CRS.
+    dst_crs : CRS
+        Target CRS as a rasterio CRS object.
     dst_res : int or float
-        Spatial resolution (in dst_srs units).
+        Spatial resolution (in `dst_crs` units).
 
     Returns
     -------
     transform: Affine
         Output affine transform object.
-    width: int
-        Output width.
-    height: int
-        Output height.
-    bounds : tuple
-        AOI bounds.
+    shape : tuple of int
+        Output shape (height, width).
+    bounds : tuple of float
+        Output bounds.
     """
     area = transform_geom(
         src_crs=CRS.from_epsg(4326), dst_crs=dst_crs, geom=geom.__geo_interface__
@@ -68,15 +89,14 @@ def create_grid(geom, dst_crs, dst_res):
     dst_transform = from_origin(left, top, dst_res, dst_res)
     dst_width = ceil(abs(right - left) / dst_res)
     dst_height = ceil(abs(top - bottom) / dst_res)
-    return dst_transform, dst_width, dst_height, dst_bounds
+    return dst_transform, (dst_height, dst_width), dst_bounds
 
 
 def merge_tiles(src_files, dst_file, nodata=-1):
     """Merge multiple raster tiles into a single raster.
 
     The functions wraps the `gdal_merge.py` command-line script. Input raster tiles
-    must share the same CRS and spatial resolution. Output format is guessed from
-    the extension of the source rasters.
+    must share the same CRS and spatial resolution.
 
     Note
     ----
@@ -96,251 +116,179 @@ def merge_tiles(src_files, dst_file, nodata=-1):
     dst_file : str
         Path to output raster.
     """
-    subprocess.run(
-        ["gdal_merge.py", "-o", dst_file, "-a_nodata", nodata] + src_files, check=True
-    )
+    command = ["gdal_merge.py", "-o", dst_file, "-a_nodata", str(nodata)]
+    # Add GDAL creation options for GeoTIFF format
+    for creation_opt in GDAL_CO:
+        command += ["-co", creation_opt]
+    command += src_files
+    subprocess.run(command, check=True)
+    log.info(f"Merged {len(src_files)} tiles into {os.path.basename(dst_file)}.")
     return dst_file
 
 
-def reproject_raster(
+def reproject(
     src_raster,
-    dst_filename,
+    dst_raster,
     dst_crs,
-    resample_algorithm,
-    dst_bounds=None,
-    dst_shape=None,
-    dst_res=None,
+    dst_bounds,
+    dst_res,
+    src_nodata=None,
     dst_nodata=None,
     dst_dtype=None,
+    resampling_method="near",
+    overwrite=False,
 ):
-    """Reproject a source raster to a target CRS identified by its EPSG code.
+    """Reproject a raster to a different CRS.
 
     Parameters
     ----------
     src_raster : str
-        Path to source raster.
-    dst_filename : str
+        Path to input raster.
+    dst_raster : str
         Path to output raster.
-    dst_crs : CRS object
-        Target spatial reference system.
-    resample_algorithm : int
-        GDAL code of the resampling algorithm, e.g. 0=NearestNeighbour,
-        1=Bilinear, 2=Cubic, 5=Average, 6=Mode...
-    dst_bounds : tuple, optional
-        Output bounds (xmin, ymin, xmax, ymax) in target SRS.
-    dst_shape : tuple, optional
-        Output raster shape (width, height).
-    dst_res : float, optional
-        Output spatial resolution in target SRS units.
-    dst_nodata : float or int, optional
-        Output nodata value.
-    dst_dtype : str
-        Target data type (Int16, UInt16, UInt32, Float32, etc.).
+    dst_crs : rasterio CRS
+        Target CRS as a `rasterio.crs.CRS()` object.
+    dst_bounds : tuple
+        Target raster extent (xmin, ymin, xmax, ymax).
+    dst_res : int or float
+        Target spatial resolution in `dst_crs` units.
+    src_nodata : int or float, optional
+        Source nodata value.
+    dst_nodata : int or float, optional
+        Target nodata value.
+    dst_dtype : str, optional
+        Target GDAL data type.
+    resampling_method : str, optional
+        Resampling method: `near`, `bilinear`, `cubic`, `cubicspline`, `lanczos`,
+        `average`, `mode`, `max`, `min`, `med`, `q1`, `q3` or `sum`.
+    overwrite : bool, optional
+        Overwrite existing files.
 
     Returns
     -------
-    dst_filename : str
-        Path to output raster.
+    dst_raster : str
+        Path to output file.
     """
-    src_dataset = gdal.Open(src_raster)
-    creation_options = [
-        "TILED=YES",
-        "BLOCKXSIZE=256",
-        "BLOCKYSIZE=256",
-        "COMPRESS=LZW",
-        "PREDICTOR=2",
-        "NUM_THREADS=ALL_CPUS",
+    command = [
+        "gdalwarp",
+        "-t_srs",
+        dst_crs.to_string(),
+        "-r",
+        resampling_method,
     ]
-    options = {
-        "format": "GTiff",
-        "dstSRS": dst_crs.to_string(),
-        "resampleAlg": resample_algorithm,
-        "creationOptions": creation_options,
-    }
-    if dst_bounds:
-        options.update(outputBounds=dst_bounds)
-    if dst_shape:
-        options.update(width=dst_shape[0], height=dst_shape[1])
-    if dst_res:
-        options.update(xRes=dst_res, yRes=dst_res)
-    if dst_nodata:
-        options.update(dstNodata=dst_nodata)
-    if dst_dtype:
-        options.update(outputType=gdal_dtype(dst_dtype))
-    warp_options = gdal.WarpOptions(**options)
-    dst_dataset = gdal.Warp(dst_filename, src_dataset, options=warp_options)
-    return dst_filename
+    command += ["-tr", str(dst_res), str(dst_res)]  # spatial resolution
+    command += ["-tap", "-te"] + [str(xy) for xy in dst_bounds]  # align to extent
+    if overwrite:
+        command += ["-overwrite"]
+    command += [src_raster, dst_raster]  # input/output files
+    for creation_opt in GDAL_CO:
+        command += ["-co", creation_opt]  # GDAL creation options for GeoTIFF driver
+    subprocess.run(command, check=True, env=os.environ)
+    log.info(f"Reprojected raster {os.path.basename(src_raster)}.")
+    return dst_raster
 
 
-def align_raster(src_raster, dst_filename, primary_raster, resample_algorithm):
-    """Align a source raster to be in the same grid as a given
-    primary raster.
+def concatenate_bands(src_files, dst_file, band_descriptions=None):
+    """Concatenate multiple rasters into a single multi-band raster.
 
     Parameters
     ----------
-    src_raster : str
-        Path to source raster that will be reprojected.
-    dst_filename : str
-        Path to output raster.
-    primary_raster : str
-        Path to primary raster. Source raster will be reprojected
-        to the same grid.
-    resample_algorithm : int
-        GDAL code of the resampling algorithm, e.g. 0=NearestNeighbour,
-        1=Bilinear, 2=Cubic, 5=Average, 6=Mode...
+    src_files : list of str
+        List of input rasters.
+    dst_file : str
+        Path to output file.
+    band_descriptions : list of str, optional
+        Description of each band (GeoTIFF metadata).
 
     Returns
     -------
-    dst_filename : str
+    dst_file : str
+        Path to output file.
+    """
+    with rasterio.open(src_files[0]) as src:
+        profile = src.profile
+        profile.update(count=len(src_files))
+    with rasterio.open(dst_file, "w", **profile) as dst:
+        for i, src_file in enumerate(src_files):
+            with rasterio.open(src_file) as src:
+                dst.write(src.read(1), i + 1)
+                if band_descriptions:
+                    dst.set_band_description(i + 1, band_descriptions[i])
+    log.info(f"Concatenated {len(src_files)} bands into {os.path.basename(dst_file)}.")
+    return dst_file
+
+
+def compute_slope(src_dem, dst_file, percent=False):
+    """Create slope raster from a digital elevation model.
+
+    This command will take a DEM raster and output a 32-bit float raster with
+    slope values. You have the option of specifying the type of slope value you
+    want: degrees or percent slope. The value -9999 is used as the output nodata
+    value.
+
+    Note
+    ----
+    See `gdaldem documentation <https://gdal.org/programs/gdaldem.html#slope>`_.
+
+    Parameters
+    ----------
+    src_dem : str
+        Path to input DEM.
+    dst_file : str
+        Path to output raster.
+    percent : bool, optional
+        Output slope in percents instead of degrees (default=False).
+
+    Returns
+    -------
+    dst_file : str
         Path to output raster.
     """
-    # Get information on target grid
-    with rasterio.open(primary_raster) as src:
-        dst_bounds = src.bounds
-        dst_crs = src.crs
-        dst_width, dst_height = src.width, src.height
-
-    # Reproject source raster
-    src_dataset = gdal.Open(src_raster)
-    options = gdal.WarpOptions(
-        format="GTiff",
-        outputBounds=dst_bounds,
-        width=dst_width,
-        height=dst_height,
-        resampleAlg=resample_algorithm,
-    )
-    dst_dataset = gdal.Warp(dst_filename, src_dataset, options=options)
-    return dst_filename
+    command = ["gdaldem", "slope"]
+    if percent:
+        command += ["-p"]
+    for opt in GDAL_CO:
+        command += ["-co", opt]
+    command += [src_dem, dst_file]
+    subprocess.run(command, check=True)
+    return dst_file
 
 
-def list_landcover_layers(src_dir):
-    """List land cover layers available in a given
-    directory. Return a list of tuples (name, file_path).
+def compute_aspect(src_dem, dst_file, trigonometric=False):
+    """Create aspect raster from a digital elevation model.
+
+    This command outputs a 32-bit float raster with values between 0° and 360°
+    representing the azimuth that slopes are facing. The definition of the
+    azimuth is such that : 0° means that the slope is facing the North, 90° it’s
+    facing the East, 180° it’s facing the South and 270° it’s facing the West
+    (provided that the top of your input raster is north oriented). The aspect
+    value -9999 is used as the nodata value to indicate undefined aspect in flat
+    areas with slope=0.
+
+    Note
+    ----
+    See `gdaldem documentation <https://gdal.org/programs/gdaldem.html#aspect>`_.
+
+    Parameters
+    ----------
+    src_dem : str
+        Path to input DEM.
+    dst_file : str
+        Path to output raster.
+    trigonometric : bool, optional
+        Return trigonometric angle instead of azimuth (0° East, 90° North, 180°
+        West, 270° South).
+
+    Returns
+    -------
+    dst_file : str
+        Path to output raster.
     """
-    layers = []
-    for fname in os.listdir(src_dir):
-        if "landcover" in fname and fname.endswith(".tif"):
-            # Avoid if 'speed' is found in the filename
-            # It's not a land cover layer
-            if "speed" in fname:
-                continue
-            basename = fname.replace(".tif", "")
-            layername = basename.split("_")[1]
-            layerpath = os.path.join(src_dir, fname)
-            layers.append((layername, layerpath))
-    return layers
-
-
-def create_landcover_stack(src_dir, dst_filename):
-    """Create a multi-band GeoTIFF stack of land cover
-    layers.
-    """
-    layers = list_landcover_layers(src_dir)
-    with rasterio.open(layers[0][1]) as src:
-        dst_profile = src.profile
-        dst_profile.update(
-            count=len(layers), tiled=True, blockxsize=256, blockysize=256
-        )
-
-    with rasterio.open(dst_filename, "w", **dst_profile) as dst:
-        for id, layer in enumerate(layers, start=1):
-            with rasterio.open(layer[1]) as src:
-                dst.write_band(id, src.read(1))
-                dst.set_band_description(id, layer[0])
-
-    return dst_filename
-
-
-def set_nodata(src_raster, nodata, overwrite=False):
-    """Set nodata value for a given raster."""
-    with rasterio.open(src_raster) as src:
-        if src.nodata and not overwrite:
-            return
-        else:
-            dst_profile = src.profile.copy()
-            dst_profile.update(nodata=nodata)
-            with rasterio.open(src_raster, "w", **dst_profile) as dst:
-                dst.write(src.read())
-    return
-
-
-def compress_raster(src_raster):
-    """Ensure that src_raster uses LZW compression."""
-    with rasterio.open(src_raster) as src:
-        if src.profile.get("compress") == "lzw":
-            return
-        else:
-            dst_profile = src.profile.copy()
-            dst_profile["compress"] = "lzw"
-            with rasterio.open(src_raster, "w", **dst_profile) as dst:
-                dst.write(src.read())
-    return
-
-
-def mask_raster(src_raster, country, nodata=None):
-    """Assign nodata value to pixels outside a country boundaries."""
-
-    with rasterio.open(src_raster) as src:
-        src_profile = src.profile
-        src_nodata = src.nodata
-        src_width, src_height = src.width, src.height
-        src_transform, src_crs = src.transform, src.crs
-
-    geom = utils.country_geometry(country)
-    geom = transform_geom(
-        src_crs=CRS.from_epsg(4326), dst_crs=src_crs, geom=geom.__geo_interface__
-    )
-
-    country_mask = rasterize(
-        shapes=[geom],
-        fill=0,
-        default_value=1,
-        out_shape=(src_height, src_width),
-        all_touched=True,
-        transform=src_transform,
-        dtype=rasterio.uint8,
-    )
-
-    # Store band descriptions
-    with rasterio.open(src_raster) as src:
-        descriptions = src.descriptions
-
-    dst_dir = os.path.dirname(src_raster)
-    dst_filename = os.path.join(dst_dir, "masked.tif")
-
-    dst_profile = src_profile.copy()
-    if nodata:
-        dst_nodata = nodata
-        dst_profile.update(nodata=nodata)
-    else:
-        dst_nodata = src_nodata
-
-    with rasterio.open(src_raster) as src, rasterio.open(
-        dst_filename, "w", **dst_profile
-    ) as dst:
-        for id in range(0, dst_profile["count"]):
-            data = src.read(indexes=id + 1)
-            data[country_mask != 1] = dst_nodata
-            if src_nodata:
-                data[data == src_nodata] = dst_nodata
-            dst.write_band(id + 1, data)
-            dst.set_band_description(id + 1, descriptions[id])
-
-    shutil.move(dst_filename, src_raster)
-
-    return src_raster
-
-
-def set_blocksize(raster, size=256):
-    """Set tile blocksize of a given raster in pixels."""
-    with rasterio.open(raster) as src:
-        profile = src.profile
-        # Avoid if blocksize is already correct
-        if profile.get("blockxsize") == size:
-            return
-        data = src.read(1)
-    profile.update(tiled=True, blockxsize=size, blockysize=size)
-    # Rewrite raster to disk
-    with rasterio.open(raster, "w", **profile) as dst:
-        dst.write(data, 1)
-    return
+    command = ["gdaldem", "aspect"]
+    if trigonometric:
+        command += ["-trigonometric"]
+    for opt in GDAL_CO:
+        command += ["-co", opt]
+    command += [src_dem, dst_file]
+    subprocess.run(command, check=True)
+    return dst_file
