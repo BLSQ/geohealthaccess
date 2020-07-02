@@ -1,0 +1,12 @@
+appdirs
+beautifulsoup4
+click
+gdal
+geopandas
+numpy
+pandas
+rasterio
+requests
+requests_file
+shapely
+tqdm
