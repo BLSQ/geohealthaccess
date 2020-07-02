@@ -9,6 +9,8 @@ import sys
 
 from geohealthaccess.config import find_grass_dir
 
+log = logging.getLogger(__name__)
+
 
 # Import GRASS python modules
 grass_dir = find_grass_dir()
@@ -26,16 +28,16 @@ except ImportError:
 def check_gisdb(gisdb_path):
     """Create a GRASSDATA directory if necessary."""
     if os.path.exists(gisdb_path):
-        logging.info("GRASSDATA directory already exists.")
+        log.info("GRASSDATA directory already exists.")
     else:
         os.makedirs(gisdb_path)
-        logging.info(f"GRASSDATA directory created at `{gisdb_path}`.")
+        log.info(f"GRASSDATA directory created at `{gisdb_path}`.")
 
 
 def check_location(gisdb_path, location_name, crs):
     """Create a GRASS location if necessary."""
     if os.path.exists(os.path.join(gisdb_path, location_name)):
-        logging.info(f'Location "{location_name}" already exists.')
+        log.info(f'Location "{location_name}" already exists.')
     else:
         if crs.is_epsg_code:
             gscript.core.create_location(
@@ -45,7 +47,7 @@ def check_location(gisdb_path, location_name, crs):
             gscript.core.create_location(
                 gisdb_path, location_name, proj4=crs.to_proj4(), overwrite=False,
             )
-        logging.info(f'Location "{location_name}" created.')
+        log.info(f'Location "{location_name}" created.')
 
 
 def check_mapset(gisdb_path, location_name, mapset_name):
@@ -56,7 +58,7 @@ def check_mapset(gisdb_path, location_name, mapset_name):
         # The `WIND` file is required too
         wind_path = os.path.join(permanent_path, "WIND")
         if not os.path.exists(wind_path):
-            logging.error(
+            log.error(
                 "`PERMANENT` mapset already exists, but a `WIND` file is missing."
             )
         else:
@@ -64,11 +66,11 @@ def check_mapset(gisdb_path, location_name, mapset_name):
             if not os.path.exists(mapset_path):
                 os.makedirs(mapset_path)
                 shutil.copy(wind_path, os.path.join(mapset_path, "WIND"))
-                logging.info(f"'{mapset_name}' created in location '{location_name}'.")
+                log.info(f"'{mapset_name}' created in location '{location_name}'.")
             else:
-                logging.info(f"'{mapset_name}' mapset already exists.")
+                log.info(f"'{mapset_name}' mapset already exists.")
     else:
-        logging.error("'PERMANENT' mapset does not exist.")
+        log.error("'PERMANENT' mapset does not exist.")
 
 
 def working_mapset(gisdb_path, location_name, mapset_name):
@@ -76,9 +78,9 @@ def working_mapset(gisdb_path, location_name, mapset_name):
     mapset_path = os.path.join(gisdb_path, location_name, mapset_name)
     if os.path.exists(mapset_path):
         gsetup.init(os.environ["GISBASE"], gisdb_path, location_name, mapset_name)
-        logging.info(f"Now working in mapset '{mapset_name}'.")
+        log.info(f"Now working in mapset '{mapset_name}'.")
     else:
-        logging.error(f"Mapset '{mapset_name}' does not exist at '{gisdb_path}'.")
+        log.error(f"Mapset '{mapset_name}' does not exist at '{gisdb_path}'.")
 
 
 def setup_environment(gisdb, crs):
@@ -98,23 +100,23 @@ def setup_environment(gisdb, crs):
 
     if "GISBASE" not in os.environ:
         os.environ["GISBASE"] = find_grass_dir()
-    logging.info(f'GISBASE = {os.environ["GISBASE"]}.')
+    log.info(f'GISBASE = {os.environ["GISBASE"]}.')
 
     if "GISRC" not in os.environ:
         os.environ["GISRC"] = os.path.join(os.environ["HOME"], ".gisrc")
     gscript.setup.init(
         gisbase=os.environ["GISBASE"], dbase=gisdb, location=LOCATION, mapset=MAPSET,
     )
-    logging.info(f'GISRC = {os.environ["GISRC"]}.')
+    log.info(f'GISRC = {os.environ["GISRC"]}.')
 
     grass_python_path = os.path.join(os.environ["GISBASE"], "etc", "python")
     if grass_python_path not in sys.path:
         sys.path.append(grass_python_path)
-    logging.info(f"Importing GRASS Python module from {grass_python_path}.")
+    log.info(f"Importing GRASS Python module from {grass_python_path}.")
 
     check_gisdb(gisdb)
     check_location(gisdb, LOCATION, crs)
     check_mapset(gisdb, LOCATION, MAPSET)
-    logging.info("GRASS environment initialized.")
+    log.info("GRASS environment initialized.")
 
     return
