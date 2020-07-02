@@ -12,7 +12,21 @@
 
 ## Description
 
-The `geohealthaccess` python package provides functions to acquire and process geographic data relevant to accessibility mapping, i.e. topography, land cover, surface water, population, transport networks.
+![Accessibility map](https://raw.githubusercontent.com/BLSQ/geohealthaccess/master/docs/images/travel-times-example.png)
+
+Modeling population accessibility to health facilities has always been
+tedious and time-consuming. From the selection of relevant data sources
+to the modeling in itself, a wide range of skills and software solutions
+are required. GeoHealthAccess is a tool that aims to automate the process
+using a set of high resolution, global and open datasets -- in order to
+enable fast and automated country-scaled analysis. To that end, input datasets
+are automatically pulled from various sources:
+
+* [Geofabrik](https://www.geofabrik.de) (OpenStreetMap) for the transport network ;
+* [Copernicus Global Land Cover](https://lcviewer.vito.be/) for land cover ;
+* [Global Surface Water](https://global-surface-water.appspot.com/) for surface water ;
+* [Shuttle Radar Topography Mission](https://www2.jpl.nasa.gov/srtm/) for topography ;
+* and [WorldPop](https://www.worldpop.org/) for population maps.
 
 ## Installation
 
