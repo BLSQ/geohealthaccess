@@ -5,14 +5,17 @@ The module provides functions to work with .osm.pbf files.
 """
 
 import os
-from subprocess import run, PIPE
+from subprocess import run, PIPE, DEVNULL
 import logging
 import tempfile
 import functools
 
 import numpy as np
+import rasterio
+from rasterio.features import rasterize
 import geopandas as gpd
 
+from geohealthaccess.preprocessing import default_compression
 from geohealthaccess.errors import OsmiumNotFoundError, MissingDataError
 from geohealthaccess.utils import human_readable_size
 
@@ -25,7 +28,7 @@ def requires_osmium(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            run(["osmium"])
+            run(["osmium"], stdout=DEVNULL, stderr=DEVNULL)
         except FileNotFoundError:
             raise OsmiumNotFoundError("Osmium not found.")
         return func(*args, **kwargs)
@@ -63,7 +66,7 @@ def tags_filter(osm_pbf, dst_fname, expression, overwrite=True):
     if overwrite:
         command += ["--overwrite"]
     log.info(f"Running command: {' '.join(command)}")
-    run(command, check=True)
+    run(command, check=True, stdout=DEVNULL, stderr=DEVNULL)
     src_size = human_readable_size(os.path.getsize(osm_pbf))
     dst_size = human_readable_size(os.path.getsize(dst_fname))
     log.info(
@@ -95,7 +98,7 @@ def to_geojson(osm_pbf, dst_fname, overwrite=True):
     if overwrite:
         command += ["--overwrite"]
     log.info(f"Running command: {' '.join(command)}")
-    run(command, check=True)
+    run(command, check=True, stdout=DEVNULL, stderr=DEVNULL)
     src_size = human_readable_size(os.path.getsize(osm_pbf))
     dst_size = human_readable_size(os.path.getsize(dst_fname))
     log.info(
@@ -159,7 +162,7 @@ def _filter_columns(geodataframe, valid_columns):
 
 def _count_objects(osm_pbf):
     """Count objects of each type in an .osm.pbf file."""
-    p = run(["osmium", "fileinfo", "-e", osm_pbf], stdout=PIPE)
+    p = run(["osmium", "fileinfo", "-e", osm_pbf], stdout=PIPE, stderr=DEVNULL)
     fileinfo = p.stdout.decode()
     n_objects = {"nodes": 0, "ways": 0, "relations": 0}
     for line in fileinfo.split("\n"):
@@ -253,3 +256,82 @@ def thematic_extract(osm_pbf, theme, dst_fname):
         )
 
     return dst_fname
+
+
+def create_water_raster(
+    osm_water,
+    dst_file,
+    dst_crs,
+    dst_shape,
+    dst_transform,
+    include_streams=False,
+    geom=None,
+    overwrite=False,
+):
+    """Create a raster of surface water from OSM data.
+
+    Parameters
+    ----------
+    osm_water : str
+        Path to input OSM features (.gpkg or .geojson).
+    dst_file : str
+        Path to output raster.
+    dst_crs : CRS
+        Target coordinate reference system as a rasterio CRS object.
+    dst_shape : tuple of int
+        Output raster shape (height, width).
+    dst_transform : Affine
+        Output raster transform.
+    include_streams : bool, optional
+        Include smallest rivers and streams.
+    overwrite : bool, optional
+        Overwrite existing files.
+    """
+    log.info("Starting rasterization of OSM water objects.")
+    if os.path.isfile(dst_file) and not overwrite:
+        log.info(f"`{os.path.basename(dst_file)}` already exists. Skipping.")
+        return
+    if not os.path.isfile(osm_water):
+        raise MissingDataError("OSM water data is missing.")
+
+    water = gpd.read_file(osm_water)
+    if water.crs != dst_crs:
+        water = water.to_crs(dst_crs)
+    water_bodies = water[water.water.isin(("lake", "basin", "reservoir", "lagoon"))]
+    large_rivers = water[(water.water == "river") | (water.waterway == "riverbank")]
+    small_rivers = water[water.waterway.isin(("river", "canal"))]
+    streams = water[water.waterway == "stream"]
+    features = [water_bodies, large_rivers, small_rivers]
+    if include_streams:
+        features.append(streams)
+
+    geoms = []
+    for objects in features:
+        geoms += [g.__geo_interface__ for g in objects.geometry]
+    log.info(f"Found {len(geoms)} OSM water objects.")
+
+    rst = rasterize(
+        geoms,
+        out_shape=dst_shape,
+        fill=0,
+        default_value=1,
+        transform=dst_transform,
+        all_touched=True,
+        dtype="uint8",
+    )
+
+    dst_profile = rasterio.default_gtiff_profile
+    dst_profile.update(
+        count=1,
+        dtype="uint8",
+        transform=dst_transform,
+        crs=dst_crs,
+        height=dst_shape[0],
+        width=dst_shape[1],
+        nodata=255,
+        **default_compression("uint8"),
+    )
+
+    with rasterio.open(dst_file, "w", **dst_profile) as dst:
+        dst.write(rst, 1)
+        log.info(f"OSM water raster saved as `{os.path.basename(dst_file)}`.")
