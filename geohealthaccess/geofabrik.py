@@ -298,6 +298,8 @@ class SpatialIndex:
             else:
                 log.info("Spatial index cache already exists. Skipping.")
                 return
+        cache_dir = os.path.dirname(self.cache_path)
+        os.makedirs(cache_dir, exist_ok=True)
         sindex_ = self.sindex.copy()
         sindex_["id"] = sindex_.index
         log.info(f"Caching spatial index to {self.cache_path}.")
