@@ -1,17 +1,19 @@
 """Preprocessing of input data."""
 
+import logging
 import os
+import shutil
 import subprocess
 from math import ceil
-import logging
+from tempfile import TemporaryDirectory
 
+import numpy as np
 import rasterio
-from osgeo import gdal
 from rasterio.crs import CRS
+from rasterio.features import rasterize
 from rasterio.transform import from_origin
 from rasterio.warp import transform_geom
 from shapely.geometry import shape
-
 
 log = logging.getLogger(__name__)
 
@@ -44,20 +46,45 @@ GDAL_DTYPES = [
 ]
 
 
-def gdal_dtype(dtype):
-    """Convert dtype string to GDAL GDT object."""
-    GDAL_DTYPES = {
-        "uint8": gdal.GDT_Byte,
-        "uint16": gdal.GDT_UInt16,
-        "int16": gdal.GDT_Int16,
-        "uint32": gdal.GDT_UInt32,
-        "int32": gdal.GDT_Int32,
-        "float32": gdal.GDT_Float32,
-        "float64": gdal.GDT_Float64,
+def default_compression(dtype):
+    """Get default GeoTIFF compression options according to data type.
+
+    Uses `DEFLATE` as the default compression algorithm, with `ZLEVEL=6` and
+    `PREDICTOR=2`. Set `PREDICTOR=3` for floating point data. Set
+    `NUM_THREADS=ALL_CPUS` to provide multi-threaded compression.
+
+    Parameters
+    ----------
+    dtype : np.dtype or str
+        Raster data type.
+
+    Returns
+    -------
+    dict
+        GeoTIFF driver compression options.
+    """
+    options = {
+        "compress": "deflate",
+        "predictor": 2,
+        "zlevel": 6,
+        "num_threads": "all_cpus",
     }
-    if dtype.lower() not in GDAL_DTYPES:
-        raise ValueError("Unrecognized data type.")
-    return GDAL_DTYPES[dtype.lower()]
+    if isinstance(dtype, str):
+        dtype = np.dtype(dtype)
+    if np.issubdtype(dtype, np.floating):
+        options.update(predictor=3)
+    return options
+
+
+def default_tiling():
+    """Return default tiling options for GeoTIFF driver.
+
+    Returns
+    -------
+    dict
+        GeoTIFF driver tiling options.
+    """
+    return {"tiled": True, "blockxsize": 256, "blockysize": 256}
 
 
 def create_grid(geom, dst_crs, dst_res):
@@ -121,7 +148,7 @@ def merge_tiles(src_files, dst_file, nodata=-1):
     for creation_opt in GDAL_CO:
         command += ["-co", creation_opt]
     command += src_files
-    subprocess.run(command, check=True)
+    subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
     log.info(f"Merged {len(src_files)} tiles into {os.path.basename(dst_file)}.")
     return dst_file
 
@@ -183,7 +210,7 @@ def reproject(
     command += [src_raster, dst_raster]  # input/output files
     for creation_opt in GDAL_CO:
         command += ["-co", creation_opt]  # GDAL creation options for GeoTIFF driver
-    subprocess.run(command, check=True, env=os.environ)
+    subprocess.run(command, check=True, env=os.environ, stdout=subprocess.DEVNULL)
     log.info(f"Reprojected raster {os.path.basename(src_raster)}.")
     return dst_raster
 
@@ -218,7 +245,7 @@ def concatenate_bands(src_files, dst_file, band_descriptions=None):
     return dst_file
 
 
-def compute_slope(src_dem, dst_file, percent=False):
+def compute_slope(src_dem, dst_file, percent=False, scale=None):
     """Create slope raster from a digital elevation model.
 
     This command will take a DEM raster and output a 32-bit float raster with
@@ -238,6 +265,8 @@ def compute_slope(src_dem, dst_file, percent=False):
         Path to output raster.
     percent : bool, optional
         Output slope in percents instead of degrees (default=False).
+    scale : int, optional
+        Ratio of vertical units to horizontal (scale=111120 for WGS84).
 
     Returns
     -------
@@ -247,10 +276,12 @@ def compute_slope(src_dem, dst_file, percent=False):
     command = ["gdaldem", "slope"]
     if percent:
         command += ["-p"]
+    if scale:
+        command += ["-s", str(scale)]
     for opt in GDAL_CO:
         command += ["-co", opt]
     command += [src_dem, dst_file]
-    subprocess.run(command, check=True)
+    subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
     return dst_file
 
 
@@ -290,5 +321,58 @@ def compute_aspect(src_dem, dst_file, trigonometric=False):
     for opt in GDAL_CO:
         command += ["-co", opt]
     command += [src_dem, dst_file]
-    subprocess.run(command, check=True)
+    subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
     return dst_file
+
+
+def mask_raster(src_raster, geom):
+    """Assign nodata value to pixels outside a given geometry.
+
+    The function works for both single-band and multi-band rasters. Source
+    raster is overwritten and GDAL compression and tiling options are updated.
+
+    Parameters
+    ----------
+    src_raster : str
+        Path to input raster.
+    geom : shapely geometry
+        Area of interest (EPSG:4326).
+    """
+    with rasterio.open(src_raster) as src:
+        profile = src.profile.copy()
+
+    # Update rasterio profile for better compression and multi-threaded i/o
+    compression_opt = default_compression(profile.get("dtype"))
+    tiling_opt = default_tiling()
+    profile.update(**compression_opt, **tiling_opt)
+
+    geom = transform_geom(
+        src_crs=CRS.from_epsg(4326),
+        dst_crs=profile.get("crs"),
+        geom=geom.__geo_interface__,
+    )
+
+    mask = rasterize(
+        shapes=[geom],
+        fill=0,
+        default_value=1,
+        out_shape=(profile.get("height"), profile.get("width")),
+        all_touched=True,
+        transform=profile.get("transform"),
+        dtype="uint8",
+    )
+
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
+        tmpfile = os.path.join(tmpdir, "masked.tif")
+        with rasterio.open(src_raster) as src, rasterio.open(
+            tmpfile, "w", **profile
+        ) as dst:
+            for id in range(0, profile["count"]):
+                data = src.read(indexes=id + 1)
+                data[mask != 1] = profile.get("nodata")
+                dst.write_band(id + 1, data)
+                dst.set_band_description(id + 1, src.descriptions[id])
+        shutil.move(tmpfile, src_raster)
+        log.info(f"Masked {os.path.basename(src_raster)} raster.")
+
+    return src_raster
