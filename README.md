@@ -1,5 +1,15 @@
 # GeoHealthAccess
 
+* [Description](#description)
+* [Installation](#installation)
+* [Usage](#usage)
+  + [Data acquisition](#data-acquisition)
+  + [Preprocessing](#preprocessing)
+  + [Modeling](#modeling)
+* [Example](#example)
+* [Docker](#docker)
+* [Methodology](#methodology)
+
 ## Description
 
 The `geohealthaccess` python package provides functions to acquire and process geographic data relevant to accessibility mapping, i.e. topography, land cover, surface water, population, transport networks.
