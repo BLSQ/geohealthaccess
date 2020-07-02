@@ -372,7 +372,14 @@ def mask_raster(src_raster, geom):
                 data[mask != 1] = profile.get("nodata")
                 dst.write_band(id + 1, data)
                 dst.set_band_description(id + 1, src.descriptions[id])
-        shutil.move(tmpfile, src_raster)
+        try:
+            shutil.move(tmpfile, src_raster)
+        # shutil.move can fail inside a container when trying to copy xattrs
+        # in distributions using SELinux. File is still going to be moved.
+        except PermissionError:
+            log.warn(
+                f"Permission error when attempting to move `{tmpfile}` to `{src_raster}`."
+            )
         log.info(f"Masked {os.path.basename(src_raster)} raster.")
 
     return src_raster
