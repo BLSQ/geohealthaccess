@@ -68,9 +68,7 @@ def cli():
 
 @cli.command()
 @click.option("--country", "-c", required=True, type=str, help="ISO A3 country code")
-@click.option(
-    "--output-dir", "-o", required=True, type=click.Path(), help="Output directory"
-)
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
 @click.option(
     "--earthdata-user",
     "-u",
@@ -93,6 +91,10 @@ def cli():
 def download(country, output_dir, earthdata_user, earthdata_pass, overwrite):
     """Download input datasets."""
     geom = country_geometry(country)
+
+    # Set data directories automatically if they are not provided
+    if not output_dir:
+        output_dir = os.path.join(os.curdir, "Data", "Input")
 
     # Create data directories
     NAMES = ("Population", "Land_Cover", "OpenStreetMap", "Surface_Water", "Elevation")
@@ -157,9 +159,9 @@ def preprocess(input_dir, output_dir, crs, resolution, country, overwrite):
     """Preprocess and co-register input datasets."""
     # Set data directories if not provided and create them if necessary
     if not input_dir:
-        input_dir = os.path.join(os.curdir, "Input")
+        input_dir = os.path.join(os.curdir, "Data", "Input")
     if not output_dir:
-        output_dir = os.path.join(os.curdir, "Intermediary")
+        output_dir = os.path.join(os.curdir, "Data", "Intermediary")
     input_dir, output_dir = Path(input_dir), Path(output_dir)
     for p in (input_dir, output_dir):
         p.mkdir(parents=True, exist_ok=True)
@@ -508,9 +510,9 @@ def access(
     """Map travel times to the provided health facilities."""
     # Set data directories if not provided and create them if necessary
     if not input_dir:
-        input_dir = Path(os.path.join(os.curdir, "Intermediary"))
+        input_dir = Path(os.path.join(os.curdir, "Data", "Intermediary"))
     if not output_dir:
-        output_dir = Path(os.path.join(os.curdir, "Output"))
+        output_dir = Path(os.path.join(os.curdir, "Data", "Output"))
     input_dir, output_dir = Path(input_dir), Path(output_dir)
     for p in (input_dir, output_dir):
         p.mkdir(parents=True, exist_ok=True)
