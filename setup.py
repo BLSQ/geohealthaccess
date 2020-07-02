@@ -14,7 +14,7 @@ setup(
     ],
     keywords="health mapping gis",
     url="https://github.com/BLSQ/geohealthaccess",
-    author="Yann Forget",
+    author="Yann Forget, Grégoire Lurton",
     author_email="yannforget@mailbox.org",
     license="MIT",
     packages=find_packages(include=["geohealthaccess", "geohealthaccess.*"]),
@@ -22,6 +22,7 @@ setup(
         "requests",
         "requests_file",
         "gdal",
+        "numpy",
         "shapely",
         "pandas",
         "geopandas",
@@ -29,7 +30,9 @@ setup(
         "tqdm",
         "rasterio",
         "appdirs",
+        "click",
     ],
+    extras_require={"dev": ["pytest", "pytest-cov"]},
     package_data={
         "geohealthaccess": [
             "resources/*.geojson",
