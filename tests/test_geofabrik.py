@@ -1,176 +1,109 @@
 """Tests for Geofabrik module."""
 
 import os
-import tempfile
 from datetime import datetime
-from random import randint
+from tempfile import TemporaryDirectory
 
-import geopandas as gpd
 import pytest
-import requests
-from pkg_resources import resource_filename
-from requests_file import FileAdapter
+import vcr
 
-from geohealthaccess.geofabrik import Page, Region, SpatialIndex
+from geohealthaccess.geofabrik import Geofabrik, Page, Region
 
-
-@pytest.fixture
-def africa_page():
-    """Local URL to africa.html."""
-    fpath = resource_filename(__name__, "data/africa.html")
-    return "file://" + fpath
+BASEURL = "http://download.geofabrik.de/"
 
 
-@pytest.fixture
-def kenya_page():
-    """Local URL to kenya.html."""
-    fpath = resource_filename(__name__, "data/kenya.html")
-    return "file://" + fpath
+@vcr.use_cassette("tests/cassettes/geofabrik-index.yaml")
+def test_page_parsing_index():
+    url = BASEURL + "index.html"
+    page = Page(url)
+    assert page.name == "OpenStreetMap Data Extracts"
+    assert len(page.continents) == 8
 
 
-@pytest.fixture
-def index_page():
-    """Local URL to index.html."""
-    fpath = resource_filename(__name__, "data/index.html")
-    return "file://" + fpath
+@vcr.use_cassette("tests/cassettes/geofabrik-africa.yaml")
+def test_page_parsing_continent():
+    url = BASEURL + "africa.html"
+    page = Page(url)
+    assert page.name == "Africa"
+    assert len(page.raw_details) == 37
+    assert len(page.subregions) == 55
+    assert len(page.special_subregions) == 1
 
 
-def test_page_parsing(index_page, africa_page, kenya_page):
-    # Geofabrik index page
-    with requests.Session() as s:
-        s.mount("file://", FileAdapter())
-        index = Page(s, index_page)
-        assert index.name == "OpenStreetMap Data Extracts"
-        assert index.raw_details is None
-        assert index.subregions is None
-        assert len(index.continents) == 8
-        # Geofabrik Africa page
-        africa = Page(s, africa_page)
-        assert africa.name == "Africa"
-        assert len(africa.raw_details) == 43
-        assert len(africa.subregions) == 55
-        assert africa.continents is None
-        # Geofabrik Kenya page
-        kenya = Page(s, kenya_page)
-        assert kenya.name == "Kenya"
-        assert len(kenya.raw_details) == 77
-        assert kenya.subregions is None
-        assert kenya.continents is None
+@vcr.use_cassette("tests/cassettes/geofabrik-kenya.yaml")
+def test_page_parsing_country():
+    url = BASEURL + "africa/kenya.html"
+    page = Page(url)
+    assert page.name == "Kenya"
+    assert len(page.raw_details) == 73
 
 
-@pytest.fixture(scope="module")
-def africa():
-    with requests.Session() as s:
-        return Region(s, "africa")
+@vcr.use_cassette("tests/cassettes/geofabrik-comores.yaml")
+def test_region():
+    region = Region("/africa/comores")
+    assert region.id == "africa/comores"
+    assert region.level == 1
+    assert region.name == "Comores"
+    assert region.extent.is_valid
+    assert region.url == "http://download.geofabrik.de/africa/comores.html"
 
 
-@pytest.fixture(scope="module")
-def kenya():
-    with requests.Session() as s:
-        return Region(s, "africa/kenya")
+@vcr.use_cassette("tests/cassettes/geofabrik-comores.yaml")
+def test_region_files():
+    region = Region("/africa/comores")
+    assert len(region.files) == 65
+    assert "/africa/comores-latest.osm.pbf" in region.files
 
 
-@pytest.mark.remote
-def test_region_url(africa, kenya):
-    assert africa.url == "http://download.geofabrik.de/africa.html"
-    assert kenya.url == "http://download.geofabrik.de/africa/kenya.html"
+@vcr.use_cassette("tests/cassettes/geofabrik-comores.yaml")
+def test_region_datasets():
+    region = Region("africa/comores")
+    assert len(region.datasets) == 12
+    assert isinstance(region.datasets[0]["date"], datetime)
+    assert isinstance(region.datasets[0]["file"], str)
+    assert isinstance(region.datasets[0]["url"], str)
+    assert region.datasets[0]["url"].startswith("http://")
+    assert region.datasets[0]["file"].endswith(".osm.pbf")
 
 
-@pytest.mark.remote
-def test_region_files(africa, kenya):
-    MIN_EXPECTED_FILES = 10
-    assert len(africa.files) >= MIN_EXPECTED_FILES
-    assert len(kenya.files) >= MIN_EXPECTED_FILES
-    # check access to random file from the list
-    for files in (africa.files, kenya.files):
-        r = requests.head(africa.BASE_URL + files[randint(0, len(files) - 1)])
-        assert r.status_code == 200
+@vcr.use_cassette("tests/cassettes/geofabrik-comores.yaml")
+def test_region_latest():
+    region = Region("africa/comores")
+    assert region.latest.endswith(".osm.pbf")
 
 
-@pytest.mark.remote
-def test_region_datasets(africa, kenya):
-    MIN_EXPECTED_DATASETS = 10
-    assert len(kenya.datasets) >= MIN_EXPECTED_DATASETS
-    assert len(africa.datasets) >= MIN_EXPECTED_DATASETS
-    for dataset in kenya.datasets + africa.datasets:
-        assert isinstance(dataset["date"], datetime)
-        assert isinstance(dataset["file"], str)
-        assert isinstance(dataset["url"], str)
+@vcr.use_cassette("tests/cassettes/geofabrik-france.yaml")
+def test_region_subregions():
+    region = Region("europe/france")
+    assert len(region.subregions) == 27
+    assert "/europe/france/alsace" in region.subregions
 
 
-@pytest.mark.remote
-def test_region_latest(africa, kenya):
-    for latest in (africa.latest, kenya.latest):
-        assert latest.startswith("http://download.geofabrik.de")
-        assert latest.endswith(".osm.pbf")
+def test_geofabrik_sindex():
+    geofab = Geofabrik()
+    assert len(geofab.sindex) == 363
+    row = geofab.sindex.loc["africa"]
+    assert row.name == "africa"
+    assert row.geometry.is_valid
 
 
-@pytest.mark.remote
-def test_region_subregions(africa, kenya):
-    assert len(africa.subregions) >= 50
-    assert "/africa/kenya" in africa.subregions
-    assert kenya.subregions is None
+def test_geofabrik_search(senegal):
+    geofab = Geofabrik()
+    region_id, match = geofab.search(senegal)
+    assert region_id == "africa/senegal-and-gambia"
+    assert match == pytest.approx(0.62, rel=0.01)
 
 
-@pytest.mark.remote
-def test_region_get_geometry(africa, kenya):
-    assert africa.get_geometry().bounds == pytest.approx((-27, -60, 67, 38), abs=1)
-    assert kenya.get_geometry().bounds == pytest.approx((34, -5, 42, 5), abs=1)
-
-
-@pytest.mark.remote
-def test_spatial_index_build():
-    oceania = SpatialIndex()
-    oceania.CONTINENTS = ["australia-oceania"]
-    oceania.build()
-    assert "Tonga" in oceania.sindex.name.values
-    assert oceania.sindex.is_valid.all()
-
-
-@pytest.fixture(scope="module")
-def africa_sindex():
-    sindex = gpd.read_file(resource_filename(__name__, "data/geofabrik-africa.gpkg"))
-    sindex.set_index(["id"], drop=True, inplace=True)
-    return sindex
-
-
-def test_spatial_index_cache_get(africa_sindex):
-    africa = SpatialIndex()
-    africa.BASE_URL = None
-    africa.sindex = africa_sindex
-    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
-        africa.cache_path = os.path.join(tmpdir, "cache.gpkg")
-        africa.cache()
-        assert os.path.isfile(africa.cache_path)
-        assert africa.sindex.is_valid.all()
-        africa.get()
-        assert africa.sindex.is_valid.all()
-
-
-def test_spatial_index_search(senegal, madagascar, africa_sindex):
-    africa = SpatialIndex()
-    africa.sindex = africa_sindex
-    # senegal
-    region_id, match = africa.search(senegal)
-    assert region_id == "/africa/senegal-and-gambia"
-    assert match == pytest.approx(0.62, abs=0.01)
-    # madagascar
-    region_id, match = africa.search(madagascar)
-    assert region_id == "/africa/madagascar"
-    assert match == pytest.approx(0.64, abs=0.01)
-
-
-@pytest.mark.remote
-def test_download(africa_sindex):
-    africa = SpatialIndex()
-    africa.sindex = africa_sindex
-    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
-        osm_pbf = africa.download("africa/djibouti", tmpdir)
-        mtime = os.path.getmtime(osm_pbf)
-        assert os.path.isfile(osm_pbf)
-        # should not be downloaded again
-        africa.download("africa/djibouti", tmpdir, overwrite=False)
-        assert os.path.getmtime(osm_pbf) == mtime
-        # should be downloaded again
-        africa.download("africa/djibouti", tmpdir, overwrite=True)
-        assert os.path.getmtime(osm_pbf) != mtime
+@vcr.use_cassette("tests/cassettes/geofabrik-saotomeprincipe-download.yaml")
+def test_geofabrik_download():
+    geofabrik = Geofabrik()
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
+        osmpbf = geofabrik.download("africa/sao-tome-and-principe", tmpdir)
+        mtime = os.path.getmtime(osmpbf)
+        assert os.path.isfile(osmpbf)
+        # should not download again (overwrite=False)
+        geofabrik.download("africa/sao-tome-and-principe", tmpdir, overwrite=False)
+        assert os.path.getmtime(osmpbf) == mtime
+        # should download again (overwrite=True)
+        geofabrik.download("africa/sao-tome-and-principe", tmpdir, overwrite=True)
+        assert os.path.getmtime(osmpbf) != mtime
