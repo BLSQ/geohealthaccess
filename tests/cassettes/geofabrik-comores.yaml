@@ -1,0 +1,170 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.22.0
+    method: GET
+    uri: http://download.geofabrik.de/africa/comores.html
+  response:
+    body:
+      string: !!binary |
+        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
+        fcYePX9O3nPALuPj2f8AWy2/gVFJAAA=
+    headers:
+      Accept-Ranges:
+      - bytes
+      Connection:
+      - Keep-Alive
+      Content-Encoding:
+      - gzip
+      Content-Length:
+      - '3842'
+      Content-Type:
+      - text/html
+      Date:
+      - Fri, 03 Jul 2020 16:30:05 GMT
+      ETag:
+      - '"4951-5a98c09735971-gzip"'
+      Keep-Alive:
+      - timeout=5, max=100
+      Last-Modified:
+      - Fri, 03 Jul 2020 16:30:02 GMT
+      Server:
+      - Apache/2.4.29 (Ubuntu)
+      Vary:
+      - Accept-Encoding
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.22.0
+    method: GET
+    uri: http://download.geofabrik.de/africa/comores.kml
+  response:
+    body:
+      string: '<?xml version="1.0" encoding="UTF-8"?> <kml xmlns="http://earth.google.com/kml/2.0">
+        <Document> <Placemark> <MultiGeometry>
+
+        <Polygon> <outerBoundaryIs> <LinearRing>  <coordinates>
+
+        42.749810,-10.741810,0
+
+        45.596610,-11.534880,0
+
+        44.500290,-12.752650,0
+
+        42.804910,-12.969000,0
+
+        42.749810,-10.741810,0
+
+        </coordinates> </LinearRing> </outerBoundaryIs>  </Polygon>
+
+        </MultiGeometry> <Style> <PolyStyle>  <color>#a00000ff</color> <outline>0</outline>
+        </PolyStyle> </Style> </Placemark> </Document> </kml>
+
+        '
+    headers:
+      Accept-Ranges:
+      - bytes
+      Connection:
+      - Keep-Alive
+      Content-Length:
+      - '493'
+      Content-Type:
+      - application/vnd.google-earth.kml+xml
+      Date:
+      - Fri, 03 Jul 2020 16:30:05 GMT
+      ETag:
+      - '"1ed-5a97d83c0a580"'
+      Keep-Alive:
+      - timeout=5, max=100
+      Last-Modified:
+      - Thu, 02 Jul 2020 23:10:30 GMT
+      Server:
+      - Apache/2.4.29 (Ubuntu)
+    status:
+      code: 200
+      message: OK
+version: 1

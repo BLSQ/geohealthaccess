@@ -1,0 +1,78 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.22.0
+    method: GET
+    uri: https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/manifest_cgls_lc_v2_100m_global_2015.txt
+  response:
+    body:
+      string: "https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E000N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E000N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E000N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E000N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E000N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E000S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E020N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E020N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E020N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E020N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E020N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E020S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E040N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E040N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E040N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E040N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E040S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E060N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E060N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E060N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E060N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E080N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E080N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E080N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E080N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E080N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E100N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E100N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E100N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E100N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E100N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E100S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E120N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E120N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E120N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E120N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E120N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E120S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E140N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E140N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E140N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E140N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E140S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E140S40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E160N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E160N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E160N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E160S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E160S40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W020N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W020N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W020N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W020N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W040N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W040N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W040N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W040N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W060N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W060N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W060N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W060N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W060S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W060S40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W080N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W080N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W080N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W080N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W080N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W080S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W080S40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W100N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W100N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W100N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W100N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W100N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W100S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W120N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W120N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W120N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W120N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W140N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W140N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W140N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W160N20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W160N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W160N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W160N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W180N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W180N40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W180N60_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W180N80_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W180S20_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\nhttps://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/W180S40_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip\r\n"
+    headers:
+      Accept-Ranges:
+      - bytes
+      Content-Length:
+      - '11938'
+      Content-Type:
+      - text/plain
+      Date:
+      - Fri, 03 Jul 2020 12:19:46 GMT
+      ETag:
+      - '"63ed35ca0912f7882514d8d1379fbf51"'
+      Last-Modified:
+      - Fri, 10 May 2019 10:07:25 GMT
+      Server:
+      - AmazonS3
+      x-amz-id-2:
+      - yTGHb6EndYnzHcKghMtJvj5eyzOs8F7hE9LuFfrtqimHiuTlLFXV/WcNQo8btB9jTcjgcJ97Pr8=
+      x-amz-request-id:
+      - EE51E2AD0FE90951
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - identity
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.22.0
+    method: HEAD
+    uri: https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/E040N00_ProbaV_LC100_epoch2015_global_v2.0.1_products_EPSG-4326.zip
+  response:
+    body:
+      string: ''
+    headers:
+      Accept-Ranges:
+      - bytes
+      Content-Length:
+      - '360011771'
+      Content-Type:
+      - application/x-zip-compressed
+      Date:
+      - Fri, 03 Jul 2020 12:19:46 GMT
+      ETag:
+      - '"d1117e69a5c07c3a08fb8fe23495e234-43"'
+      Last-Modified:
+      - Fri, 03 May 2019 10:02:29 GMT
+      Server:
+      - AmazonS3
+      x-amz-id-2:
+      - pmR3Jty57vmIF5cF3IBJuWby5O9XG7Xe73NN/ebjnRqA79/slEomhvBtU8obFRwQSbVYatagOTw=
+      x-amz-request-id:
+      - 19FEA50CC9D7F052
+    status:
+      code: 200
+      message: OK
+version: 1

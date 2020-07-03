@@ -1,0 +1,94 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.22.0
+    method: GET
+    uri: http://download.geofabrik.de/index.html
+  response:
+    body:
+      string: !!binary |
+        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
+        KGx0qcWUJ3N2qVD2uSP9P5mqa2QmJQAA
+    headers:
+      Accept-Ranges:
+      - bytes
+      Connection:
+      - Keep-Alive
+      Content-Encoding:
+      - gzip
+      Content-Length:
+      - '2817'
+      Content-Type:
+      - text/html
+      Date:
+      - Fri, 03 Jul 2020 16:30:05 GMT
+      ETag:
+      - '"2526-5a98c0964e251-gzip"'
+      Keep-Alive:
+      - timeout=5, max=100
+      Last-Modified:
+      - Fri, 03 Jul 2020 16:30:01 GMT
+      Server:
+      - Apache/2.4.29 (Ubuntu)
+      Vary:
+      - Accept-Encoding
+    status:
+      code: 200
+      message: OK
+version: 1
