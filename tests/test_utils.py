@@ -7,9 +7,12 @@ from ftplib import FTP
 
 import pytest
 import requests
-from requests_file import FileAdapter
+import vcr
+from pkg_resources import resource_filename
 
 from geohealthaccess import utils
+
+GITHUB = "https://raw.githubusercontent.com/BLSQ/geohealthaccess/master/"
 
 
 @pytest.mark.parametrize(
@@ -20,30 +23,27 @@ def test_human_readable_size(size, expected):
     assert utils.human_readable_size(size) == expected
 
 
-def test_size_from_url(tests_data):
-    """Local URL."""
-    url = tests_data["madagascar.geojson"]["local_url"]
+@vcr.use_cassette("tests/cassettes/madagascar-geojson-head.yaml")
+def test_size_from_url():
+    url = GITHUB + "tests/data/madagascar.geojson"
     with requests.Session() as s:
-        s.mount("file://", FileAdapter())
         assert utils.size_from_url(s, url) == 22498
 
 
-@pytest.mark.http
-def test_size_from_url_http(tests_data):
-    """Remote URL."""
-    url = tests_data["madagascar.geojson"]["github_url"]
+@vcr.use_cassette("tests/cassettes/madagascar-geojson-head.yaml")
+def test_http_same_size():
+    url = GITHUB + "tests/data/madagascar.geojson"
+    path = resource_filename(__name__, "data/madagascar.geojson")
     with requests.Session() as s:
-        s.mount("file://", FileAdapter())
-        assert utils.size_from_url(s, url) == 22498
-
-
-def test_http_same_size(tests_data):
-    """Use a local URL to avoid network calls."""
-    url = tests_data["madagascar.geojson"]["local_url"]
-    path = tests_data["madagascar.geojson"]["local_path"]
-    with requests.Session() as s:
-        s.mount("file://", FileAdapter())
         assert utils.http_same_size(s, url, path)
+
+
+@vcr.use_cassette("tests/cassettes/madagascar-geojson-head.yaml")
+def test_http_not_same_size():
+    url = GITHUB + "tests/data/madagascar.geojson"
+    path = resource_filename(__name__, "data/madagascar.wkt")
+    with requests.Session() as s:
+        assert not utils.http_same_size(s, url, path)
 
 
 def test_country_geometry():
@@ -53,13 +53,18 @@ def test_country_geometry():
     assert mdg.area == pytest.approx(51.07, 0.01)
 
 
-def test_download_from_url(tests_data):
+def test_country_geometry_notfound():
+    with pytest.raises(ValueError):
+        utils.country_geometry("not_a_country")
+
+
+@vcr.use_cassette("tests/cassettes/madagascar-geojson.yaml")
+def test_download_from_url():
     """Use a local URL to avoid network calls."""
-    url = tests_data["madagascar.geojson"]["local_url"]
+    url = GITHUB + "tests/data/madagascar.geojson"
     with tempfile.TemporaryDirectory(
         prefix="geohealthaccess_"
     ) as tmpdir, requests.Session() as s:
-        s.mount("file://", FileAdapter())
         # simple download
         path = utils.download_from_url(s, url, tmpdir, False)
         assert utils.http_same_size(s, url, path)
@@ -72,7 +77,7 @@ def test_download_from_url(tests_data):
         assert mtime != os.path.getmtime(path)
 
 
-@pytest.mark.http
+@pytest.mark.remote
 def test_download_from_ftp():
     url = (
         "ftp://ftp.worldpop.org.uk/GIS/Population/Global_2000_2020/2020/BDI/"
@@ -94,7 +99,7 @@ def test_download_from_ftp():
     ftp.close()
 
 
-@pytest.mark.http
+@pytest.mark.remote
 def test_size_from_ftp():
     url = (
         "ftp://ftp.worldpop.org.uk/GIS/Population/Global_2000_2020/2020/BDI/"
@@ -106,11 +111,11 @@ def test_size_from_ftp():
     ftp.close()
 
 
-def test_unzip(tests_data):
-    archive = tests_data["madagascar.zip"]["local_path"]
-    reference = tests_data["madagascar.geojson"]["local_path"]
+def test_unzip():
+    archive = resource_filename(__name__, "data/madagascar.zip")
+    expected = resource_filename(__name__, "data/madagascar.geojson")
     with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
         utils.unzip(archive, tmpdir)
         extracted = os.path.join(tmpdir, "madagascar.geojson")
         assert os.path.isfile(extracted)
-        assert filecmp.cmp(extracted, reference)
+        assert filecmp.cmp(extracted, expected)
