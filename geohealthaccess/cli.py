@@ -57,7 +57,14 @@ from geohealthaccess.srtm import SRTM
 from geohealthaccess.utils import country_geometry, unzip
 from geohealthaccess.worldpop import WorldPop
 
+
 log = logging.getLogger(__name__)
+formatter = logging.Formatter(
+    "%(asctime)s %(levelname)s [%(module)s]: %(message)s", "%Y-%m-%d %H:%M:%S"
+)
+file_handler = logging.FileHandler("geohealthaccess.log")
+file_handler.setFormatter(formatter)
+log.addHandler(file_handler)
 
 
 @click.group()
