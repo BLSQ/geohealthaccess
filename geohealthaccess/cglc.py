@@ -83,14 +83,13 @@ class CGLC:
             "manifest_cgls_lc_v2_100m_global_2015.txt"
         )
         self.session = requests.Session()
-        self.session.mount("file://", FileAdapter())
+        self.manifest = self.parse_manifest()
         self.sindex = self.spatial_index()
 
     def __repr__(self):
         return "geohealthaccess.cglc.CGLC()"
 
-    @staticmethod
-    def parse_manifest(url):
+    def parse_manifest(self):
         """Parse manifest text file.
 
         Parameters
@@ -108,12 +107,10 @@ class CGLC:
         HTTPError
             If connection to manifest URL is not sucessfull.
         """
-        log.info(f"Parsing CGLC manifest from {url}.")
-        s = requests.Session()
-        s.mount("file://", FileAdapter())
-        r = s.get(url)
+        log.info(f"Parsing CGLC manifest from {self.MANIFEST_URL}.")
+        r = self.session.get(self.MANIFEST_URL)
         r.raise_for_status()
-        return [url for url in r.text.split("\r\n") if url]
+        return r.text.splitlines()
 
     def spatial_index(self):
         """Build a spatial index from the Manifest text file.
@@ -123,12 +120,11 @@ class CGLC:
         geodataframe
             GeoDataFrame version of the catalog with tile IDs, URL and geometry.
         """
-        tiles = self.parse_manifest(self.MANIFEST_URL)
         sindex = gpd.GeoDataFrame(
-            index=[tile_id(tile) for tile in tiles],
-            data=tiles,
+            index=[tile_id(tile) for tile in self.manifest],
+            data=self.manifest,
             columns=["url"],
-            geometry=[tile_geom(tile_id(tile)) for tile in tiles],
+            geometry=[tile_geom(tile_id(tile)) for tile in self.manifest],
             crs=CRS.from_epsg(4326),
         )
         log.info(f"CGLC spatial index has been built ({len(sindex)} tiles).")
