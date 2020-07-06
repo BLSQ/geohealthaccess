@@ -49,7 +49,7 @@ def test_gsw_search(gsw, madagascar, senegal):
     [
         ("30W_20N", "occurrence", "occurrence/occurrence_30W_20N_v1_1.tif"),
         ("50E_20S", "seasonality", "seasonality/seasonality_50E_20S_v1_1.tif"),
-        ("190W_20S", "transitions", "transitions/transitions_190W_20S_v1_1.tif"),
+        ("180W_20S", "transitions", "transitions/transitions_180W_20S_v1_1.tif"),
     ],
 )
 def test_gsw_url(gsw, tile, product, url):
@@ -57,18 +57,19 @@ def test_gsw_url(gsw, tile, product, url):
     assert gsw.url(tile, product) == BASE_URL + url
 
 
-@vcr.use_cassette("tests/cassettes/gsw-190W_20S-extent.yaml")
+@vcr.use_cassette("tests/cassettes/gsw-180W_20S-extent.yaml")
 def test_gsw_download():
     gsw = GSW()
     with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
-        fpath = gsw.download("190W_20S", "extent", tmpdir)
+        fpath = gsw.download("180W_20S", "extent", tmpdir)
         assert os.path.isfile(fpath)
+        assert os.path.getsize(fpath) > 1000
         mtime = os.path.getmtime(fpath)
         # should not be downloaded again
-        gsw.download("190W_20S", "extent", tmpdir, overwrite=False)
+        gsw.download("180W_20S", "extent", tmpdir, overwrite=False)
         assert os.path.getmtime(fpath) == mtime
         # should be downloaded again
-        gsw.download("190W_20S", "extent", tmpdir, overwrite=True)
+        gsw.download("180W_20S", "extent", tmpdir, overwrite=True)
         assert os.path.getmtime(fpath) != mtime
 
 
