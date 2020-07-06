@@ -18,7 +18,6 @@ See `<http://www.geofabrik.de/>`_ for more information about the Geofabrik proje
 """
 
 import logging
-import os
 import re
 import tempfile
 from datetime import datetime
@@ -26,12 +25,9 @@ from urllib.parse import urljoin, urlsplit
 
 import geopandas as gpd
 import requests
-from appdirs import user_cache_dir
 from pkg_resources import resource_filename
 from bs4 import BeautifulSoup
 from osgeo import ogr
-from rasterio.crs import CRS
-from requests_file import FileAdapter
 from shapely import wkt
 
 from geohealthaccess.utils import download_from_url
