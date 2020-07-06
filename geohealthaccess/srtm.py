@@ -26,7 +26,6 @@ import logging
 
 import geopandas as gpd
 import requests
-from requests_file import FileAdapter
 from bs4 import BeautifulSoup
 from pkg_resources import resource_filename
 
@@ -44,11 +43,10 @@ class SRTM:
         self.LOGIN_URL = "https://urs.earthdata.nasa.gov/login"
         self.PROFILE_URL = "https://urs.earthdata.nasa.gov/profile"
         self.DOWNLOAD_URL = (
-            "http://e4ftl01.cr.usgs.gov/MEASURES/SRTMGL1.003/2000.02.11/"
+            "https://e4ftl01.cr.usgs.gov/MEASURES/SRTMGL1.003/2000.02.11/"
         )
         self.sindex = self.spatial_index()
         self.session = requests.Session()
-        self.session.mount("file://", FileAdapter)
 
     @property
     def authenticity_token(self):

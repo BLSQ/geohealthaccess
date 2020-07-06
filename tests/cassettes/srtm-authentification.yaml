@@ -1,0 +1,460 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.22.0
+    method: GET
+    uri: https://urs.earthdata.nasa.gov/
+  response:
+    body:
+      string: !!binary |
+        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
+        0KUPIlRPUX1D+L/9aNq/VCgAAA==
+    headers:
+      Cache-Control:
+      - max-age=0, private, must-revalidate
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - text/html; charset=utf-8
+      Date:
+      - Mon, 06 Jul 2020 14:06:39 GMT
+      ETag:
+      - W/"5267f7ed5b4123673ff54af8b33c767e"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Server:
+      - nginx/1.17.5
+      Set-Cookie:
+      - _urs-gui_session=ebddb85ab36d2151f3b8247184a3814f; path=/; expires=Tue, 07
+        Jul 2020 14:06:39 GMT; HttpOnly
+      Strict-Transport-Security:
+      - max-age=31536000
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      X-Download-Options:
+      - noopen
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-Request-Id:
+      - 86cbcdbe-b023-43da-a50e-84d7f711c140
+      X-Runtime:
+      - '0.020219'
+      X-XSS-Protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Cookie:
+      - _urs-gui_session=ebddb85ab36d2151f3b8247184a3814f
+      User-Agent:
+      - python-requests/2.22.0
+    method: GET
+    uri: https://urs.earthdata.nasa.gov/
+  response:
+    body:
+      string: !!binary |
+        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
+        v6FLH0SonqL6hvB/AaFjml1UKAAA
+    headers:
+      Cache-Control:
+      - max-age=0, private, must-revalidate
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - text/html; charset=utf-8
+      Date:
+      - Mon, 06 Jul 2020 14:06:39 GMT
+      ETag:
+      - W/"73f3da2d16dc4fef61b9d67f88f35ca2"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Server:
+      - nginx/1.17.5
+      Set-Cookie:
+      - _urs-gui_session=ebddb85ab36d2151f3b8247184a3814f; path=/; expires=Tue, 07
+        Jul 2020 14:06:39 GMT; HttpOnly
+      Strict-Transport-Security:
+      - max-age=31536000
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      X-Download-Options:
+      - noopen
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-Request-Id:
+      - c34d471c-a5ff-4c83-8e33-66e98b6cda08
+      X-Runtime:
+      - '0.011404'
+      X-XSS-Protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+- request:
+    body: username=geohealthaccess&password=UtRAWDaPfemv9JiF&authenticity_token=Btv3R4PdFXhPjLebqHEuvJj2%2F5FpGqd7Sw6lIakhkjG57fIUtM6qxem%2F8TVBSHOG5V77sIaBXvjLhcBoN4E2TA%3D%3D
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '166'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      Cookie:
+      - _urs-gui_session=ebddb85ab36d2151f3b8247184a3814f
+      User-Agent:
+      - python-requests/2.22.0
+    method: POST
+    uri: https://urs.earthdata.nasa.gov/login
+  response:
+    body:
+      string: <html><body>You are being <a href="https://urs.earthdata.nasa.gov/profile">redirected</a>.</body></html>
+    headers:
+      Cache-Control:
+      - no-cache
+      Connection:
+      - keep-alive
+      Content-Type:
+      - text/html; charset=utf-8
+      Date:
+      - Mon, 06 Jul 2020 14:06:39 GMT
+      Location:
+      - https://urs.earthdata.nasa.gov/profile
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Server:
+      - nginx/1.17.5
+      Set-Cookie:
+      - urs_user_already_logged=yes; domain=earthdata.nasa.gov; path=/; expires=Tue,
+        07 Jul 2020 14:06:39 GMT
+      - urs_guid_ops=e40e82e6-a1bf-40e6-ac83-79acda43568e; domain=.nasa.gov; path=/;
+        expires=Tue, 06 Jul 2021 14:06:39 GMT
+      - _urs-gui_session=ebddb85ab36d2151f3b8247184a3814f; path=/; expires=Tue, 07
+        Jul 2020 14:06:39 GMT; HttpOnly
+      Strict-Transport-Security:
+      - max-age=31536000
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      X-Download-Options:
+      - noopen
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-Request-Id:
+      - 3f5d33c8-2469-4ac8-8164-015be754b06d
+      X-Runtime:
+      - '0.104432'
+      X-XSS-Protection:
+      - 1; mode=block
+    status:
+      code: 302
+      message: Found
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Cookie:
+      - _urs-gui_session=ebddb85ab36d2151f3b8247184a3814f; urs_user_already_logged=yes;
+        urs_guid_ops=e40e82e6-a1bf-40e6-ac83-79acda43568e
+      User-Agent:
+      - python-requests/2.22.0
+    method: GET
+    uri: https://urs.earthdata.nasa.gov/profile
+  response:
+    body:
+      string: !!binary |
+        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
+        fwDbaNSmsSAAAA==
+    headers:
+      Cache-Control:
+      - max-age=0, private, must-revalidate
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - text/html; charset=utf-8
+      Date:
+      - Mon, 06 Jul 2020 14:06:40 GMT
+      ETag:
+      - W/"14a933d27e673d08b4cb4e8015ce3983"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Server:
+      - nginx/1.17.5
+      Set-Cookie:
+      - urs_user_already_logged=yes; domain=earthdata.nasa.gov; path=/; expires=Tue,
+        07 Jul 2020 14:06:39 GMT
+      - _urs-gui_session=ebddb85ab36d2151f3b8247184a3814f; path=/; expires=Tue, 07
+        Jul 2020 14:06:40 GMT; HttpOnly
+      Strict-Transport-Security:
+      - max-age=31536000
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      X-Download-Options:
+      - noopen
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-Request-Id:
+      - fedaec96-e24b-4a9f-956d-0a0e42a2648a
+      X-Runtime:
+      - '0.118765'
+      X-XSS-Protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+version: 1
