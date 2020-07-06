@@ -30,7 +30,7 @@ from shapely.geometry import shape
 from geohealthaccess.cglc import CGLC, unique_tiles
 from geohealthaccess.data import Intermediary, Raw
 from geohealthaccess.errors import MissingDataError
-from geohealthaccess.geofabrik import SpatialIndex
+from geohealthaccess.geofabrik import Geofabrik
 from geohealthaccess.gsw import GSW
 from geohealthaccess.modeling import (
     anisotropic_costdistance,
@@ -122,8 +122,7 @@ def download(country, output_dir, earthdata_user, earthdata_pass, overwrite):
         cglc.download(tile, os.path.join(output_dir, NAMES[1]), overwrite=overwrite)
 
     # OpenStreetMap
-    geofab = SpatialIndex()
-    geofab.get()
+    geofab = Geofabrik()
     region_id, _ = geofab.search(geom)
     geofab.download(region_id, os.path.join(output_dir, NAMES[2]), overwrite=overwrite)
 
