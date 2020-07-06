@@ -1,3 +1,5 @@
+"""Tests for CGLC module."""
+
 import os
 from tempfile import TemporaryDirectory
 
