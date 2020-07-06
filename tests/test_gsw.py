@@ -3,6 +3,7 @@
 import os
 import tempfile
 
+import vcr
 import pytest
 
 from geohealthaccess.gsw import GSW
@@ -56,8 +57,9 @@ def test_gsw_url(gsw, tile, product, url):
     assert gsw.url(tile, product) == BASE_URL + url
 
 
-@pytest.mark.remote
-def test_gsw_download(gsw):
+@vcr.use_cassette("tests/cassettes/gsw-190W_20S-extent.yaml")
+def test_gsw_download():
+    gsw = GSW()
     with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
         fpath = gsw.download("190W_20S", "extent", tmpdir)
         assert os.path.isfile(fpath)
@@ -70,14 +72,7 @@ def test_gsw_download(gsw):
         assert os.path.getmtime(fpath) != mtime
 
 
-@pytest.mark.remote
-@pytest.mark.parametrize(
-    "tile, product, size",
-    [
-        ("30W_20N", "extent", 11137774),
-        ("50W_20S", "occurrence", 31769600),
-        ("20E_70N", "seasonality", 25245280),
-    ],
-)
-def test_gsw_download_size(gsw, tile, product, size):
-    assert gsw.download_size(tile, product) == size
+@vcr.use_cassette("tests/cassettes/gsw-30W_20N-extent-head.yaml")
+def test_gsw_download_size():
+    gsw = GSW()
+    assert gsw.download_size("30W_20N", "extent") == 11137774

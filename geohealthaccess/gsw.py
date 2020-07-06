@@ -30,7 +30,6 @@ import logging
 
 import geopandas as gpd
 import requests
-from requests_file import FileAdapter
 from rasterio.crs import CRS
 from shapely.geometry import Polygon
 
@@ -55,7 +54,6 @@ class GSW:
             "extent",
         ]
         self.session = requests.Session()
-        self.session.mount("file://", FileAdapter())
         self.sindex = self.spatial_index()
 
     def __repr__(self):
