@@ -1,0 +1,173 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.22.0
+    method: GET
+    uri: https://storage.googleapis.com/global-surface-water/downloads2/extent/extent_190W_20S_v1_1.tif
+  response:
+    body:
+      string: '<?xml version=''1.0'' encoding=''UTF-8''?><Error><Code>NoSuchKey</Code><Message>The
+        specified key does not exist.</Message><Details>No such object: global-surface-water/downloads2/extent/extent_190W_20S_v1_1.tif</Details></Error>'
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Expose-Headers:
+      - Content-Type
+      Alt-Svc:
+      - h3-29=":443"; ma=2592000,h3-27=":443"; ma=2592000,h3-25=":443"; ma=2592000,h3-T050=":443";
+        ma=2592000,h3-Q050=":443"; ma=2592000,h3-Q046=":443"; ma=2592000,h3-Q043=":443";
+        ma=2592000,quic=":443"; ma=2592000; v="46,43"
+      Cache-Control:
+      - private, max-age=0
+      Content-Length:
+      - '225'
+      Content-Type:
+      - application/xml; charset=UTF-8
+      Date:
+      - Mon, 06 Jul 2020 11:41:05 GMT
+      Expires:
+      - Mon, 06 Jul 2020 11:41:05 GMT
+      Server:
+      - UploadServer
+      X-GUploader-UploadID:
+      - AAANsUn-Gy7JxwJqI-pqNCR9lm5uGUMC_WMh2I9UUWfgSbLiJaeWoYNGZqlPRP4Gfh_Zi6MimLLvzX2laLZDVG5uxX8
+    status:
+      code: 404
+      message: Not Found
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.22.0
+    method: GET
+    uri: https://storage.googleapis.com/global-surface-water/downloads2/extent/extent_190W_20S_v1_1.tif
+  response:
+    body:
+      string: '<?xml version=''1.0'' encoding=''UTF-8''?><Error><Code>NoSuchKey</Code><Message>The
+        specified key does not exist.</Message><Details>No such object: global-surface-water/downloads2/extent/extent_190W_20S_v1_1.tif</Details></Error>'
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Expose-Headers:
+      - Content-Type
+      Alt-Svc:
+      - h3-29=":443"; ma=2592000,h3-27=":443"; ma=2592000,h3-25=":443"; ma=2592000,h3-T050=":443";
+        ma=2592000,h3-Q050=":443"; ma=2592000,h3-Q046=":443"; ma=2592000,h3-Q043=":443";
+        ma=2592000,quic=":443"; ma=2592000; v="46,43"
+      Cache-Control:
+      - private, max-age=0
+      Content-Length:
+      - '225'
+      Content-Type:
+      - application/xml; charset=UTF-8
+      Date:
+      - Mon, 06 Jul 2020 11:41:05 GMT
+      Expires:
+      - Mon, 06 Jul 2020 11:41:05 GMT
+      Server:
+      - UploadServer
+      X-GUploader-UploadID:
+      - AAANsUlvdFGCz5PI2Lf_Oaw7jS658syQEP-2IvLNMRNzOqqVr2vL0cVOVgL2Re-emHPnz-29u-GqexDif3JSkN7X56E
+    status:
+      code: 404
+      message: Not Found
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - identity
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.22.0
+    method: HEAD
+    uri: https://storage.googleapis.com/global-surface-water/downloads2/extent/extent_190W_20S_v1_1.tif
+  response:
+    body:
+      string: ''
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Expose-Headers:
+      - Content-Type
+      Alt-Svc:
+      - h3-29=":443"; ma=2592000,h3-27=":443"; ma=2592000,h3-25=":443"; ma=2592000,h3-T050=":443";
+        ma=2592000,h3-Q050=":443"; ma=2592000,h3-Q046=":443"; ma=2592000,h3-Q043=":443";
+        ma=2592000,quic=":443"; ma=2592000; v="46,43"
+      Cache-Control:
+      - private, max-age=0
+      Content-Length:
+      - '225'
+      Content-Type:
+      - application/xml; charset=UTF-8
+      Date:
+      - Mon, 06 Jul 2020 11:41:06 GMT
+      Expires:
+      - Mon, 06 Jul 2020 11:41:06 GMT
+      Server:
+      - UploadServer
+      X-GUploader-UploadID:
+      - AAANsUnynTz-DPPYXr1cCwfheE_qO9CuorRNOlG0RgCBnpNfU30butAiLVW_ZKn2QP9AyxQ7xTV4yT-Hpp3hhzUgL6U83KK6UQ
+    status:
+      code: 404
+      message: Not Found
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.22.0
+    method: GET
+    uri: https://storage.googleapis.com/global-surface-water/downloads2/extent/extent_190W_20S_v1_1.tif
+  response:
+    body:
+      string: '<?xml version=''1.0'' encoding=''UTF-8''?><Error><Code>NoSuchKey</Code><Message>The
+        specified key does not exist.</Message><Details>No such object: global-surface-water/downloads2/extent/extent_190W_20S_v1_1.tif</Details></Error>'
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Expose-Headers:
+      - Content-Type
+      Alt-Svc:
+      - h3-29=":443"; ma=2592000,h3-27=":443"; ma=2592000,h3-25=":443"; ma=2592000,h3-T050=":443";
+        ma=2592000,h3-Q050=":443"; ma=2592000,h3-Q046=":443"; ma=2592000,h3-Q043=":443";
+        ma=2592000,quic=":443"; ma=2592000; v="46,43"
+      Cache-Control:
+      - private, max-age=0
+      Content-Length:
+      - '225'
+      Content-Type:
+      - application/xml; charset=UTF-8
+      Date:
+      - Mon, 06 Jul 2020 11:41:06 GMT
+      Expires:
+      - Mon, 06 Jul 2020 11:41:06 GMT
+      Server:
+      - UploadServer
+      X-GUploader-UploadID:
+      - AAANsUnIHZVV1aPmL3izuW_aUaqEuAzo3glfda3nnb5i_TlwBeyq01aj8pe3_QasCDAhBB5e_B09wj1Cg0hRdeSkcLs
+    status:
+      code: 404
+      message: Not Found
+version: 1
