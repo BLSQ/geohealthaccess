@@ -138,7 +138,7 @@ def download(country, output_dir, earthdata_user, earthdata_pass, overwrite):
     srtm.authentify(earthdata_user, earthdata_pass)
     tiles = srtm.search(geom)
     dst_dir = os.path.join(output_dir, NAMES[4])
-    with ThreadPoolExecutor(max_workers=10) as e:
+    with ThreadPoolExecutor(max_workers=5) as e:
         for i, tile in enumerate(tiles):
             e.submit(
                 srtm.download, tile, dst_dir, True, overwrite, i,
