@@ -186,7 +186,7 @@ def preprocess(input_dir, output_dir, crs, resolution, country, overwrite):
     raw = Raw(input_dir)
     preprocess_land_cover(
         src_files=raw.land_cover,
-        dst_raster=output_dir.joinpath("land_cover.tif"),
+        dst_raster=output_dir.joinpath("land_cover.tif").as_posix(),
         **args,
     )
     preprocess_elevation(src_files=raw.elevation, dst_dir=output_dir, **args)
@@ -201,7 +201,7 @@ def preprocess(input_dir, output_dir, crs, resolution, country, overwrite):
     )
     preprocess_surface_water(
         src_files=raw.surface_water,
-        dst_raster=output_dir.joinpath("surface_water.tif"),
+        dst_raster=output_dir.joinpath("surface_water.tif").as_posix(),
         **args,
     )
 
@@ -270,16 +270,14 @@ def preprocess_land_cover(
             ]
             if len(tiles) > 1:
                 src_file = merge_tiles(
-                    tiles,
-                    tmpdir.joinpath(f"{lc_class}_mosaic.tif").as_posix(),
-                    nodata=255,
+                    tiles, os.path.join(tmpdir, f"{lc_class}_mosaic.tif"), nodata=255,
                 )
             else:
                 src_file = tiles[0]
             reprojected_files.append(
                 reproject(
                     src_raster=src_file,
-                    dst_raster=tmpdir.joinpath(f"{lc_class}.tif").as_posix(),
+                    dst_raster=os.path.join(tmpdir, f"{lc_class}.tif"),
                     dst_crs=dst_crs,
                     dst_bounds=dst_bounds,
                     dst_res=dst_res,
@@ -447,7 +445,7 @@ def preprocess_elevation(
         # merge tiles into a single mosaic if necessary
         tiles = [f.as_posix() for f in tmpdir.glob("*.hgt")]
         if len(tiles) > 1:
-            dem = merge_tiles(tiles, tmpdir.joinpath("mosaic.tif"), nodata=-32768)
+            dem = merge_tiles(tiles, os.path.join(tmpdir, "mosaic.tif"), nodata=-32768)
         else:
             dem = tiles[0]
 
@@ -552,19 +550,19 @@ def access(
     obstacles = travel_obstacles(
         src_water=(data.surface_water, data.osm_water_raster),
         src_slope=data.slope,
-        dst_file=input_dir.joinpath("obstacle.tif"),
+        dst_file=input_dir.joinpath("obstacle.tif").as_posix(),
         max_slope=25,
         overwrite=overwrite,
     )
     landcover_speed = speed_from_landcover(
         data.land_cover,
-        dst_file=input_dir.joinpath("landcover_speed.tif"),
+        dst_file=input_dir.joinpath("landcover_speed.tif").as_posix(),
         speeds=travel_speeds["land-cover"],
         overwrite=overwrite,
     )
     transport_speed = speed_from_roads(
         data.roads,
-        dst_file=input_dir.joinpath("transport_speed.tif"),
+        dst_file=input_dir.joinpath("transport_speed.tif").as_posix(),
         dst_transform=dst_transform,
         dst_crs=dst_crs,
         dst_width=dst_width,
@@ -587,13 +585,13 @@ def access(
             landcover_speed,
             transport_speed,
             obstacles,
-            dst_file=input_dir.joinpath(f"speed_{mode}.tif"),
+            dst_file=input_dir.joinpath(f"speed_{mode}.tif").as_posix(),
             mode=mode,
         )
 
         friction = compute_friction(
             speed,
-            dst_file=input_dir.joinpath(f"friction_{mode}.tif"),
+            dst_file=input_dir.joinpath(f"friction_{mode}.tif").as_posix(),
             max_time=3600,
             one_meter=mode == "walk",
         )
@@ -606,7 +604,7 @@ def access(
 
         basename = os.path.basename(features)
         name, ext = os.path.splitext(basename)
-        dst_file = input_dir.joinpath(f"{name}.tif")
+        dst_file = input_dir.joinpath(f"{name}.tif").as_posix()
         dest_raster = rasterize_destinations(
             features,
             dst_file,
@@ -620,20 +618,22 @@ def access(
 
         if car:
             isotropic_costdistance(
-                src_friction=input_dir.joinpath("friction_car.tif"),
+                src_friction=input_dir.joinpath("friction_car.tif").as_posix(),
                 src_target=dest_raster,
-                dst_cost=output_dir.joinpath(f"cost_car_{name}.tif"),
-                dst_nearest=output_dir.joinpath(f"nearest_car_{name}.tif"),
-                dst_backlink=output_dir.joinpath(f"backlink_car_{name}.tif"),
+                dst_cost=output_dir.joinpath(f"cost_car_{name}.tif").as_posix(),
+                dst_nearest=output_dir.joinpath(f"nearest_car_{name}.tif").as_posix(),
+                dst_backlink=output_dir.joinpath(f"backlink_car_{name}.tif").as_posix(),
             )
         if walk:
             anisotropic_costdistance(
-                src_friction=input_dir.joinpath("friction_walk.tif"),
+                src_friction=input_dir.joinpath("friction_walk.tif").as_posix(),
                 src_target=dest_raster,
                 src_elevation=data.elevation,
-                dst_cost=output_dir.joinpath(f"cost_walk_{name}.tif"),
-                dst_nearest=output_dir.joinpath(f"nearest_walk_{name}.tif"),
-                dst_backlink=output_dir.joinpath(f"backlink_walk_{name}.tif"),
+                dst_cost=output_dir.joinpath(f"cost_walk_{name}.tif").as_posix(),
+                dst_nearest=output_dir.joinpath(f"nearest_walk_{name}.tif").as_posix(),
+                dst_backlink=output_dir.joinpath(
+                    f"backlink_walk_{name}.tif"
+                ).as_posix(),
             )
 
         for traveltimes in output_dir.glob("cost_*.tif"):
