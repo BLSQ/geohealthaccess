@@ -153,6 +153,7 @@ def merge_tiles(src_files, dst_file, nodata=-1):
         for creation_opt in GDAL_CO:
             command += ["-co", creation_opt]
         command += [vrt, dst_file]
+        log.info(f"Running command `{' '.join(command)}`.")
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
 
     log.info(f"Merged {len(src_files)} tiles into {os.path.basename(dst_file)}.")
