@@ -112,6 +112,7 @@ def create_grid(geom, dst_crs, dst_res):
     ncols = (xmax - xmin) / 100
     nrows = (ymax - ymin) / 100
     transform, ncols, nrows = aligned_target(transform, ncols, nrows, dst_res)
+    log.info(f"Created raster grid of shape ({nrows}, {ncols}).")
     return transform, (nrows, ncols), bounds
 
 
@@ -139,7 +140,7 @@ def merge_tiles(src_files, dst_file, nodata=-1):
     dst_file : str
         Path to output raster.
     """
-
+    log.info(f"Merging {len(src_files)} raster tiles.")
     with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
 
         vrt = os.path.join(tmpdir, "mosaic.vrt")
@@ -201,6 +202,7 @@ def reproject(
     dst_raster : str
         Path to output file.
     """
+    log.info(f"Reprojecting raster `{os.path.basename(src_raster)}`.")
     command = [
         "gdalwarp",
         "-t_srs",
@@ -237,6 +239,7 @@ def concatenate_bands(src_files, dst_file, band_descriptions=None):
     dst_file : str
         Path to output file.
     """
+    log.info(f"Concatenating {len(src_files)} rasters into a single GeoTiff file.")
     with rasterio.open(src_files[0]) as src:
         profile = src.profile
         profile.update(count=len(src_files))
@@ -280,6 +283,7 @@ def compute_slope(src_dem, dst_file, percent=False, scale=None):
     dst_file : str
         Path to output raster.
     """
+    log.info(f"Computing slope from `{os.path.basename(src_dem)}`.")
     command = ["gdaldem", "slope"]
     if percent:
         command += ["-p"]
@@ -288,7 +292,9 @@ def compute_slope(src_dem, dst_file, percent=False, scale=None):
     for opt in GDAL_CO:
         command += ["-co", opt]
     command += [src_dem, dst_file]
+    log.info(f"Running command: {' '.join(command)}")
     subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+    log.info(f"Created slope raster `{os.path.basename(dst_file)}`.")
     return dst_file
 
 
@@ -322,13 +328,16 @@ def compute_aspect(src_dem, dst_file, trigonometric=False):
     dst_file : str
         Path to output raster.
     """
+    log.info(f"Computing aspect from `{os.path.basename(src_dem)}`.")
     command = ["gdaldem", "aspect"]
     if trigonometric:
         command += ["-trigonometric"]
     for opt in GDAL_CO:
         command += ["-co", opt]
     command += [src_dem, dst_file]
+    log.info(f"Running command: {' '.join(command)}")
     subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+    log.info(f"Created aspect raster `{os.path.basename(dst_file)}`.")
     return dst_file
 
 
@@ -345,6 +354,7 @@ def mask_raster(src_raster, geom):
     geom : shapely geometry
         Area of interest (EPSG:4326).
     """
+    log.info(f"Masking `{os.path.basename(src_raster)}` with input geometry.")
     with rasterio.open(src_raster) as src:
         profile = src.profile.copy()
 
@@ -359,6 +369,7 @@ def mask_raster(src_raster, geom):
         geom=geom.__geo_interface__,
     )
 
+    log.info("Rasterizing input geometry.")
     mask = rasterize(
         shapes=[geom],
         fill=0,
@@ -370,7 +381,7 @@ def mask_raster(src_raster, geom):
     )
     mask = mask != 1
 
-    print("Start masking")
+    log.info("Masking input raster.")
     with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
         tmpfile = os.path.join(tmpdir, "masked.tif")
         with rasterio.open(src_raster) as src, rasterio.open(
