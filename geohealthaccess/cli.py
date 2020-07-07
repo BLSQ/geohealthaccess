@@ -270,7 +270,9 @@ def preprocess_land_cover(
             ]
             if len(tiles) > 1:
                 src_file = merge_tiles(
-                    tiles, tmpdir.joinpath(f"{lc_class}_mosaic.tif"), nodata=255
+                    tiles,
+                    tmpdir.joinpath(f"{lc_class}_mosaic.tif").as_posix(),
+                    nodata=255,
                 )
             else:
                 src_file = tiles[0]
