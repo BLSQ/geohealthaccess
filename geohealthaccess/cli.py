@@ -17,7 +17,6 @@ import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
-from itertools import product
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -264,12 +263,12 @@ def preprocess_land_cover(
         if not tile_names:
             raise MissingDataError("Land cover data not found.")
 
-        for tile_name, lc_class in product(tile_names, LC_CLASSES):
-            tiles = list(
-                tmpdir.glob(f"{tile_name}*{lc_class}-coverfraction-layer*.tif")
-            )
+        for lc_class in LC_CLASSES:
+            tiles = list(tmpdir.glob(f"*{lc_class}-coverfraction-layer*.tif"))
             if len(tiles) > 1:
-                src_file = merge_tiles(tiles, tmpdir.joinpath("mosaic.tif"), nodata=255)
+                src_file = merge_tiles(
+                    tiles, tmpdir.joinpath(f"{lc_class}_mosaic.tif"), nodata=255
+                )
             else:
                 src_file = tiles[0]
             reprojected_files.append(
