@@ -4,7 +4,6 @@ import logging
 import os
 import shutil
 import subprocess
-from math import ceil
 from tempfile import TemporaryDirectory
 
 import numpy as np
@@ -12,8 +11,7 @@ import rasterio
 from rasterio.crs import CRS
 from rasterio.features import rasterize
 from rasterio.transform import from_origin
-from rasterio.warp import transform_geom
-from shapely.geometry import shape
+from rasterio.warp import aligned_target, transform_bounds, transform_geom
 
 log = logging.getLogger(__name__)
 
@@ -108,15 +106,13 @@ def create_grid(geom, dst_crs, dst_res):
     bounds : tuple of float
         Output bounds.
     """
-    area = transform_geom(
-        src_crs=CRS.from_epsg(4326), dst_crs=dst_crs, geom=geom.__geo_interface__
-    )
-    left, bottom, right, top = shape(area).bounds
-    dst_bounds = (left, bottom, right, top)
-    dst_transform = from_origin(left, top, dst_res, dst_res)
-    dst_width = ceil(abs(right - left) / dst_res)
-    dst_height = ceil(abs(top - bottom) / dst_res)
-    return dst_transform, (dst_height, dst_width), dst_bounds
+    bounds = transform_bounds(CRS.from_epsg(4326), dst_crs, *geom.bounds)
+    xmin, ymin, xmax, ymax = bounds
+    transform = from_origin(xmin, ymax, dst_res, dst_res)
+    ncols = (xmax - xmin) / 100
+    nrows = (ymax - ymin) / 100
+    transform, ncols, nrows = aligned_target(transform, ncols, nrows, dst_res)
+    return transform, (nrows, ncols), bounds
 
 
 def merge_tiles(src_files, dst_file, nodata=-1):
