@@ -143,12 +143,21 @@ def merge_tiles(src_files, dst_file, nodata=-1):
     dst_file : str
         Path to output raster.
     """
-    command = ["gdal_merge.py", "-o", dst_file, "-a_nodata", str(nodata)]
-    # Add GDAL creation options for GeoTIFF format
-    for creation_opt in GDAL_CO:
-        command += ["-co", creation_opt]
-    command += src_files
-    subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
+
+        vrt = os.path.join(tmpdir, "mosaic.vrt")
+        command = ["gdalbuildvrt", vrt] + src_files
+        log.info(f"Running command `{' '.join(command)}`.")
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+
+        command = ["gdal_translate", "-of", "GTiff", "-a_nodata", str(nodata)]
+        # Add GDAL creation options for GeoTIFF format
+        for creation_opt in GDAL_CO:
+            command += ["-co", creation_opt]
+        command += [vrt, dst_file]
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+
     log.info(f"Merged {len(src_files)} tiles into {os.path.basename(dst_file)}.")
     return dst_file
 
