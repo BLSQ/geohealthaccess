@@ -260,6 +260,10 @@ def preprocess_land_cover(
 
         reprojected_files = []
         tile_names = unique_tiles(tmpdir)
+
+        if not tile_names:
+            raise MissingDataError("Land cover data not found.")
+
         for tile_name, lc_class in product(tile_names, LC_CLASSES):
             tiles = list(
                 tmpdir.glob(f"{tile_name}*{lc_class}-coverfraction-layer*.tif")
@@ -284,14 +288,16 @@ def preprocess_land_cover(
             )
 
         if len(reprojected_files) > 1:
-            stack = concatenate_bands(
+            raster = concatenate_bands(
                 src_files=reprojected_files,
                 dst_file=dst_raster,
                 band_descriptions=LC_CLASSES,
             )
+        else:
+            raster = reprojected_files[0]
 
         if geom:
-            mask_raster(stack, geom)
+            mask_raster(raster, geom)
 
 
 def preprocess_osm(
