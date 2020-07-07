@@ -245,11 +245,13 @@ def concatenate_bands(src_files, dst_file, band_descriptions=None):
         profile = src.profile
         profile.update(count=len(src_files))
     with rasterio.open(dst_file, "w", **profile) as dst:
-        for i, src_file in enumerate(src_files):
+        for i, src_file in enumerate(src_files, start=1):
             with rasterio.open(src_file) as src:
-                dst.write(src.read(1), i + 1)
+                for _, window in dst.block_windows(1):
+                    data = src.read(window=window, indexes=1)
+                    dst.write(data, window=window, indexes=i)
                 if band_descriptions:
-                    dst.set_band_description(i + 1, band_descriptions[i])
+                    dst.set_band_description(i, band_descriptions[i - 1])
     log.info(f"Concatenated {len(src_files)} bands into {os.path.basename(dst_file)}.")
     return dst_file
 
@@ -370,17 +372,22 @@ def mask_raster(src_raster, geom):
         transform=profile.get("transform"),
         dtype="uint8",
     )
+    mask = mask != 1
 
+    print("Start masking")
     with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
         tmpfile = os.path.join(tmpdir, "masked.tif")
         with rasterio.open(src_raster) as src, rasterio.open(
             tmpfile, "w", **profile
         ) as dst:
-            for id in range(0, profile["count"]):
-                data = src.read(indexes=id + 1)
-                data[mask != 1] = profile.get("nodata")
-                dst.write_band(id + 1, data)
-                dst.set_band_description(id + 1, src.descriptions[id])
+            for _, window in dst.block_windows():
+                mask_w = mask[window.toslices()]
+                for bidx in range(1, profile.get("count") + 1):
+                    data = src.read(window=window, indexes=bidx)
+                    data[mask_w] = profile.get("nodata")
+                    dst.write(data, window=window, indexes=bidx)
+            for bidx in range(1, profile.get("count") + 1):
+                dst.set_band_description(bidx, src.descriptions[bidx - 1])
         try:
             shutil.move(tmpfile, src_raster)
         # shutil.move can fail inside a container when trying to copy xattrs
