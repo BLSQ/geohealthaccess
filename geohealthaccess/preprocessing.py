@@ -144,7 +144,7 @@ def merge_tiles(src_files, dst_file, nodata=-1):
     with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
 
         vrt = os.path.join(tmpdir, "mosaic.vrt")
-        command = ["gdalbuildvrt", vrt] + src_files
+        command = ["gdalbuildvrt", "-oo", "NUM_THREADS=ALL_CPUS", vrt] + src_files
         log.info(f"Running command `{' '.join(command)}`.")
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
 
