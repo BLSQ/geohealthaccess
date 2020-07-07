@@ -454,14 +454,14 @@ def preprocess_elevation(
         # compute slope and aspect before reprojection
         if not os.path.isfile(dst_slope) or overwrite:
             slope = compute_slope(
-                dem, tmpdir.joinpath("slope.tif"), percent=False, scale=111120
+                dem, os.path.join(tmpdir, "slope.tif"), percent=False, scale=111120
             )
         else:
             log.info("Slope raster already exists. Skipping processing.")
             slope = dst_slope
         if not os.path.isfile(dst_aspect) or overwrite:
             aspect = compute_aspect(
-                dem, tmpdir.joinpath("aspect.tif"), trigonometric=True
+                dem, os.path.join(tmpdir, "aspect.tif"), trigonometric=True
             )
         else:
             log.info("Aspect raster already exists. Skipping processing.")
