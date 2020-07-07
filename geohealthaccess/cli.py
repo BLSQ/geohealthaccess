@@ -264,7 +264,10 @@ def preprocess_land_cover(
             raise MissingDataError("Land cover data not found.")
 
         for lc_class in LC_CLASSES:
-            tiles = list(tmpdir.glob(f"*{lc_class}-coverfraction-layer*.tif"))
+            tiles = [
+                p.as_posix()
+                for p in tmpdir.glob(f"*{lc_class}-coverfraction-layer*.tif")
+            ]
             if len(tiles) > 1:
                 src_file = merge_tiles(
                     tiles, tmpdir.joinpath(f"{lc_class}_mosaic.tif"), nodata=255
