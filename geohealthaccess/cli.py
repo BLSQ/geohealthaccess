@@ -277,7 +277,7 @@ def preprocess_land_cover(
             reprojected_files.append(
                 reproject(
                     src_raster=src_file,
-                    dst_raster=tmpdir.joinpath(f"{lc_class}.tif"),
+                    dst_raster=tmpdir.joinpath(f"{lc_class}.tif").as_posix(),
                     dst_crs=dst_crs,
                     dst_bounds=dst_bounds,
                     dst_res=dst_res,
