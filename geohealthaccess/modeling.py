@@ -240,6 +240,7 @@ def speed_from_landcover(src_landcover, dst_file, speeds=None, overwrite=False):
             for id, landcover in enumerate(src.descriptions, start=1):
                 coverfraction = src.read(window=window, indexes=id)
                 speed += (coverfraction / 100.0) * speeds[landcover]
+                speed[coverfraction == src.nodata] = 0
             speed[speed < 0] = -9999
             dst.write(speed, window=window, indexes=1)
 
@@ -622,7 +623,6 @@ def anisotropic_costdistance(
         nearest="nearest",
         outdir="backlink",
         start_raster="target",
-        max_cost=36000,
         quiet=True,
         superquiet=True,
         memory=max_memory,
@@ -777,7 +777,6 @@ def isotropic_costdistance(
         nearest="nearest",
         outdir="backlink",
         start_raster="target",
-        max_cost=36000,
         quiet=True,
         superquiet=True,
         memory=max_memory,
