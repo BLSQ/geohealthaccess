@@ -551,7 +551,7 @@ def access(
         src_water=(data.surface_water, data.osm_water_raster),
         src_slope=data.slope,
         dst_file=input_dir.joinpath("obstacle.tif").as_posix(),
-        max_slope=25,
+        max_slope=35,
         overwrite=overwrite,
     )
     landcover_speed = speed_from_landcover(
