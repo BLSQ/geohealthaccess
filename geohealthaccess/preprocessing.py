@@ -216,6 +216,10 @@ def reproject(
     if overwrite:
         command += ["-overwrite"]
     command += [src_raster, dst_raster]  # input/output files
+    if src_nodata:
+        command += ["-srcnodata", str(src_nodata)]
+    if dst_nodata:
+        command += ["-dstnodata", str(dst_nodata)]
     for creation_opt in GDAL_CO:
         command += ["-co", creation_opt]  # GDAL creation options for GeoTIFF driver
     subprocess.run(command, check=True, env=os.environ, stdout=subprocess.DEVNULL)
