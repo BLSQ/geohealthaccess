@@ -109,8 +109,8 @@ def create_grid(geom, dst_crs, dst_res):
     bounds = transform_bounds(CRS.from_epsg(4326), dst_crs, *geom.bounds)
     xmin, ymin, xmax, ymax = bounds
     transform = from_origin(xmin, ymax, dst_res, dst_res)
-    ncols = (xmax - xmin) / 100
-    nrows = (ymax - ymin) / 100
+    ncols = (xmax - xmin) / dst_res
+    nrows = (ymax - ymin) / dst_res
     transform, ncols, nrows = aligned_target(transform, ncols, nrows, dst_res)
     log.info(f"Created raster grid of shape ({nrows}, {ncols}).")
     return transform, (nrows, ncols), bounds
