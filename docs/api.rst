@@ -1,45 +1,33 @@
-**********
-Python API
-**********
+*************
+API Reference
+*************
 
-Preprocessing
-#############
+**Data Acquisition**
 
-.. automodule:: geohealthaccess.preprocessing
-   :members:
+.. toctree::
+   :maxdepth: 2
 
-Modeling
-########
+   _source/geohealthaccess.cglc
+   _source/geohealthaccess.geofabrik
+   _source/geohealthaccess.gsw
+   _source/geohealthaccess.srtm
+   _source/geohealthaccess.worldpop
 
-.. automodule:: geohealthaccess.modeling
-   :members:
+**Data Processing & Modeling**
 
-Utils
-#####
+.. toctree::
+   :maxdepth: 2
 
-.. automodule:: geohealthaccess.utils
-   :members:
+   _source/geohealthaccess.data
+   _source/geohealthaccess.osm
+   _source/geohealthaccess.preprocessing
+   _source/geohealthaccess.modeling
 
-Config
-######
+**Others**
 
-.. automodule:: geohealthaccess.config
-   :members:
+.. toctree::
+   :maxdepth: 2
 
-GrassHelper
-###########
-
-.. automodule:: geohealthaccess.grasshelper
-   :members:
-
-geohealthaccess.cglc
-####################
-
-.. automodule:: geohealthaccess.cglc
-   :members:
-
-geohealthaccess.geofabrik
-#########################
-
-.. automodule:: geohealthaccess.geofabrik
-   :members:
+   _source/geohealthaccess.utils
+   _source/geohealthaccess.grasshelper
+   _source/geohealthaccess.errors

@@ -2,52 +2,37 @@
 Installation
 ************
 
-Python package
-==============
+GeoHealthAccess have three system dependencies: ``gdal`` is used to
+process raster data, ``osmium-tool`` to process OpenStreetMap data and
+``grass`` to perform a cost distance analysis. Alternatively, a docker
+image is also available (see below).
 
-The ``geohealthaccess`` python package can be installed using `Conda
-<https://www.anaconda.com/distribution/>`_ and pip:
+.. code:: sh
 
-.. code-block:: sh
+    # Ubuntu 20.04
+    sudo apt-get install gdal-bin osmium-tool grass-core
 
-    git clone https://github.com/BLSQ/geohealthaccess
-    cd geohealthaccess
-
-    # Setup conda environment
-    conda env create -f environment.yml
-    conda activate geohealthaccess
-
-    # Install python package in the conda environment
-    pip install -e .
-
-Dependencies
-============
-
-Two additional dependencies are required in order to run the program: `osmium
-<https://osmcode.org/osmium-tool/>`_ and `GRASS GIS <https://grass.osgeo.org/>`_
-(>= 7.7). Please refer to their official documentation for installation
-instructions.
-
-Ubuntu
-******
-
-.. code-block:: sh
-
-    sudo apt-get install software-properties-common
-    sudo add-apt-repository ppa:ubuntugis/ubuntugis-unstable
-    sudo apt-get update
-    sudo apt-get install grass osmium-tool
-
-Fedora
-******
-
-.. code-block:: sh
-
+    # Fedora 32
     sudo dnf copr enable neteler/grass78
     sudo dnf update
     sudo dnf install grass grass-libs osmium-tool
 
-Docker image
-============
+.. note:: GRASS GIS builds for OSX is available on Macports, or can be downloaded on the
+    `grassmac <http://grassmac.wikidot.com/downloads>`_ website.
 
-TODO.
+The python package can then be installed using pip:
+
+.. code:: sh
+
+   # Download source code
+   git clone https://github.com/BLSQ/geohealthaccess
+   cd geohealthaccess
+   pip install -e .
+
+   # To install development dependencies such as pytest and sphinx:
+   pip install -e .[dev]
+
+Alternatively, a docker image is available on `Docker Hub
+<https://hub.docker.com/r/yannforget/geohealthaccess>`_. See the relevant
+`documentation page <docker.html>`_ for more information on how to run
+GeoHealthAccess using Docker.
