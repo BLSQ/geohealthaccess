@@ -217,7 +217,7 @@ The GeoHealthAccess project is funded by [Innoviris](https://innoviris.brussels/
 and led by a partnership between [Bluesquare](https://bluesquarehub.com/) and
 the [Spatial Epidemiology Lab](https://spell.ulb.be/) (Université Libre de Bruxelles).
 The project is based on a previous work from [IGEAT-ANAGEO](http://igeat.ulb.ac.be/en/introduction/)
-(Université Libre de Bruxelles) and the the
+(Université Libre de Bruxelles) and the
 [Department of Geography](https://www.unamur.be/en/sci/geography) (University of Namur)
 in the [She Decides](https://github.com/yannforget/shedecides) project.
 
