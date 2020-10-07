@@ -9,6 +9,7 @@
 * [Example](#example)
 * [Docker](#docker)
 * [Methodology](#methodology)
+* [Authors](#authors)
 
 ## Description
 
@@ -209,3 +210,19 @@ docker run -v $(pwd):/project:rw yannforget/geohealthaccess:latest
 
 ![Processing chain](/docs/images/processing-chain.png)
 : Processing chain (red=input, yellow=intermediary, green=output).
+
+## Authors
+
+The GeoHealthAccess project is funded by [Innoviris](https://innoviris.brussels/)
+and led by a partnership between [Bluesquare](https://bluesquarehub.com/) and
+the [Spatial Epidemiology Lab](https://spell.ulb.be/) (Université Libre de Bruxelles).
+The project is based on a previous work from [IGEAT-ANAGEO](http://igeat.ulb.ac.be/en/introduction/)
+(Université Libre de Bruxelles) in the [She Decides](https://github.com/yannforget/shedecides)
+project.
+
+* Grégoire Lurton (Bluesquare)
+* Yann Forget (Spatial Epidemiology Lab, Université Libre de Bruxelles)
+* Moritz Lennert (IGEAT-ANAGEO, Université Libre de Bruxelles)
+* Sabine Vanhuysse (IGEAT-ANAGEO, Université Libre de Bruxelles)
+* Taïs Grippa (IGEAT-ANAGEO, Université Libre de Bruxelles)
+* Catherine Linard (Department of Geography, University of Namur)
