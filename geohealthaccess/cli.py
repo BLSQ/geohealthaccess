@@ -148,7 +148,7 @@ def download(country, output_dir, earthdata_user, earthdata_pass, overwrite):
 @cli.command()
 @click.option("--country", "-c", type=str, required=True, help="ISO A3 country code")
 @click.option(
-    "--crs", "-s", type=str, required=True, help="CRS as a PROJ4 string",
+    "--crs", "-s", type=str, required=True, help="EPSG, PROJ or WKT CRS string",
 )
 @click.option(
     "--resolution", "-r", type=float, default=100, help="Pixel size in `crs` units"
