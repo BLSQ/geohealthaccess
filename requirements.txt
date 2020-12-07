@@ -10,3 +10,4 @@ requests
 requests_file
 shapely
 tqdm
+loguru

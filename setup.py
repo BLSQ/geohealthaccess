@@ -31,6 +31,7 @@ setup(
         "rasterio",
         "appdirs",
         "click",
+        "loguru",
     ],
     extras_require={"dev": ["pytest", "pytest-cov"]},
     package_data={
