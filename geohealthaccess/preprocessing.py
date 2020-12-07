@@ -1,11 +1,11 @@
 """Preprocessing of input data."""
 
-import logging
 import os
 import shutil
 import subprocess
 from tempfile import TemporaryDirectory
 
+from loguru import logger
 import numpy as np
 import rasterio
 from rasterio.crs import CRS
@@ -13,7 +13,8 @@ from rasterio.features import rasterize
 from rasterio.transform import from_origin
 from rasterio.warp import aligned_target, transform_bounds, transform_geom
 
-log = logging.getLogger(__name__)
+
+logger.disable(__name__)
 
 
 # Default GDAL creation options
@@ -112,7 +113,7 @@ def create_grid(geom, dst_crs, dst_res):
     ncols = (xmax - xmin) / dst_res
     nrows = (ymax - ymin) / dst_res
     transform, ncols, nrows = aligned_target(transform, ncols, nrows, dst_res)
-    log.info(f"Created raster grid of shape ({nrows}, {ncols}).")
+    logger.info(f"Created raster grid of shape ({nrows}, {ncols}).")
     return transform, (nrows, ncols), bounds
 
 
@@ -140,12 +141,12 @@ def merge_tiles(src_files, dst_file, nodata=-1):
     dst_file : str
         Path to output raster.
     """
-    log.info(f"Merging {len(src_files)} raster tiles.")
+    logger.info(f"Merging {len(src_files)} raster tiles.")
     with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
 
         vrt = os.path.join(tmpdir, "mosaic.vrt")
         command = ["gdalbuildvrt", "-oo", "NUM_THREADS=ALL_CPUS", vrt] + src_files
-        log.info(f"Running command `{' '.join(command)}`.")
+        logger.info(f"Running command `{' '.join(command)}`.")
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
 
         command = ["gdal_translate", "-of", "GTiff", "-a_nodata", str(nodata)]
@@ -153,10 +154,10 @@ def merge_tiles(src_files, dst_file, nodata=-1):
         for creation_opt in GDAL_CO:
             command += ["-co", creation_opt]
         command += [vrt, dst_file]
-        log.info(f"Running command `{' '.join(command)}`.")
+        logger.info(f"Running command `{' '.join(command)}`.")
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
 
-    log.info(f"Merged {len(src_files)} tiles into {os.path.basename(dst_file)}.")
+    logger.info(f"Merged {len(src_files)} tiles into {os.path.basename(dst_file)}.")
     return dst_file
 
 
@@ -203,7 +204,7 @@ def reproject(
     dst_raster : str
         Path to output file.
     """
-    log.info(f"Reprojecting raster `{os.path.basename(src_raster)}`.")
+    logger.info(f"Reprojecting raster `{os.path.basename(src_raster)}`.")
     command = [
         "gdalwarp",
         "-t_srs",
@@ -223,7 +224,7 @@ def reproject(
     for creation_opt in GDAL_CO:
         command += ["-co", creation_opt]  # GDAL creation options for GeoTIFF driver
     subprocess.run(command, check=True, env=os.environ, stdout=subprocess.DEVNULL)
-    log.info(f"Reprojected raster {os.path.basename(src_raster)}.")
+    logger.info(f"Reprojected raster {os.path.basename(src_raster)}.")
     return dst_raster
 
 
@@ -244,7 +245,7 @@ def concatenate_bands(src_files, dst_file, band_descriptions=None):
     dst_file : str
         Path to output file.
     """
-    log.info(f"Concatenating {len(src_files)} rasters into a single GeoTiff file.")
+    logger.info(f"Concatenating {len(src_files)} rasters into a single GeoTiff file.")
     with rasterio.open(src_files[0]) as src:
         profile = src.profile
         profile.update(count=len(src_files))
@@ -256,7 +257,9 @@ def concatenate_bands(src_files, dst_file, band_descriptions=None):
                     dst.write(data, window=window, indexes=i)
                 if band_descriptions:
                     dst.set_band_description(i, band_descriptions[i - 1])
-    log.info(f"Concatenated {len(src_files)} bands into {os.path.basename(dst_file)}.")
+    logger.info(
+        f"Concatenated {len(src_files)} bands into {os.path.basename(dst_file)}."
+    )
     return dst_file
 
 
@@ -288,7 +291,7 @@ def compute_slope(src_dem, dst_file, percent=False, scale=None):
     dst_file : str
         Path to output raster.
     """
-    log.info(f"Computing slope from `{os.path.basename(src_dem)}`.")
+    logger.info(f"Computing slope from `{os.path.basename(src_dem)}`.")
     command = ["gdaldem", "slope"]
     if percent:
         command += ["-p"]
@@ -297,9 +300,9 @@ def compute_slope(src_dem, dst_file, percent=False, scale=None):
     for opt in GDAL_CO:
         command += ["-co", opt]
     command += [src_dem, dst_file]
-    log.info(f"Running command: {' '.join(command)}")
+    logger.info(f"Running command: {' '.join(command)}")
     subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
-    log.info(f"Created slope raster `{os.path.basename(dst_file)}`.")
+    logger.info(f"Created slope raster `{os.path.basename(dst_file)}`.")
     return dst_file
 
 
@@ -333,16 +336,16 @@ def compute_aspect(src_dem, dst_file, trigonometric=False):
     dst_file : str
         Path to output raster.
     """
-    log.info(f"Computing aspect from `{os.path.basename(src_dem)}`.")
+    logger.info(f"Computing aspect from `{os.path.basename(src_dem)}`.")
     command = ["gdaldem", "aspect"]
     if trigonometric:
         command += ["-trigonometric"]
     for opt in GDAL_CO:
         command += ["-co", opt]
     command += [src_dem, dst_file]
-    log.info(f"Running command: {' '.join(command)}")
+    logger.info(f"Running command: {' '.join(command)}")
     subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
-    log.info(f"Created aspect raster `{os.path.basename(dst_file)}`.")
+    logger.info(f"Created aspect raster `{os.path.basename(dst_file)}`.")
     return dst_file
 
 
@@ -359,7 +362,7 @@ def mask_raster(src_raster, geom):
     geom : shapely geometry
         Area of interest (EPSG:4326).
     """
-    log.info(f"Masking `{os.path.basename(src_raster)}` with input geometry.")
+    logger.info(f"Masking `{os.path.basename(src_raster)}` with input geometry.")
     with rasterio.open(src_raster) as src:
         profile = src.profile.copy()
 
@@ -374,7 +377,7 @@ def mask_raster(src_raster, geom):
         geom=geom.__geo_interface__,
     )
 
-    log.info("Rasterizing input geometry.")
+    logger.info("Rasterizing input geometry.")
     mask = rasterize(
         shapes=[geom],
         fill=0,
@@ -386,7 +389,7 @@ def mask_raster(src_raster, geom):
     )
     mask = mask != 1
 
-    log.info("Masking input raster.")
+    logger.info("Masking input raster.")
     with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
         tmpfile = os.path.join(tmpdir, "masked.tif")
         with rasterio.open(src_raster) as src, rasterio.open(
@@ -405,9 +408,9 @@ def mask_raster(src_raster, geom):
         # shutil.move can fail inside a container when trying to copy xattrs
         # in distributions using SELinux. File is still going to be moved.
         except PermissionError:
-            log.warn(
+            logger.warn(
                 f"Permission error when attempting to move `{tmpfile}` to `{src_raster}`."
             )
-        log.info(f"Masked {os.path.basename(src_raster)} raster.")
+        logger.info(f"Masked {os.path.basename(src_raster)} raster.")
 
     return src_raster

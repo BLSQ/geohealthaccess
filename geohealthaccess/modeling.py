@@ -4,9 +4,9 @@ import json
 import os
 from tempfile import TemporaryDirectory
 import shutil
-import logging
 
 import geopandas as gpd
+from loguru import logger
 import pandas as pd
 import numpy as np
 import rasterio
@@ -18,7 +18,8 @@ from geohealthaccess import grasshelper
 from geohealthaccess.preprocessing import default_compression, GDAL_CO
 from geohealthaccess.grasshelper import gscript
 
-log = logging.getLogger(__name__)
+
+logger.disable("__name__")
 
 
 def default_landcover_speeds():
@@ -77,7 +78,7 @@ def get_segment_speed(
     """
     # Use default network speeds if not provided
     if not speeds:
-        log.info("Transport network speeds not provided. Using default values.")
+        logger.info("Transport network speeds not provided. Using default values.")
         speeds = default_transport_speeds()
 
     # Ignore unsupported road segments
@@ -133,12 +134,12 @@ def speed_from_roads(
     dst_file : str
         Path to output raster.
     """
-    log.info("Creating travel speeds raster from the road network.")
+    logger.info("Creating travel speeds raster from the road network.")
     if os.path.isfile(dst_file) and not overwrite:
-        log.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
+        logger.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
         return dst_file
     if not speeds:
-        log.info("No land cover speeds provided. Using default values.")
+        logger.info("No land cover speeds provided. Using default values.")
         speeds = default_landcover_speeds()
 
     # Raster profile
@@ -183,12 +184,12 @@ def speed_from_roads(
         all_touched=True,
         dtype="float32",
     )
-    log.info(f"{len(shapes)} transport network segments rasterized.")
+    logger.info(f"{len(shapes)} transport network segments rasterized.")
 
     with rasterio.open(dst_file, "w", **dst_profile) as dst:
         dst.write(speed_raster, 1)
 
-    log.info(
+    logger.info(
         f"Transport network travel speeds saved as `{os.path.basename(dst_file)}`."
     )
 
@@ -219,12 +220,12 @@ def speed_from_landcover(src_landcover, dst_file, speeds=None, overwrite=False):
     dst_file : str
         Path to output raster.
     """
-    log.info("Creating travel speeds raster from land cover.")
+    logger.info("Creating travel speeds raster from land cover.")
     if os.path.isfile(dst_file) and not overwrite:
-        log.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
+        logger.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
         return dst_file
     if not speeds:
-        log.info("No land cover speeds provided. Using default values.")
+        logger.info("No land cover speeds provided. Using default values.")
         speeds = default_landcover_speeds()
     with rasterio.open(src_landcover) as src:
         dst_profile = src.profile.copy()
@@ -244,7 +245,7 @@ def speed_from_landcover(src_landcover, dst_file, speeds=None, overwrite=False):
             speed[speed < 0] = -9999
             dst.write(speed, window=window, indexes=1)
 
-    log.info(f"Land cover travel speeds saved as `{os.path.basename(dst_file)}`.")
+    logger.info(f"Land cover travel speeds saved as `{os.path.basename(dst_file)}`.")
 
     return dst_file
 
@@ -276,9 +277,9 @@ def travel_obstacles(src_water, src_slope, dst_file, max_slope=30, overwrite=Fal
     str
         Path to output raster.
     """
-    log.info("Creating obstacle raster from water and slope.")
+    logger.info("Creating obstacle raster from water and slope.")
     if os.path.isfile(dst_file) and not overwrite:
-        log.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
+        logger.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
         return dst_file
 
     # Convert src_water to a list if a single raster is provided
@@ -293,15 +294,17 @@ def travel_obstacles(src_water, src_slope, dst_file, max_slope=30, overwrite=Fal
 
     obstacle = np.zeros(shape=(nrows, ncols), dtype=np.uint8)
     for water in src_water:
-        log.info(f"Setting water pixels from {os.path.basename(water)} as obstacles.")
+        logger.info(
+            f"Setting water pixels from {os.path.basename(water)} as obstacles."
+        )
         with rasterio.open(water) as src:
             obstacle[src.read(1) > 0] = 1
     with rasterio.open(src_slope) as src:
-        log.info(f"Setting slope pixels > {max_slope}° as obstacles.")
+        logger.info(f"Setting slope pixels > {max_slope}° as obstacles.")
         obstacle[src.read(1) >= max_slope] = 1
     with rasterio.open(dst_file, "w", **dst_profile) as dst:
         dst.write(obstacle, 1)
-    log.info(
+    logger.info(
         f"Computed obstacle raster ({np.count_nonzero(obstacle)} obstacle pixels)."
     )
     return dst_file
@@ -341,7 +344,7 @@ def combine_speed(
     dst_file : str
         Path to output speed raster.
     """
-    log.info(f"Combining travel speeds rasters for `{mode}` transport mode.")
+    logger.info(f"Combining travel speeds rasters for `{mode}` transport mode.")
     with rasterio.open(landcover) as src:
         dst_profile = src.profile
     dst_profile.update(dtype="float32", nodata=-9999, **default_compression("float32"))
@@ -396,7 +399,7 @@ def compute_friction(speed_raster, dst_file, max_time=3600, one_meter=False):
     dst_file : str
         Path to output raster.
     """
-    log.info(f"Computing friction surface from `{os.path.basename(speed_raster)}`.")
+    logger.info(f"Computing friction surface from `{os.path.basename(speed_raster)}`.")
     with rasterio.open(speed_raster) as src:
         dst_profile = src.profile
         xres = abs(src.transform.a)
@@ -459,9 +462,11 @@ def rasterize_destinations(
     dst_file : str
         Path to output raster.
     """
-    log.info(f"Rasterizing destination points from `{os.path.basename(src_features)}`.")
+    logger.info(
+        f"Rasterizing destination points from `{os.path.basename(src_features)}`."
+    )
     if os.path.isfile(dst_file) and not overwrite:
-        log.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
+        logger.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
         return dst_file
 
     # Load source features as geodataframe and reproject geometries if needed
@@ -495,7 +500,7 @@ def rasterize_destinations(
 
     with rasterio.open(dst_file, "w", **dst_profile) as dst:
         dst.write(raster, 1)
-    log.info(f"{len(shapes)} destination points rasterized.")
+    logger.info(f"{len(shapes)} destination points rasterized.")
 
     return dst_file
 
@@ -828,7 +833,7 @@ def seconds_to_minutes(src_raster):
     src_raster : str
         Path to raster to convert.
     """
-    log.info(f"Converting {os.path.basename(src_raster)} from seconds to minutes.")
+    logger.info(f"Converting {os.path.basename(src_raster)} from seconds to minutes.")
     with rasterio.open(src_raster) as src:
         dst_profile = src.profile
         dst_profile.update(**default_compression(src.dtypes[0]), nodata=-9999)

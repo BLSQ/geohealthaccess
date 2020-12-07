@@ -17,13 +17,13 @@ Notes
 See `<http://www.geofabrik.de/>`_ for more information about the Geofabrik project.
 """
 
-import logging
 import re
 import tempfile
 from datetime import datetime
 from urllib.parse import urljoin, urlsplit
 
 import geopandas as gpd
+from loguru import logger
 import requests
 from pkg_resources import resource_filename
 from bs4 import BeautifulSoup
@@ -32,7 +32,8 @@ from shapely import wkt
 
 from geohealthaccess.utils import download_from_url
 
-log = logging.getLogger(__name__)
+
+logger.disable(__name__)
 
 
 class Page:
@@ -101,24 +102,24 @@ class Page:
 
     def parse_tables(self):
         """Parse all tables in the page."""
-        log.info(f"Parsing geofabrik page `{self.name}`.")
+        logger.info(f"Parsing geofabrik page `{self.name}`.")
         for table in self.soup.find_all("table"):
             # Raw details
             if self._header(table) == "Other Formats and Auxiliary Files":
                 self.raw_details = self._parse_table(table)
-                log.info(f"Found {len(self.raw_details)} auxiliary files.")
+                logger.info(f"Found {len(self.raw_details)} auxiliary files.")
             # Subregions
             elif self._header(table) == "Sub Regions":
                 self.subregions = self._parse_table(table)
-                log.info(f"Found {len(self.subregions)} subregions.")
+                logger.info(f"Found {len(self.subregions)} subregions.")
             # Special Subregions
             elif self._header(table) == "Special Sub Regions":
                 self.special_subregions = self._parse_table(table)
-                log.info(f"Found {len(self.special_subregions)} special subregions.")
+                logger.info(f"Found {len(self.special_subregions)} special subregions.")
             # Continents
             elif self._header(table) == "OpenStreetMap Data Extracts":
                 self.continents = self._parse_table(table)
-                log.info(f"Found {len(self.continents)} continents.")
+                logger.info(f"Found {len(self.continents)} continents.")
 
 
 class Region:
@@ -268,7 +269,7 @@ class Geofabrik:
             Path to downloaded file.
         """
         region = Region(region_id)
-        log.info(f"Downloading latest OSM data for {region.name}.")
+        logger.info(f"Downloading latest OSM data for {region.name}.")
         return download_from_url(
             self.session,
             region.latest,

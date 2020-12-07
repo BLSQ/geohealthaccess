@@ -26,9 +26,9 @@ References
 """
 
 import itertools
-import logging
 
 import geopandas as gpd
+from loguru import logger
 import requests
 from rasterio.crs import CRS
 from shapely.geometry import Polygon
@@ -36,7 +36,7 @@ from shapely.geometry import Polygon
 from geohealthaccess.utils import download_from_url, size_from_url
 
 
-log = logging.getLogger(__name__)
+logger.disable("__name__")
 
 
 class GSW:
@@ -131,7 +131,7 @@ class GSW:
             )
             names.append(self.location_id(lat, lon))
         sindex = gpd.GeoDataFrame(index=names, geometry=geoms, crs=CRS.from_epsg(4326))
-        log.info(f"GSW tiles indexed ({len(sindex)} tiles).")
+        logger.info(f"GSW tiles indexed ({len(sindex)} tiles).")
         return sindex
 
     def search(self, geom):
@@ -148,7 +148,7 @@ class GSW:
             List of required GSW tiles.
         """
         tiles = self.sindex[self.sindex.intersects(geom)]
-        log.info(f"{len(tiles)} tiles are required to cover the area of interest.")
+        logger.info(f"{len(tiles)} tiles are required to cover the area of interest.")
         return list(tiles.index)
 
     def url(self, tile, product):

@@ -19,11 +19,11 @@ Notes
 See `<https://lcviewer.vito.be/about>`_ for more information about the CGLC project.
 """
 
-import logging
 import os
 from collections import namedtuple
 
 import geopandas as gpd
+from loguru import logger
 import requests
 from requests_file import FileAdapter
 from rasterio.crs import CRS
@@ -32,7 +32,7 @@ from shapely.geometry import Polygon
 from geohealthaccess.utils import download_from_url, size_from_url
 
 
-log = logging.getLogger(__name__)
+logger.disable("__name__")
 
 
 def tile_id(url):
@@ -107,7 +107,7 @@ class CGLC:
         HTTPError
             If connection to manifest URL is not sucessfull.
         """
-        log.info(f"Parsing CGLC manifest from {self.MANIFEST_URL}.")
+        logger.info(f"Parsing CGLC manifest from {self.MANIFEST_URL}.")
         r = self.session.get(self.MANIFEST_URL)
         r.raise_for_status()
         return r.text.splitlines()
@@ -127,7 +127,7 @@ class CGLC:
             geometry=[tile_geom(tile_id(tile)) for tile in self.manifest],
             crs=CRS.from_epsg(4326),
         )
-        log.info(f"CGLC spatial index has been built ({len(sindex)} tiles).")
+        logger.info(f"CGLC spatial index has been built ({len(sindex)} tiles).")
         return sindex
 
     def search(self, geom):
@@ -144,7 +144,7 @@ class CGLC:
             Required CGLC tiles as namedtuples.
         """
         tiles = self.sindex[self.sindex.intersects(geom)].index
-        log.info(f"{len(tiles)} CGLC tiles required to cover the area of interest.")
+        logger.info(f"{len(tiles)} CGLC tiles required to cover the area of interest.")
         return list(tiles)
 
     def download(self, tile, output_dir, show_progress=True, overwrite=False):
@@ -244,7 +244,7 @@ def unique_tiles(directory):
     files = [f for f in os.listdir(directory) if _is_cglc(f)]
     tiles = [f.split("_")[0] for f in files]
     unique = list(set(tiles))
-    log.info(f"Found {len(unique)} unique CGLC tiles.")
+    logger.info(f"Found {len(unique)} unique CGLC tiles.")
     return unique
 
 
@@ -288,5 +288,5 @@ def find_layer(directory, tile, name):
     for f in files:
         if f.startswith(tile) and f.split("_")[6] == name:
             return os.path.join(directory, f)
-    log.warning(f"Layer {name} not found.")
+    logger.warning(f"Layer {name} not found.")
     return None

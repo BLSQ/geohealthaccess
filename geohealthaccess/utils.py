@@ -1,16 +1,17 @@
 """Utility functions."""
 
 import json
-import logging
 import os
 import zipfile
 from urllib.parse import urlparse
 
+from loguru import logger
 from pkg_resources import resource_string
 from shapely.geometry import shape
 from tqdm.auto import tqdm
 
-log = logging.getLogger(__name__)
+
+logger.disable("__name__")
 
 
 def human_readable_size(size, decimals=1):
@@ -112,16 +113,16 @@ def download_from_url(
         try:
             r.raise_for_status()
         except Exception as e:
-            log.error(e)
+            logger.error(e)
 
         # Remove old file if overwrite
         if os.path.isfile(local_path) and overwrite:
-            log.info(f"Removing old {filename} file.")
+            logger.info(f"Removing old {filename} file.")
             os.remove(local_path)
 
         # Skip download if remote and local sizes are equal
         if http_same_size(session, url, local_path):
-            log.info(
+            logger.info(
                 f"Remote and local sizes of {filename} are equal. Skipping download."
             )
             return local_path
@@ -151,7 +152,7 @@ def download_from_url(
             progress_bar.close()
 
     filesize = human_readable_size(os.path.getsize(local_path))
-    log.info(f"Downloaded file {filename} ({filesize}).")
+    logger.info(f"Downloaded file {filename} ({filesize}).")
 
     return local_path
 
@@ -187,21 +188,21 @@ def download_from_ftp(ftp, url, output_dir, show_progress=True, overwrite=False)
 
     # Remove old file if overwrite
     if os.path.isfile(local_path) and overwrite:
-        log.info(f"File {fname} already exists. Removing it.")
+        logger.info(f"File {fname} already exists. Removing it.")
         os.remove(local_path)
 
     # Do not download again if local and remote file sizes are equal
     if os.path.isfile(local_path):
         if os.path.getsize(local_path) == size:
-            log.info(f"File {fname} already exists. Skipping download.")
+            logger.info(f"File {fname} already exists. Skipping download.")
             return local_path
         else:
-            log.info(
+            logger.info(
                 f"File {fname} already exists but size differs. Removing old file."
             )
             os.remove(local_path)
 
-    log.info(f"Downloading {fname} to {local_path}.")
+    logger.info(f"Downloading {fname} to {local_path}.")
     if show_progress:
         progress = tqdm(total=size, desc=fname, unit_scale=True, unit="B")
 
@@ -216,7 +217,7 @@ def download_from_ftp(ftp, url, output_dir, show_progress=True, overwrite=False)
         ftp.retrbinary(f"RETR {url.path}", write_and_progress)
 
     size = human_readable_size(os.path.getsize(local_path))
-    log.info(f"Downloaded {fname} ({size}).")
+    logger.info(f"Downloaded {fname} ({size}).")
     if show_progress:
         progress.close()
     return local_path

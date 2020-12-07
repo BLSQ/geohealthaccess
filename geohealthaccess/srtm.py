@@ -22,16 +22,17 @@ References
 .. [1] `NASA EarthData Register <https://urs.earthdata.nasa.gov/users/new>`_
 """
 
-import logging
-
 import geopandas as gpd
 import requests
 from bs4 import BeautifulSoup
 from pkg_resources import resource_filename
 
+from loguru import logger
+
 from geohealthaccess.utils import download_from_url, size_from_url
 
-log = logging.getLogger(__name__)
+
+logger.disable("__name__")
 
 
 class SRTM:
@@ -107,7 +108,7 @@ class SRTM:
         r.raise_for_status()
         if not self.logged_in:
             raise requests.exceptions.ConnectionError("Log-in to EarthData failed.")
-        log.info(f"Successfully logged-in to EarthData with username `{username}`.")
+        logger.info(f"Successfully logged-in to EarthData with username `{username}`.")
 
     def spatial_index(self):
         """Load spatial index of SRTM tiles.
@@ -118,7 +119,7 @@ class SRTM:
             SRTM tiles spatial index.
         """
         sindex = gpd.read_file(resource_filename(__name__, "resources/srtm.geojson"))
-        log.info(f"SRTM spatial index loaded ({len(sindex)} tiles).")
+        logger.info(f"SRTM spatial index loaded ({len(sindex)} tiles).")
         return sindex
 
     def search(self, geom):
@@ -135,7 +136,7 @@ class SRTM:
             List of SRTM tile filenames.
         """
         tiles = self.sindex[self.sindex.intersects(geom)]
-        log.info(f"{len(tiles)} SRTM tiles required to cover the area of interest.")
+        logger.info(f"{len(tiles)} SRTM tiles required to cover the area of interest.")
         return list(tiles.dataFile)
 
     def download(

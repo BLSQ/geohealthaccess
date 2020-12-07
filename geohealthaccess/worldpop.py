@@ -17,15 +17,16 @@ Notes
 See `<https://www.worldpop.org/>`_ for more information about the WorldPop project.
 """
 
-import logging
 import os
 from collections import namedtuple
 from ftplib import FTP, error_reply
 
+from loguru import logger
+
 from geohealthaccess.utils import download_from_ftp, size_from_ftp
 
 
-log = logging.getLogger(__name__)
+logger.disable("__name__")
 
 
 class WorldPop:
@@ -115,7 +116,7 @@ class WorldPop:
         """
         if not year:
             year = max(self.available_years())
-            log.info(f"No year specified. Selected latest year available ({year}).")
+            logger.info(f"No year specified. Selected latest year available ({year}).")
         url = self.url(country, year)
         local_path = download_from_ftp(
             self.ftp, url, output_dir, show_progress=True, overwrite=overwrite
@@ -181,7 +182,7 @@ def clean_datadir(directory):
     """
     rasters = [f for f in os.listdir(directory) if f.lower().endswith(".tif")]
     if len(rasters) <= 1:
-        log.info("Data directory does not require cleaning.")
+        logger.info("Data directory does not require cleaning.")
         return
 
     # Make a summary of all years available for each prefix/suffix combination
@@ -205,6 +206,8 @@ def clean_datadir(directory):
 
     for raster in rasters:
         if raster not in to_keep:
-            log.info(f"Removing {raster} because a more recent version is available.")
+            logger.info(
+                f"Removing {raster} because a more recent version is available."
+            )
             os.remove(os.path.join(directory, raster))
     return

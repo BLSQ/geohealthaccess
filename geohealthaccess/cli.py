@@ -14,13 +14,14 @@ Getting help for a specific subcommand::
 """
 
 import json
-import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
 
 import click
+from loguru import logger
 import rasterio
 from pkg_resources import resource_filename
 from rasterio.crs import CRS
@@ -57,13 +58,20 @@ from geohealthaccess.utils import country_geometry, unzip
 from geohealthaccess.worldpop import WorldPop
 
 
-log = logging.getLogger(__name__)
-formatter = logging.Formatter(
-    "%(asctime)s %(levelname)s [%(module)s]: %(message)s", "%Y-%m-%d %H:%M:%S"
+LOGFORMAT = "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> <level>{level}</level> <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> {message}"
+
+logger.remove()
+logger.add(
+    sys.stdout, format=LOGFORMAT, enqueue=True, backtrace=True, level="INFO",
 )
-file_handler = logging.FileHandler("geohealthaccess.log")
-file_handler.setFormatter(formatter)
-log.addHandler(file_handler)
+logger.add(
+    "geohealthaccess_{time}.log",
+    format=LOGFORMAT,
+    enqueue=True,
+    backtrace=True,
+    level="DEBUG",
+)
+logger.enable("")
 
 
 @click.group()
@@ -205,7 +213,7 @@ def preprocess(input_dir, output_dir, crs, resolution, country, overwrite):
         **args,
     )
 
-    log.info("Writing area of interest to disk.")
+    logger.info("Writing area of interest to disk.")
     with open(output_dir.joinpath("area_of_interest.geojson"), "w") as f:
         json.dump(geom.__geo_interface__, f)
 
@@ -237,9 +245,9 @@ def preprocess_land_cover(
         Overwrite existing files.
     """
     if os.path.isfile(dst_raster) and not overwrite:
-        log.info("Land cover data already preprocessed. Skipping.")
+        logger.info("Land cover data already preprocessed. Skipping.")
         return
-    log.info("Starting preprocessing of land cover data.")
+    logger.info("Starting preprocessing of land cover data.")
     LC_CLASSES = [
         "bare",
         "crops",
@@ -324,16 +332,16 @@ def preprocess_osm(
     overwrite : bool, optional
         Overwrite existing files.
     """
-    log.info("Starting preprocessing of OSM data.")
+    logger.info("Starting preprocessing of OSM data.")
     for theme in ("roads", "health", "water", "ferry"):
         dst_file = os.path.join(dst_dir, f"{theme}.gpkg")
         if os.path.isfile(dst_file) and not overwrite:
-            log.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
+            logger.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
             continue
         try:
             thematic_extract(src_file, theme, dst_file)
         except MissingDataError:
-            log.warning(
+            logger.warning(
                 f"Skipping extraction of `{theme}` objects due to missing data."
             )
     osm_water = os.path.join(dst_dir, "water.gpkg")
@@ -375,9 +383,9 @@ def preprocess_surface_water(
         Overwrite existing files.
     """
     if os.path.isfile(dst_raster) and not overwrite:
-        log.info(f"{os.path.basename(dst_raster)} already exists. Skipping.")
+        logger.info(f"{os.path.basename(dst_raster)} already exists. Skipping.")
         return
-    log.info("Starting preprocessing of surface water data.")
+    logger.info("Starting preprocessing of surface water data.")
     with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
         if len(src_files) > 1:
             src_file = merge_tiles(
@@ -426,13 +434,13 @@ def preprocess_elevation(
     overwrite : bool, optional
         Overwrite existing files.
     """
-    log.info("Starting preprocessing of elevation data.")
+    logger.info("Starting preprocessing of elevation data.")
     dst_dem = os.path.join(dst_dir, "elevation.tif")
     dst_slope = os.path.join(dst_dir, "slope.tif")
     dst_aspect = os.path.join(dst_dir, "aspect.tif")
     all_exists = all([os.path.isfile(f) for f in (dst_dem, dst_slope, dst_aspect)])
     if all_exists and not overwrite:
-        log.info("All topograpy rasters already exists. Skipping processing.")
+        logger.info("All topograpy rasters already exists. Skipping processing.")
         return
 
     with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
@@ -455,20 +463,20 @@ def preprocess_elevation(
                 dem, os.path.join(tmpdir, "slope.tif"), percent=False, scale=111120
             )
         else:
-            log.info("Slope raster already exists. Skipping processing.")
+            logger.info("Slope raster already exists. Skipping processing.")
             slope = dst_slope
         if not os.path.isfile(dst_aspect) or overwrite:
             aspect = compute_aspect(
                 dem, os.path.join(tmpdir, "aspect.tif"), trigonometric=True
             )
         else:
-            log.info("Aspect raster already exists. Skipping processing.")
+            logger.info("Aspect raster already exists. Skipping processing.")
             aspect = dst_aspect
 
         for src, dst in zip((dem, slope, aspect), (dst_dem, dst_slope, dst_aspect)):
 
             if os.path.isfile(dst) and not overwrite:
-                log.info(
+                logger.info(
                     f"{os.path.basename(dst)} already exists. Skipping processing."
                 )
                 continue

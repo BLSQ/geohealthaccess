@@ -6,10 +6,10 @@ The module provides functions to work with .osm.pbf files.
 
 import os
 from subprocess import run, PIPE, DEVNULL
-import logging
 import tempfile
 import functools
 
+from loguru import logger
 import numpy as np
 import rasterio
 from rasterio.features import rasterize
@@ -19,7 +19,8 @@ from geohealthaccess.preprocessing import default_compression
 from geohealthaccess.errors import OsmiumNotFoundError, MissingDataError
 from geohealthaccess.utils import human_readable_size
 
-log = logging.getLogger(__name__)
+
+logger.disable(__name__)
 
 
 def requires_osmium(func):
@@ -65,11 +66,11 @@ def tags_filter(osm_pbf, dst_fname, expression, overwrite=True):
     command += ["-o", dst_fname]
     if overwrite:
         command += ["--overwrite"]
-    log.info(f"Running command: {' '.join(command)}")
+    logger.info(f"Running command: {' '.join(command)}")
     run(command, check=True, stdout=DEVNULL, stderr=DEVNULL)
     src_size = human_readable_size(os.path.getsize(osm_pbf))
     dst_size = human_readable_size(os.path.getsize(dst_fname))
-    log.info(
+    logger.info(
         f"Extracted {os.path.basename(dst_fname)} ({dst_size}) "
         f"from {os.path.basename(osm_pbf)} ({src_size})."
     )
@@ -97,11 +98,11 @@ def to_geojson(osm_pbf, dst_fname, overwrite=True):
     command = ["osmium", "export", osm_pbf, "-o", dst_fname]
     if overwrite:
         command += ["--overwrite"]
-    log.info(f"Running command: {' '.join(command)}")
+    logger.info(f"Running command: {' '.join(command)}")
     run(command, check=True, stdout=DEVNULL, stderr=DEVNULL)
     src_size = human_readable_size(os.path.getsize(osm_pbf))
     dst_size = human_readable_size(os.path.getsize(dst_fname))
-    log.info(
+    logger.info(
         f"Created {os.path.basename(dst_fname)} ({dst_size}) "
         f"from {os.path.basename(osm_pbf)} ({src_size})."
     )
@@ -156,7 +157,7 @@ def _filter_columns(geodataframe, valid_columns):
         if column not in valid_columns and column != "geometry":
             geodataframe = geodataframe.drop([column], axis=1)
             n_removed += 1
-    log.info(f"Removed {n_removed} columns. {len(geodataframe.columns)} remaining.")
+    logger.info(f"Removed {n_removed} columns. {len(geodataframe.columns)} remaining.")
     return geodataframe
 
 
@@ -210,7 +211,7 @@ def thematic_extract(osm_pbf, theme, dst_fname):
     expression = EXTRACTS[theme.lower()]["expression"]
     properties = EXTRACTS[theme.lower()]["properties"] + ["geometry"]
     geom_types = EXTRACTS[theme.lower()]["geom_types"]
-    log.info(f"Starting thematic extraction of {theme} objects...")
+    logger.info(f"Starting thematic extraction of {theme} objects...")
 
     with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
 
@@ -232,17 +233,19 @@ def thematic_extract(osm_pbf, theme, dst_fname):
 
         # Drop useless columns
         geodf = gpd.read_file(intermediary)
-        log.info(f"Loaded OSM data into a GeoDataFrame with {len(geodf)} records.")
+        logger.info(f"Loaded OSM data into a GeoDataFrame with {len(geodf)} records.")
         geodf = _filter_columns(geodf, properties)
 
         # Convert Polygon or MultiPolygon features to Point
         if theme == "health":
             geodf["geometry"] = geodf.geometry.apply(_centroid)
-            log.info("Converted Polygon and MultiPolygon to Point features.")
+            logger.info("Converted Polygon and MultiPolygon to Point features.")
 
         # Drop geometries of incorrect types
         geodf = geodf[np.isin(geodf.geom_type, geom_types)]
-        log.info(f"Removed objects with invalid geom types ({len(geodf)} remaining).")
+        logger.info(
+            f"Removed objects with invalid geom types ({len(geodf)} remaining)."
+        )
 
         # Reset index, set CRS and save to output file
         geodf = geodf.reset_index(drop=True)
@@ -250,7 +253,7 @@ def thematic_extract(osm_pbf, theme, dst_fname):
             geodf.crs = {"init": "epsg:4326"}
         geodf.to_file(dst_fname, driver="GPKG")
         dst_size = human_readable_size(os.path.getsize(dst_fname))
-        log.info(
+        logger.info(
             f"Saved thematric extract into {os.path.basename(dst_fname)} "
             f"({dst_size})."
         )
@@ -287,9 +290,9 @@ def create_water_raster(
     overwrite : bool, optional
         Overwrite existing files.
     """
-    log.info("Starting rasterization of OSM water objects.")
+    logger.info("Starting rasterization of OSM water objects.")
     if os.path.isfile(dst_file) and not overwrite:
-        log.info(f"`{os.path.basename(dst_file)}` already exists. Skipping.")
+        logger.info(f"`{os.path.basename(dst_file)}` already exists. Skipping.")
         return
     if not os.path.isfile(osm_water):
         raise MissingDataError("OSM water data is missing.")
@@ -308,7 +311,7 @@ def create_water_raster(
     geoms = []
     for objects in features:
         geoms += [g.__geo_interface__ for g in objects.geometry]
-    log.info(f"Found {len(geoms)} OSM water objects.")
+    logger.info(f"Found {len(geoms)} OSM water objects.")
 
     rst = rasterize(
         geoms,
@@ -334,4 +337,4 @@ def create_water_raster(
 
     with rasterio.open(dst_file, "w", **dst_profile) as dst:
         dst.write(rst, 1)
-        log.info(f"OSM water raster saved as `{os.path.basename(dst_file)}`.")
+        logger.info(f"OSM water raster saved as `{os.path.basename(dst_file)}`.")
