@@ -45,6 +45,35 @@ GDAL_DTYPES = [
 ]
 
 
+def log_gdal_output(stdout, stderr, prefix=None):
+    """Log STDOUT and STDERR output of GDAL command."""
+    if stdout:
+        stdout = stdout.decode("UTF-8")
+        for line in stdout.split("\n"):
+            # Skip empty lines and progress bars
+            if line and "..." not in line:
+                msg = f"{'[' + prefix + '] ' if prefix else ''}{line}"
+                if line.lower().startswith("error"):
+                    logger.error(msg)
+                elif line.lower().startswith("warning"):
+                    logger.warning(msg)
+                else:
+                    logger.info(msg)
+
+    if stderr:
+        stderr = stderr.decode("UTF-8")
+        for line in stderr.split("\n"):
+            # Skip empty lines and progress bars
+            if line and "..." not in line:
+                msg = f"{'[' + prefix + '] ' if prefix else ''}{line}"
+                if line.lower().startswith("error"):
+                    logger.error(msg)
+                elif line.lower().startswith("warning"):
+                    logger.warning(msg)
+                else:
+                    logger.info(msg)
+
+
 def default_compression(dtype):
     """Get default GeoTIFF compression options according to data type.
 
@@ -147,7 +176,10 @@ def merge_tiles(src_files, dst_file, nodata=-1):
         vrt = os.path.join(tmpdir, "mosaic.vrt")
         command = ["gdalbuildvrt", "-oo", "NUM_THREADS=ALL_CPUS", vrt] + src_files
         logger.info(f"Running command `{' '.join(command)}`.")
-        subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+        p = subprocess.run(
+            command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        log_gdal_output(p.stdout, p.stderr, prefix="gdalbuildvrt")
 
         command = ["gdal_translate", "-of", "GTiff", "-a_nodata", str(nodata)]
         # Add GDAL creation options for GeoTIFF format
@@ -155,7 +187,10 @@ def merge_tiles(src_files, dst_file, nodata=-1):
             command += ["-co", creation_opt]
         command += [vrt, dst_file]
         logger.info(f"Running command `{' '.join(command)}`.")
-        subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+        p = subprocess.run(
+            command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        log_gdal_output(p.stdout, p.stderr, prefix="gdal_translate")
 
     logger.info(f"Merged {len(src_files)} tiles into {os.path.basename(dst_file)}.")
     return dst_file
@@ -223,7 +258,14 @@ def reproject(
         command += ["-dstnodata", str(dst_nodata)]
     for creation_opt in GDAL_CO:
         command += ["-co", creation_opt]  # GDAL creation options for GeoTIFF driver
-    subprocess.run(command, check=True, env=os.environ, stdout=subprocess.DEVNULL)
+    p = subprocess.run(
+        command,
+        check=True,
+        env=os.environ,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    log_gdal_output(p.stdout, p.stderr, prefix="gdalwarp")
     logger.info(f"Reprojected raster {os.path.basename(src_raster)}.")
     return dst_raster
 
@@ -301,7 +343,10 @@ def compute_slope(src_dem, dst_file, percent=False, scale=None):
         command += ["-co", opt]
     command += [src_dem, dst_file]
     logger.info(f"Running command: {' '.join(command)}")
-    subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+    p = subprocess.run(
+        command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    log_gdal_output(p.stdout, p.stderr, prefix="gdaldem")
     logger.info(f"Created slope raster `{os.path.basename(dst_file)}`.")
     return dst_file
 
@@ -344,7 +389,10 @@ def compute_aspect(src_dem, dst_file, trigonometric=False):
         command += ["-co", opt]
     command += [src_dem, dst_file]
     logger.info(f"Running command: {' '.join(command)}")
-    subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+    p = subprocess.run(
+        command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    log_gdal_output(p.stdout, p.stderr, prefix="gdaldem")
     logger.info(f"Created aspect raster `{os.path.basename(dst_file)}`.")
     return dst_file
 
