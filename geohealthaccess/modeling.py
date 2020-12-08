@@ -22,49 +22,6 @@ from geohealthaccess.grasshelper import gscript
 logger.disable("__name__")
 
 
-def grass_execute(*args, **kwargs):
-    """Execute a GRASS command and return stdout and stderr."""
-    kwargs["stdout"] = gscript.PIPE
-    kwargs["stderr"] = gscript.PIPE
-    ps = gscript.start_command(*args, **kwargs)
-    return ps.communicate()
-
-
-def log_cmd_output(cmd_output):
-    """Log stdout and stderr from gscript.start_command()."""
-    if not cmd_output:
-        return
-    stdout, stderr = cmd_output
-
-    # stdout
-    if stdout:
-        stdout = stdout.decode("UTF-8")
-        for line in stdout.split("\n"):
-            line = line.strip()
-            # skip empty lines and progress bar
-            if line and "\x08" not in line:
-                if line.startswith("ERROR"):
-                    logger.error(line)
-                elif line.startswith("WARNING"):
-                    logger.warn(line)
-                else:
-                    logger.info(line)
-
-    # stderr
-    if stderr:
-        stderr = stderr.decode("UTF-8")
-        for line in stderr.split("\n"):
-            line = line.strip()
-            # skip empty lines and progress bar
-            if line and "\x08" not in line:
-                if line.startswith("ERROR"):
-                    logger.error(line)
-                elif line.startswith("WARNING"):
-                    logger.warn(line)
-                else:
-                    logger.info(line)
-
-
 def default_landcover_speeds():
     """Get default speeds associated with land cover catagories.
 
