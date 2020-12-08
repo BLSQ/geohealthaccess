@@ -64,13 +64,6 @@ logger.remove()
 logger.add(
     sys.stdout, format=LOGFORMAT, enqueue=True, backtrace=True, level="INFO",
 )
-logger.add(
-    "geohealthaccess_{time}.log",
-    format=LOGFORMAT,
-    enqueue=True,
-    backtrace=True,
-    level="DEBUG",
-)
 logger.enable("")
 
 
@@ -99,16 +92,31 @@ def cli():
     type=str,
     help="NASA EarthData password",
 )
+@click.option("--logs-dir", "-l", type=click.Path(), help="Logs output directory")
 @click.option(
     "--overwrite", "-f", is_flag=True, default=False, help="Overwrite existing files"
 )
-def download(country, output_dir, earthdata_user, earthdata_pass, overwrite):
+def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, overwrite):
     """Download input datasets."""
+    if not logs_dir:
+        logs_dir = os.curdir
+
+    logger.add(
+        os.path.join(logs_dir, "geohealthaccess-download_{time}.log"),
+        format=LOGFORMAT,
+        enqueue=True,
+        backtrace=True,
+        level="DEBUG",
+    )
+
     geom = country_geometry(country)
 
     # Set data directories automatically if they are not provided
     if not output_dir:
         output_dir = os.path.join(os.curdir, "Data", "Input")
+        logger.info(
+            f"Output directory not provided. Using {os.path.abspath(output_dir)}."
+        )
 
     # Create data directories
     NAMES = ("Population", "Land_Cover", "OpenStreetMap", "Surface_Water", "Elevation")
@@ -165,11 +173,23 @@ def download(country, output_dir, earthdata_user, earthdata_pass, overwrite):
 @click.option(
     "--output-dir", "-o", type=click.Path(), help="Output data directory",
 )
+@click.option("--logs-dir", "-l", type=click.Path(), help="Logs output directory")
 @click.option(
     "--overwrite", "-f", is_flag=True, default=False, help="Overwrite existing files"
 )
-def preprocess(input_dir, output_dir, crs, resolution, country, overwrite):
+def preprocess(input_dir, output_dir, crs, resolution, country, logs_dir, overwrite):
     """Preprocess and co-register input datasets."""
+    if not logs_dir:
+        logs_dir = os.curdir
+
+    logger.add(
+        os.path.join(logs_dir, "geohealthaccess-preprocessing_{time}.log"),
+        format=LOGFORMAT,
+        enqueue=True,
+        backtrace=True,
+        level="DEBUG",
+    )
+
     # Set data directories if not provided and create them if necessary
     if not input_dir:
         input_dir = os.path.join(os.curdir, "Data", "Input")
@@ -523,13 +543,33 @@ def preprocess_elevation(
     multiple=True,
     help="Destination points (GeoJSON or Geopackage)",
 )
+@click.option("--logs-dir", "-l", type=click.Path(), help="Logs output directory")
 @click.option(
     "--overwrite", "-f", is_flag=True, default=False, help="Overwrite existing files"
 )
 def access(
-    input_dir, output_dir, car, walk, bike, travel_speeds, destinations, overwrite
+    input_dir,
+    output_dir,
+    car,
+    walk,
+    bike,
+    travel_speeds,
+    destinations,
+    logs_dir,
+    overwrite,
 ):
     """Map travel times to the provided health facilities."""
+    if not logs_dir:
+        logs_dir = os.curdir
+
+    logger.add(
+        os.path.join(logs_dir, "geohealthaccess-access_{time}.log"),
+        format=LOGFORMAT,
+        enqueue=True,
+        backtrace=True,
+        level="DEBUG",
+    )
+
     # Set data directories if not provided and create them if necessary
     if not input_dir:
         input_dir = Path(os.path.join(os.curdir, "Data", "Intermediary"))
