@@ -22,6 +22,39 @@ from geohealthaccess.grasshelper import gscript
 logger.disable("__name__")
 
 
+def grass_execute(*args, **kwargs):
+    """Execute a GRASS command and return stdout and stderr."""
+    kwargs["stdout"] = gscript.PIPE
+    kwargs["stderr"] = gscript.PIPE
+    ps = gscript.start_command(*args, **kwargs)
+    return ps.communicate()
+
+
+def log_cmd_output(cmd_output):
+    """Log stdout and stderr from gscript.start_command()."""
+    if not cmd_output:
+        return
+    stdout, stderr = cmd_output
+
+    # stdout
+    if stdout:
+        stdout = stdout.decode("UTF-8")
+        for line in stdout.split("\n"):
+            line = line.strip()
+            # skip empty lines and progress bar
+            if line and "\x08" not in line:
+                logger.info(line)
+
+    # stderr
+    if stderr:
+        stderr = stderr.decode("UTF-8")
+        for line in stderr.split("\n"):
+            line = line.strip()
+            # skip empty lines and progress bar
+            if line and "\x08" not in line:
+                logger.info(line)
+
+
 def default_landcover_speeds():
     """Get default speeds associated with land cover catagories.
 
@@ -575,51 +608,40 @@ def anisotropic_costdistance(
 
     # Load input raster data into the GRASS environment
     # NB: Data will be stored in `grass_datadir`.
-    gscript.run_command(
-        "r.in.gdal",
-        input=src_friction,
-        output="friction",
-        quiet=True,
-        superquiet=True,
-        overwrite=True,
+    grass_execute(
+        "r.in.gdal", input=src_friction, output="friction", overwrite=True, quiet=True
     )
 
     # Set computational region
-    gscript.run_command("g.region", raster="friction")
+    cmd_output = grass_execute("g.region", raster="friction")
+    log_cmd_output(cmd_output)
     if extent:
         west, south, east, north = extent.bounds
-        gscript.run_command(
+        cmd_output = grass_execute(
             "g.region",
             flags="a",  # Align with initial resolution
             n=north,
             e=east,
             s=south,
             w=west,
-            quiet=True,
         )
+        log_cmd_output(cmd_output)
 
-    gscript.run_command(
-        "r.in.gdal",
-        input=src_target,
-        output="target",
-        quiet=True,
-        superquiet=True,
-        overwrite=True,
+    cmd_output = grass_execute(
+        "r.in.gdal", input=src_target, output="target", overwrite=True,
     )
-    gscript.run_command(
-        "r.in.gdal",
-        input=src_elevation,
-        output="elevation",
-        quiet=True,
-        superquiet=True,
-        overwrite=True,
+    log_cmd_output(cmd_output)
+    cmd_output = grass_execute(
+        "r.in.gdal", input=src_elevation, output="elevation", overwrite=True,
     )
+    log_cmd_output(cmd_output)
     # In input point raster, ensure that all pixels
     # with value = 0 are assigned a null value.
-    gscript.run_command("r.null", map="target", setnull=0, quiet=True, superquiet=True)
+    cmd_output = grass_execute("r.null", map="target", setnull=0)
+    log_cmd_output(cmd_output)
 
     # Compute travel time with GRASS r.walk.accessmod
-    gscript.run_command(
+    cmd_output = grass_execute(
         "r.walk",
         flags="kn",
         friction="friction",
@@ -628,13 +650,12 @@ def anisotropic_costdistance(
         nearest="nearest",
         outdir="backlink",
         start_raster="target",
-        quiet=True,
-        superquiet=True,
         memory=max_memory,
     )
+    log_cmd_output(cmd_output)
 
     # Save output data to disk
-    gscript.run_command(
+    cmd_output = grass_execute(
         "r.out.gdal",
         input="cost",
         output=dst_cost,
@@ -642,28 +663,25 @@ def anisotropic_costdistance(
         type="Float64",
         createopt=",".join(GDAL_CO).replace("PREDICTOR=2", "PREDICTOR=3"),
         nodata=-1,
-        quiet=True,
-        superquiet=True,
     )
-    gscript.run_command(
+    log_cmd_output(cmd_output)
+    cmd_output = grass_execute(
         "r.out.gdal",
         input="backlink",
         output=dst_backlink,
         format="GTiff",
         createopt=",".join(GDAL_CO),
         nodata=-1,
-        quiet=True,
-        superquiet=True,
     )
-    gscript.run_command(
+    log_cmd_output(cmd_output)
+    cmd_output = grass_execute(
         "r.out.gdal",
         input="nearest",
         output=dst_nearest,
         format="GTiff",
         createopt=",".join(GDAL_CO),
-        quiet=True,
-        superquiet=True,
     )
+    log_cmd_output(cmd_output)
 
     # Clean GRASSDATA directory
     shutil.rmtree(grass_datadir)
@@ -736,31 +754,27 @@ def isotropic_costdistance(
 
     # Load input raster data into the GRASS environment
     # NB: Data will be stored in `grass_datadir`.
-    gscript.run_command(
-        "r.in.gdal",
-        input=src_friction,
-        output="friction",
-        quiet=True,
-        superquiet=True,
-        overwrite=True,
+    cmd_output = grass_execute(
+        "r.in.gdal", input=src_friction, output="friction", overwrite=True,
     )
+    log_cmd_output(cmd_output)
 
     # Set computational region
-    gscript.run_command("g.region", raster="friction", quiet=True, superquiet=True)
+    cmd_output = gscript.read_command("g.region", raster="friction")
+    log_cmd_output(cmd_output)
     if extent:
         west, south, east, north = extent.bounds
-        gscript.run_command(
+        cmd_output = gscript.read_command(
             "g.region",
             flags="a",  # Align with initial resolution
             n=north,
             e=east,
             s=south,
             w=west,
-            quiet=True,
-            superquiet=True,
         )
+        log_cmd_output(cmd_output)
 
-    gscript.run_command(
+    cmd_output = gscript.read_command(
         "r.in.gdal",
         input=src_target,
         output="target",
@@ -768,13 +782,15 @@ def isotropic_costdistance(
         superquiet=True,
         overwrite=True,
     )
+    log_cmd_output(cmd_output)
 
     # In input point raster, ensure that all pixels
     # with value = 0 are assigned a null value.
-    gscript.run_command("r.null", map="target", setnull=0, quiet=True, superquiet=True)
+    cmd_output = grass_execute("r.null", map="target", setnull=0)
+    log_cmd_output(cmd_output)
 
     # Compute travel time with GRASS r.walk.accessmod
-    gscript.run_command(
+    cmd_output = grass_execute(
         "r.cost",
         flags="kn",
         input="friction",
@@ -782,13 +798,12 @@ def isotropic_costdistance(
         nearest="nearest",
         outdir="backlink",
         start_raster="target",
-        quiet=True,
-        superquiet=True,
         memory=max_memory,
     )
+    log_cmd_output(cmd_output)
 
     # Save output data to disk
-    gscript.run_command(
+    cmd_output = grass_execute(
         "r.out.gdal",
         input="cost",
         output=dst_cost,
@@ -796,28 +811,25 @@ def isotropic_costdistance(
         type="Float64",
         createopt=",".join(GDAL_CO).replace("PREDICTOR=2", "PREDICTOR=3"),
         nodata=-1,
-        quiet=True,
-        superquiet=True,
     )
-    gscript.run_command(
+    log_cmd_output(cmd_output)
+    cmd_output = grass_execute(
         "r.out.gdal",
         input="backlink",
         output=dst_backlink,
         format="GTiff",
         createopt=",".join(GDAL_CO),
         nodata=-1,
-        quiet=True,
-        superquiet=True,
     )
-    gscript.run_command(
+    log_cmd_output(cmd_output)
+    cmd_output = grass_execute(
         "r.out.gdal",
         input="nearest",
         output=dst_nearest,
         format="GTiff",
         createopt=",".join(GDAL_CO),
-        quiet=True,
-        superquiet=True,
     )
+    log_cmd_output(cmd_output)
 
     # Clean GRASSDATA directory
     shutil.rmtree(grass_datadir)
