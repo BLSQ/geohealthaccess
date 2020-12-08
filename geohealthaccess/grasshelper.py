@@ -148,7 +148,7 @@ def log_cmd_output(cmd_output):
                 if line.startswith("ERROR"):
                     logger.error(line)
                 elif line.startswith("WARNING"):
-                    logger.warn(line)
+                    logger.warning(line)
                 else:
                     logger.info(line)
 
@@ -162,6 +162,6 @@ def log_cmd_output(cmd_output):
                 if line.startswith("ERROR"):
                     logger.error(line)
                 elif line.startswith("WARNING"):
-                    logger.warn(line)
+                    logger.warning(line)
                 else:
                     logger.info(line)
