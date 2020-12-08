@@ -43,7 +43,12 @@ def log_cmd_output(cmd_output):
             line = line.strip()
             # skip empty lines and progress bar
             if line and "\x08" not in line:
-                logger.info(line)
+                if line.startswith("ERROR"):
+                    logger.error(line)
+                elif line.startswith("WARNING"):
+                    logger.warn(line)
+                else:
+                    logger.info(line)
 
     # stderr
     if stderr:
@@ -52,7 +57,12 @@ def log_cmd_output(cmd_output):
             line = line.strip()
             # skip empty lines and progress bar
             if line and "\x08" not in line:
-                logger.info(line)
+                if line.startswith("ERROR"):
+                    logger.error(line)
+                elif line.startswith("WARNING"):
+                    logger.warn(line)
+                else:
+                    logger.info(line)
 
 
 def default_landcover_speeds():
