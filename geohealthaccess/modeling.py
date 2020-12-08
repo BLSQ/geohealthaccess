@@ -15,6 +15,7 @@ from pkg_resources import resource_filename
 from rasterio.features import rasterize
 
 from geohealthaccess import grasshelper
+from geohealthaccess.grasshelper import grass_execute, log_cmd_output
 from geohealthaccess.preprocessing import default_compression, GDAL_CO
 from geohealthaccess.grasshelper import gscript
 
