@@ -13,23 +13,30 @@ Getting help for a specific subcommand::
     geohealthaccess access --help
 """
 
+import datetime
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import subprocess
 import sys
 from tempfile import TemporaryDirectory
+import zipfile
 
 import click
+import geopandas as gpd
 from loguru import logger
+import numpy as np
 import rasterio
 from pkg_resources import resource_filename
 from rasterio.crs import CRS
+from rasterio.features import rasterize
+from rasterio.warp import transform_geom
 from shapely.geometry import shape
 
 from geohealthaccess.cglc import CGLC, unique_tiles
 from geohealthaccess.data import Intermediary, Raw
-from geohealthaccess.errors import MissingDataError
+from geohealthaccess.errors import MissingDataError, BadDataError
 from geohealthaccess.geofabrik import Geofabrik
 from geohealthaccess.gsw import GSW
 from geohealthaccess.modeling import (
@@ -161,6 +168,139 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
             )
 
 
+def download_qa_elev(data_dir):
+    """Quality check of downloaded elevation files."""
+    tiles = [
+        os.path.join(data_dir, f)
+        for f in os.listdir(data_dir)
+        if f.endswith(".hgt.zip")
+    ]
+
+    # At least one tile should be downloaded
+    try:
+        assert len(tiles) > 0
+    except AssertionError:
+        raise MissingDataError("Elevation tiles not found.")
+
+    for tile in tiles:
+        with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
+            with zipfile.ZipFile(tile, "r") as archive:
+                img = archive.namelist()[0]
+                archive.extractall(tmpdir)
+            with rasterio.open(os.path.join(tmpdir, img)) as src:
+                try:
+                    assert src.driver == "SRTMHGT"
+                    assert src.dtypes[0] == "int16"
+                    assert src.crs == CRS.from_epsg(4326)
+                    assert src.width == 3601
+                    assert src.height == 3601
+                    assert src.nodata == -32768
+                except AssertionError:
+                    raise BadDataError(
+                        f"Incorrect metadata for elevation tile {tile.split(os.sep)[-1]}."
+                    )
+
+
+def download_qa_land_cover(data_dir):
+    """Quality check of downloaded land cover data."""
+    tiles = [
+        os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith(".zip")
+    ]
+    try:
+        assert len(tiles) > 0
+    except AssertionError:
+        raise MissingDataError("Land cover tiles not found.")
+
+    for tile in tiles:
+        rasters = [
+            f for f in zipfile.ZipFile(tile, "r").namelist() if f.endswith(".tif")
+        ]
+        try:
+            assert len(rasters) == 20
+        except AssertionError:
+            raise BadDataError(
+                f"Missing raster in CGLC tile archive {tile.split(os.sep)[-1]}."
+            )
+        for raster in rasters:
+            raster_path = f"zip://{tile}!/{raster}"
+            try:
+                with rasterio.open(raster_path) as src:
+                    assert src.crs == CRS.from_epsg(4326)
+                    assert src.dtypes[0] == "uint8"
+                    assert src.nodata == 255
+            except AssertionError:
+                raise BadDataError(
+                    f"Incorrect metadata for CGLC tile {tile.split(os.sep)[-1]}."
+                )
+
+
+def download_qa_osm(data_dir):
+    """Quality check of downloaded OSM data."""
+    osm_files = [f for f in os.listdir(data_dir) if f.endswith(".osm.pbf")]
+    try:
+        assert len(osm_files) > 0
+    except AssertionError:
+        raise MissingDataError("OSM data file not found.")
+
+    # Find latest OSM file if several are available
+    if len(osm_files) == 1:
+        latest = osm_files[0]
+    else:
+        latest, date = None, 0
+        for fname in osm_files:
+            basename = fname.split(".")[0]
+            date_str = basename.split("-")[-1]
+            if int(date_str) > date:
+                date = int(date_str)
+                latest = fname
+    try:
+        assert latest
+    except AssertionError:
+        raise MissingDataError("Unable to find latest OSM data file.")
+
+    p = subprocess.run(
+        ["osmium", "fileinfo", os.path.join(data_dir, latest)],
+        stdout=subprocess.PIPE,
+        check=True,
+    )
+    fileinfo = p.stdout.decode("UTF-8").split("\n")
+    fileinfo = [line.strip() for line in fileinfo if line]
+
+    # Size not null
+    size_i = [line.startswith("Size:") for line in fileinfo].index(True)
+    size = int(fileinfo[size_i].split(":")[-1])
+    try:
+        assert size
+    except AssertionError:
+        raise BadDataError(f"OSM file {latest} is not valid (null size).")
+
+    # BBOX not null
+    bbox_i = [line.startswith("Bounding boxes:") for line in fileinfo].index(True) + 1
+    bbox_str = fileinfo[bbox_i].replace("(", "").replace(")", "")
+    for coord in bbox_str.split(","):
+        try:
+            assert float(coord)
+        except (AssertionError, ValueError):
+            raise BadDataError(f"OSM file {latest} is not valid (null bounds).")
+
+
+def download_qa_pop(data_dir):
+    """Quality check of downloaded worldpop data."""
+    data_dir = "Data/Input/Population"
+    pop_file = [f for f in os.listdir(data_dir) if f.endswith(".tif") and "ppp" in f][0]
+    pop_file = os.path.join(data_dir, pop_file)
+
+    try:
+        with rasterio.open(pop_file) as src:
+            assert src.dtypes[0] == "float32"
+            assert src.nodata == -99999
+            assert src.crs == CRS.from_epsg(4326)
+    except AssertionError:
+        raise BadDataError(
+            f"Incorrect metadata in population raster {pop_file.split(os.sep)[-1]}."
+        )
+
+
 @cli.command()
 @click.option("--country", "-c", type=str, required=True, help="ISO A3 country code")
 @click.option(
@@ -175,9 +315,14 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
 )
 @click.option("--logs-dir", "-l", type=click.Path(), help="Logs output directory")
 @click.option(
+    "--skip-qa", "-q", is_flag=True, default=False, help="Skip input data checks"
+)
+@click.option(
     "--overwrite", "-f", is_flag=True, default=False, help="Overwrite existing files"
 )
-def preprocess(input_dir, output_dir, crs, resolution, country, logs_dir, overwrite):
+def preprocess(
+    input_dir, output_dir, crs, resolution, country, logs_dir, skip_qa, overwrite
+):
     """Preprocess and co-register input datasets."""
     if not logs_dir:
         logs_dir = os.curdir
@@ -198,6 +343,17 @@ def preprocess(input_dir, output_dir, crs, resolution, country, logs_dir, overwr
     input_dir, output_dir = Path(input_dir), Path(output_dir)
     for p in (input_dir, output_dir):
         p.mkdir(parents=True, exist_ok=True)
+
+    # Quality checks
+    if not skip_qa:
+        logger.info("Checking input elevation data...")
+        download_qa_elev(os.path.join(input_dir, "Elevation"))
+        logger.info("Checking input land cover data...")
+        download_qa_land_cover(os.path.join(input_dir, "Land_Cover"))
+        logger.info("Checking input OpenStreetMap data...")
+        download_qa_osm(os.path.join(input_dir, "OpenStreetMap"))
+        logger.info("Checking input population data...")
+        download_qa_pop(os.path.join(input_dir, "Population"))
 
     # Create raster grid from CLI options
     geom = country_geometry(country)
