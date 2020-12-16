@@ -1195,8 +1195,8 @@ def access(
                 ).as_posix(),
             )
 
-        for traveltimes in output_dir.glob("cost_*.tif"):
-            seconds_to_minutes(traveltimes)
+        # for traveltimes in output_dir.glob("cost_*.tif"):
+        #    seconds_to_minutes(traveltimes)
 
     # quality check
     if not skip_qa:
