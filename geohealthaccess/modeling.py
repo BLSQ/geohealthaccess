@@ -576,9 +576,10 @@ def anisotropic_costdistance(
 
     # Load input raster data into the GRASS environment
     # NB: Data will be stored in `grass_datadir`.
-    grass_execute(
-        "r.in.gdal", input=src_friction, output="friction", overwrite=True, quiet=True
+    cmd_output = grass_execute(
+        "r.in.gdal", input=src_friction, output="friction", overwrite=True
     )
+    log_cmd_output(cmd_output)
 
     # Set computational region
     cmd_output = grass_execute("g.region", raster="friction")
