@@ -228,3 +228,25 @@ def mv(src, dst):
         raise IOError(
             f"Moving files from {src.protocol} to {dst.protocol} not supported."
         )
+
+
+def exists(loc):
+    """Check if a file exists."""
+    loc = Location(loc)
+
+    # local
+    if loc.protocol == "local":
+        return os.path.exists(loc.path)
+
+    # s3
+    elif loc.protocol == "s3":
+        fs = get_s3fs()
+        return fs.exists(loc.path)
+
+    # gcs
+    elif loc.protocol == "gcs":
+        fs = get_gcsfs()
+        return fs.exists(loc.path)
+
+    else:
+        raise IOError(f"{loc.protocol} protocol not supported.")
