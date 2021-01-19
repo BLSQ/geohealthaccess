@@ -21,16 +21,6 @@ def test_srtm_authenticity_token(unauthentified_srtm):
     assert unauthentified_srtm.authenticity_token.endswith("==")
 
 
-def test_srtm_authentification():
-    srtm = SRTM()
-    with vcr.use_cassette("tests/cassettes/srtm-authentification.yaml"):
-        srtm.authentify(
-            os.environ.get("EARTHDATA_USERNAME"), os.environ.get("EARTHDATA_PASSWORD")
-        )
-    with vcr.use_cassette("tests/cassettes/srtm-logged-in.yaml"):
-        assert srtm.logged_in
-
-
 @vcr.use_cassette("tests/cassettes/srtm-not-logged-in.yaml")
 def test_srtm_not_logged_in(unauthentified_srtm):
     assert not unauthentified_srtm.logged_in
