@@ -25,10 +25,10 @@ from collections import namedtuple
 import geopandas as gpd
 from loguru import logger
 import requests
-from requests_file import FileAdapter
 from rasterio.crs import CRS
 from shapely.geometry import Polygon
 
+from geohealthaccess import storage
 from geohealthaccess.utils import download_from_url, size_from_url
 
 
@@ -229,7 +229,7 @@ def _is_cglc(fname):
 
 
 def unique_tiles(directory):
-    """List unique CGLC tiles in a local directory.
+    """List unique CGLC tiles in a directory.
 
     Parameters
     ----------
@@ -241,7 +241,7 @@ def unique_tiles(directory):
     list of str
         List of unique tile IDs.
     """
-    files = [f for f in os.listdir(directory) if _is_cglc(f)]
+    files = [f for f in storage.ls(directory) if _is_cglc(f)]
     tiles = [f.split("_")[0] for f in files]
     unique = list(set(tiles))
     logger.info(f"Found {len(unique)} unique CGLC tiles.")
@@ -263,12 +263,12 @@ def list_layers(directory, tile):
     list of str
         List of layer names.
     """
-    files = [f for f in os.listdir(directory) if _is_cglc(f) and f.startswith(tile)]
+    files = [f for f in storage.ls(directory) if _is_cglc(f) and f.startswith(tile)]
     return [f.split("_")[6] for f in files]
 
 
 def find_layer(directory, tile, name):
-    """Find a CGLC layer in a local directory.
+    """Find a CGLC layer in a directory.
 
     Parameters
     ----------
@@ -284,7 +284,7 @@ def find_layer(directory, tile, name):
     str
         Path to CGLC layer.
     """
-    files = [f for f in os.listdir(directory) if _is_cglc(f)]
+    files = [f for f in storage.ls(directory) if _is_cglc(f)]
     for f in files:
         if f.startswith(tile) and f.split("_")[6] == name:
             return os.path.join(directory, f)
