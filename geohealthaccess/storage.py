@@ -1,5 +1,6 @@
 """Access, read and write data from cloud storage."""
 
+from glob import glob as local_glob
 import os
 import socket
 import shutil
@@ -279,6 +280,29 @@ def size(loc):
     elif loc.protocol == "gcs":
         fs = get_gcsfs()
         return fs.size(loc.path)
+
+    else:
+        raise IOError(f"{loc.protocol} not supported.")
+
+
+def glob(pattern):
+    """Return paths matching input pattern.
+
+    S3 and GCS file paths are prefixed with the relevant schemes, i.e.
+    s3:// or gcs://.
+    """
+    loc = Location(pattern)
+
+    if loc.protocol == "local":
+        return local_glob(loc.path)
+
+    elif loc.protocol == "s3":
+        fs = get_s3fs()
+        return [f"s3://{path}" for path in fs.glob(loc.path)]
+
+    elif loc.protocol == "gcs":
+        fs = get_gcsfs()
+        return [f"gcs://{path}" for path in fs.glob(loc.path)]
 
     else:
         raise IOError(f"{loc.protocol} not supported.")
