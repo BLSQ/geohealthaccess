@@ -23,6 +23,7 @@ from ftplib import FTP, error_reply
 
 from loguru import logger
 
+from geohealthaccess import storage
 from geohealthaccess.utils import download_from_ftp, size_from_ftp
 
 
@@ -118,10 +119,10 @@ class WorldPop:
             year = max(self.available_years())
             logger.info(f"No year specified. Selected latest year available ({year}).")
         url = self.url(country, year)
-        local_path = download_from_ftp(
+        file_path = download_from_ftp(
             self.ftp, url, output_dir, show_progress=True, overwrite=overwrite
         )
-        return local_path
+        return file_path
 
     def download_size(self, country, year):
         """Get download size of a worldpop population dataset.
@@ -180,7 +181,7 @@ def clean_datadir(directory):
     directory : str
         Path to directory to check.
     """
-    rasters = [f for f in os.listdir(directory) if f.lower().endswith(".tif")]
+    rasters = [f for f in storage.ls(directory) if f.lower().endswith(".tif")]
     if len(rasters) <= 1:
         logger.info("Data directory does not require cleaning.")
         return
@@ -209,5 +210,5 @@ def clean_datadir(directory):
             logger.info(
                 f"Removing {raster} because a more recent version is available."
             )
-            os.remove(os.path.join(directory, raster))
+            storage.rm(os.path.join(directory, raster))
     return
