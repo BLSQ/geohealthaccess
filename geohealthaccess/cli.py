@@ -171,6 +171,7 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
 
     # Write logs
     cp(log_tmp, log_file)
+    rm(log_tmp)
 
 
 def download_qa_elev(data_dir):
