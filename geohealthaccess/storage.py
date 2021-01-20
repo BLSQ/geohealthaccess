@@ -306,3 +306,22 @@ def glob(pattern):
 
     else:
         raise IOError(f"{loc.protocol} not supported.")
+
+
+def open(loc, mode="r"):
+    """Return a file-like object regardless of the file system."""
+    loc = Location(loc)
+
+    if loc.protocol == "local":
+        return open(loc.path, mode)
+
+    elif loc.protocol == "s3":
+        fs = get_s3fs()
+        return fs.open(loc.path, mode)
+
+    elif loc.protocol == "gcs":
+        fs = get_gcsfs()
+        return fs.open(loc.path, mode)
+
+    else:
+        raise IOError(f"{loc.protocol} not supported.")
