@@ -45,7 +45,6 @@ from geohealthaccess.modeling import (
     compute_friction,
     isotropic_costdistance,
     rasterize_destinations,
-    seconds_to_minutes,
     speed_from_landcover,
     speed_from_roads,
     travel_obstacles,
@@ -61,7 +60,7 @@ from geohealthaccess.preprocessing import (
     reproject,
 )
 from geohealthaccess.srtm import SRTM
-from geohealthaccess.storage import cp, rm, mv, ls
+from geohealthaccess import storage
 from geohealthaccess.utils import country_geometry, unzip
 from geohealthaccess.worldpop import WorldPop
 
@@ -131,7 +130,7 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
     NAMES = ("Population", "Land_Cover", "OpenStreetMap", "Surface_Water", "Elevation")
     datadirs = [os.path.join(output_dir, name) for name in NAMES]
     for datadir in datadirs:
-        os.makedirs(datadir, exist_ok=True)
+        storage.mkdir(datadir)
 
     # Population
     wp = WorldPop()
@@ -170,8 +169,8 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
             )
 
     # Write logs
-    cp(log_tmp, log_file)
-    rm(log_tmp)
+    storage.cp(log_tmp, log_file)
+    storage.rm(log_tmp)
 
 
 def download_qa_elev(data_dir):
@@ -183,7 +182,7 @@ def download_qa_elev(data_dir):
         Directory where SRTM tiles are stored.
 
     Raises
-    -----
+    ------
     MissingDataError
         If no elevation tile is found.
     BadDataError
