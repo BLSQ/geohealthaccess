@@ -250,3 +250,14 @@ def exists(loc):
 
     else:
         raise IOError(f"{loc.protocol} protocol not supported.")
+
+
+def mkdir(loc):
+    """Create directories recursively, ignore if they already exists.
+
+    This is not needed for S3 and GCS as directories cannot be created and
+    are not needed anyway.
+    """
+    loc = Location(loc)
+    if loc.protocol == "local":
+        os.makedirs(loc.path, exist_ok=True)
