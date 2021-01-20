@@ -261,3 +261,24 @@ def mkdir(loc):
     loc = Location(loc)
     if loc.protocol == "local":
         os.makedirs(loc.path, exist_ok=True)
+
+
+def size(loc):
+    """Get size of a file in bytes."""
+    loc = Location(loc)
+    if not exists(loc.location):
+        raise FileNotFoundError(f"No file found at {loc.location}.")
+
+    if loc.protocol == "local":
+        return os.path.getsize(loc.path)
+
+    elif loc.protocol == "s3":
+        fs = get_s3fs()
+        return fs.size(loc.path)
+
+    elif loc.protocol == "gcs":
+        fs = get_gcsfs()
+        return fs.size(loc.path)
+
+    else:
+        raise IOError(f"{loc.protocol} not supported.")
