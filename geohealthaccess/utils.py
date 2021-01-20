@@ -2,6 +2,7 @@
 
 import json
 import os
+from tempfile import TemporaryDirectory
 import zipfile
 from urllib.parse import urlparse
 
@@ -9,6 +10,8 @@ from loguru import logger
 from pkg_resources import resource_string
 from shapely.geometry import shape
 from tqdm.auto import tqdm
+
+from geohealthaccess import storage
 
 
 logger.disable("__name__")
@@ -58,7 +61,7 @@ def http_same_size(session, url, fname):
     if not os.path.isfile(fname):
         return False
     remote_size = size_from_url(session, url)
-    local_size = os.path.getsize(fname)
+    local_size = storage.size(fname)
     return remote_size == local_size
 
 
@@ -104,9 +107,9 @@ def download_from_url(
     local_path : str
         Local path to downloaded file.
     """
-    os.makedirs(output_dir, exist_ok=True)
+    storage.mkdir(output_dir)
     filename = url.split("/")[-1]
-    local_path = os.path.join(output_dir, filename)
+    dst_file = os.path.join(output_dir, filename)
 
     with session.get(url, stream=True, timeout=5) as r:
 
@@ -116,16 +119,16 @@ def download_from_url(
             logger.error(e)
 
         # Remove old file if overwrite
-        if os.path.isfile(local_path) and overwrite:
+        if storage.exists(dst_file) and overwrite:
             logger.info(f"Removing old {filename} file.")
-            os.remove(local_path)
+            storage.rm(dst_file)
 
         # Skip download if remote and local sizes are equal
-        if http_same_size(session, url, local_path):
+        if http_same_size(session, url, dst_file):
             logger.info(
                 f"Remote and local sizes of {filename} are equal. Skipping download."
             )
-            return local_path
+            return dst_file
 
         # Setup progress bar
         if show_progress:
@@ -141,20 +144,23 @@ def download_from_url(
                 position=pbar_position,
             )
 
-        with open(local_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1024):
-                if chunk:
-                    f.write(chunk)
-                    if show_progress:
-                        progress_bar.update(1024)
+        with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+            tmp_file = os.path.join(tmp_dir, filename)
+            with open(tmp_file, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+                        if show_progress:
+                            progress_bar.update(1024)
+            storage.cp(tmp_file, dst_file)
         if show_progress:
             progress_bar.n = progress_bar.total
             progress_bar.close()
 
-    filesize = human_readable_size(os.path.getsize(local_path))
+    filesize = human_readable_size(storage.size(dst_file))
     logger.info(f"Downloaded file {filename} ({filesize}).")
 
-    return local_path
+    return dst_file
 
 
 def download_from_ftp(ftp, url, output_dir, show_progress=True, overwrite=False):
@@ -184,43 +190,46 @@ def download_from_ftp(ftp, url, output_dir, show_progress=True, overwrite=False)
 
     size = ftp.size(url.path)
     fname = url.path.split("/")[-1]
-    local_path = os.path.join(output_dir, fname)
+    dst_file = os.path.join(output_dir, fname)
 
     # Remove old file if overwrite
-    if os.path.isfile(local_path) and overwrite:
+    if storage.exists(dst_file) and overwrite:
         logger.info(f"File {fname} already exists. Removing it.")
-        os.remove(local_path)
+        storage.rm(dst_file)
 
     # Do not download again if local and remote file sizes are equal
-    if os.path.isfile(local_path):
-        if os.path.getsize(local_path) == size:
+    if storage.exists(dst_file):
+        if storage.size(dst_file) == size:
             logger.info(f"File {fname} already exists. Skipping download.")
-            return local_path
+            return dst_file
         else:
             logger.info(
                 f"File {fname} already exists but size differs. Removing old file."
             )
-            os.remove(local_path)
+            storage.rm(dst_file)
 
-    logger.info(f"Downloading {fname} to {local_path}.")
+    logger.info(f"Downloading {fname} to {dst_file}.")
     if show_progress:
         progress = tqdm(total=size, desc=fname, unit_scale=True, unit="B")
 
-    with open(local_path, "wb") as f:
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+        tmp_file = os.path.join(tmp_dir, fname)
+        with open(tmp_file, "wb") as f:
 
-        def write_and_progress(chunk):
-            """Write chunk to disk and update the progress bar."""
-            f.write(chunk)
-            if show_progress:
-                progress.update(len(chunk))
+            def write_and_progress(chunk):
+                """Write chunk to disk and update the progress bar."""
+                f.write(chunk)
+                if show_progress:
+                    progress.update(len(chunk))
 
-        ftp.retrbinary(f"RETR {url.path}", write_and_progress)
+            ftp.retrbinary(f"RETR {url.path}", write_and_progress)
+            storage.cp(tmp_file, dst_file)
 
-    size = human_readable_size(os.path.getsize(local_path))
+    size = human_readable_size(storage.size(dst_file))
     logger.info(f"Downloaded {fname} ({size}).")
     if show_progress:
         progress.close()
-    return local_path
+    return dst_file
 
 
 def size_from_ftp(ftp, url):
