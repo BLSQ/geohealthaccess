@@ -60,12 +60,12 @@ def get_s3fs():
     """
     if not has_s3fs:
         raise ImportError("s3fs library is required when using s3 urls.")
-    anon = bool(os.getenv("S3_SECRET_KEY"))
+    anon = not bool(os.getenv("S3_SECRET_KEY"))
     return s3fs.S3FileSystem(
         key=os.getenv("S3_ACCESS_KEY"),
         secret=os.getenv("S3_SECRET_KEY"),
         anon=anon,
-        client_kwars={
+        client_kwargs={
             "region_name": os.getenv("S3_REGION_NAME", "us-east-1"),
             "endpoint_url": os.getenv("S3_ENDPOINT_URL", "s3.amazonaws.com"),
         },
