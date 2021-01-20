@@ -13,13 +13,14 @@ Getting help for a specific subcommand::
     geohealthaccess access --help
 """
 
+from datetime import datetime
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import subprocess
 import sys
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, tempdir
 import zipfile
 
 import click
@@ -60,6 +61,7 @@ from geohealthaccess.preprocessing import (
     reproject,
 )
 from geohealthaccess.srtm import SRTM
+from geohealthaccess.storage import cp, rm, mv, ls
 from geohealthaccess.utils import country_geometry, unzip
 from geohealthaccess.worldpop import WorldPop
 
@@ -107,12 +109,13 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
     if not logs_dir:
         logs_dir = os.curdir
 
+    time = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S_%f")
+    log_basename = f"geohealthaccess-download_{time}.log"
+    log_file = os.path.join(logs_dir, log_basename)
+    log_tmp = os.path.join(tempdir, log_basename)
+
     logger.add(
-        os.path.join(logs_dir, "geohealthaccess-download_{time}.log"),
-        format=LOGFORMAT,
-        enqueue=True,
-        backtrace=True,
-        level="DEBUG",
+        log_tmp, format=LOGFORMAT, enqueue=True, backtrace=True, level="DEBUG",
     )
 
     geom = country_geometry(country)
@@ -165,6 +168,9 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
             e.submit(
                 srtm.download, tile, dst_dir, True, overwrite, i,
             )
+
+    # Write logs
+    cp(log_tmp, log_file)
 
 
 def download_qa_elev(data_dir):
