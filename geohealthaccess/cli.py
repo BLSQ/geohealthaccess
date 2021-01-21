@@ -346,14 +346,14 @@ def preprocess_land_cover(
                 dst_nodata=255,
                 dst_dtype="Byte",
                 resampling_method="cubic",
-                overwrite=overwrite,
+                overwrite=True,
             )
         )
 
     if len(reprojected_files) > 1:
         raster = concatenate_bands(
             src_files=reprojected_files,
-            dst_file=dst_raster,
+            dst_file=os.path.join(tmp_data_dir, os.path.basename(dst_raster)),
             band_descriptions=LC_CLASSES,
         )
     else:
@@ -389,15 +389,25 @@ def preprocess_osm(
         Overwrite existing files.
     """
     logger.info("Starting preprocessing of OSM data.")
+
+    # Source files are copied into a temporary directory where processed data
+    # is also going to be stored.
     with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
         tmp_src_file = os.path.join(tmp_dir, os.path.basename(src_file))
         storage.cp(src_file, tmp_src_file)
+
+        # Extract roads, health facilities, water objects and ferries
+        # from the main OSM data file.
         for theme in ("roads", "health", "water", "ferry"):
             dst_file = os.path.join(dst_dir, f"{theme}.gpkg")
             tmp_dst_file = os.path.join(tmp_dir, os.path.basename(dst_file))
+
+            # Skip processing if destination file already exists
             if storage.exists(dst_file) and not overwrite:
                 logger.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
                 continue
+
+            # Extract objects and copy output file into destination directory
             try:
                 thematic_extract(tmp_src_file, theme, tmp_dst_file)
                 storage.cp(tmp_dst_file, dst_file)
@@ -405,6 +415,13 @@ def preprocess_osm(
                 logger.warning(
                     f"Skipping extraction of `{theme}` objects due to missing data."
                 )
+
+        # Create water raster from OSM data
+        # Get data from destination directory if not present anymore
+        # in the temporary directory.
+        water_gpkg = os.path.join(tmp_dir, "water.gpkg")
+        if not os.path.isfile(water_gpkg):
+            storage.cp(os.path.join(dst_dir, "water.gpkg"), water_gpkg)
         tmp_water_raster = os.path.join(tmp_dir, "water_osm.tif")
         create_water_raster(
             os.path.join(tmp_dir, "water.gpkg"),
@@ -418,6 +435,8 @@ def preprocess_osm(
         )
         if geom:
             mask_raster(tmp_water_raster, geom)
+
+        # Copy temporary file to destination directory
         storage.cp(tmp_water_raster, os.path.join(dst_dir, "water_osm.tif"))
 
 
@@ -443,16 +462,22 @@ def preprocess_surface_water(
     overwrite : bool, optional
         Overwrite existing files.
     """
+    # Skip processing if surface_water.tif already exists
     if storage.exists(dst_raster) and not overwrite:
         logger.info(f"{os.path.basename(dst_raster)} already exists. Skipping.")
         return
+
+    # Copy GSW tiles into a temporary directory before processing
     logger.info("Starting preprocessing of surface water data.")
     with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
         tmp_src_files = []
         for src_file in src_files:
             tmp_src_file = os.path.join(tmp_dir, os.path.basename(src_file))
             storage.cp(src_file, os.path.join(tmp_dir, os.path.basename(src_file)))
             tmp_src_files.append(tmp_src_file)
+
+        # Merge tiles if necessary
         if len(tmp_src_files) > 1:
             mosaic = merge_tiles(
                 tmp_src_files, os.path.join(tmp_dir, "mosaic.tif"), nodata=255
@@ -460,8 +485,11 @@ def preprocess_surface_water(
 
         else:
             mosaic = tmp_src_files[0]
-        tmp_dst_file = os.path.join(tmp_dir, os.path.basename(dst_raster))
-        dst_raster = reproject(
+
+        tmp_dst_file = os.path.join(
+            tmp_dir, os.path.basename(dst_raster).replace(".tif", "_reprojected.tif")
+        )
+        tmp_dst_file = reproject(
             src_raster=mosaic,
             dst_raster=tmp_dst_file,
             dst_crs=dst_crs,
@@ -471,10 +499,12 @@ def preprocess_surface_water(
             dst_nodata=255,
             dst_dtype="Byte",
             resampling_method="max",
-            overwrite=overwrite,
+            overwrite=True,
         )
         if geom:
             mask_raster(tmp_dst_file, geom)
+
+        # Copy output raster to destination directory
         storage.cp(tmp_dst_file, dst_raster)
 
 
@@ -523,7 +553,7 @@ def preprocess_elevation(
         else:
             dem = tiles[0]
 
-        # compute slope and aspect before reprojection
+        # compute slope before reprojection
         if not storage.exists(dst_slope) or overwrite:
             slope = compute_slope(
                 dem, os.path.join(tmpdir, "slope.tif"), percent=False, scale=111120
@@ -547,7 +577,9 @@ def preprocess_elevation(
                 nodata = -32768
                 dtype = "Int16"
 
-            dst_tmp = os.path.join(tmpdir, os.path.basename(dst))
+            dst_tmp = os.path.join(
+                tmpdir, os.path.basename(dst).replace(".tif", "_reprojected.tif")
+            )
 
             dst_tmp = reproject(
                 src_raster=src,
@@ -559,7 +591,7 @@ def preprocess_elevation(
                 dst_nodata=nodata,
                 dst_dtype=dtype,
                 resampling_method="cubic",
-                overwrite=overwrite,
+                overwrite=True,
             )
             if geom:
                 mask_raster(dst_tmp, geom)
