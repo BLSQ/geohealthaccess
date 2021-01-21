@@ -780,7 +780,7 @@ def access(
         #    seconds_to_minutes(traveltimes)
 
     # quality check
-    if not skip_qa:
+    if quality_checks:
         qa.cost(output_dir, aoi)
 
 
