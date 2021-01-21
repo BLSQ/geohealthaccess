@@ -181,13 +181,13 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
 )
 @click.option("--logs-dir", "-l", type=click.Path(), help="Logs output directory")
 @click.option(
-    "--skip-qa", "-q", is_flag=True, default=False, help="Skip input data checks"
+    "--quality-checks", is_flag=True, default=False, help="Enable quality checks"
 )
 @click.option(
     "--overwrite", "-f", is_flag=True, default=False, help="Overwrite existing files"
 )
 def preprocess(
-    input_dir, output_dir, crs, resolution, country, logs_dir, skip_qa, overwrite
+    input_dir, output_dir, crs, resolution, country, logs_dir, quality_checks, overwrite
 ):
     """Preprocess and co-register input datasets."""
     if not logs_dir:
@@ -211,7 +211,7 @@ def preprocess(
         storage.mkdir(dir_)
 
     # Quality checks
-    if not skip_qa:
+    if quality_checks:
         logger.info("Checking input elevation data...")
         qa.srtm(os.path.join(input_dir, "srtm"))
         logger.info("Checking input land cover data...")
@@ -588,7 +588,7 @@ def preprocess_elevation(
 )
 @click.option("--logs-dir", "-l", type=click.Path(), help="Logs output directory")
 @click.option(
-    "--skip-qa", "-q", is_flag=True, default=False, help="Skip quality checks"
+    "--quality-checks", is_flag=True, default=False, help="Enable quality checks"
 )
 @click.option(
     "--overwrite", "-f", is_flag=True, default=False, help="Overwrite existing files"
@@ -602,7 +602,7 @@ def access(
     travel_speeds,
     destinations,
     logs_dir,
-    skip_qa,
+    quality_checks,
     overwrite,
 ):
     """Map travel times to the provided health facilities."""
@@ -631,7 +631,7 @@ def access(
         aoi = shape(json.load(f))
 
     # Quality checks
-    if not skip_qa:
+    if quality_checks:
         logger.info("Validating raster grid...")
         qa.grid(input_dir)
         logger.info("Checking elevation raster...")
