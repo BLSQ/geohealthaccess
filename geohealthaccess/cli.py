@@ -18,9 +18,11 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import shutil
 import sys
-from tempfile import TemporaryDirectory, tempdir
+from tempfile import TemporaryDirectory, gettempdir
 
+from appdirs import user_data_dir
 import click
 from loguru import logger
 import rasterio
@@ -29,7 +31,7 @@ from rasterio.crs import CRS
 from shapely.geometry import shape
 
 from geohealthaccess.cglc import CGLC, unique_tiles
-from geohealthaccess.data import Intermediary, Raw
+from geohealthaccess.data import Intermediary
 from geohealthaccess.errors import MissingDataError
 from geohealthaccess.geofabrik import Geofabrik
 from geohealthaccess.gsw import GSW
@@ -45,7 +47,6 @@ from geohealthaccess.modeling import (
 )
 from geohealthaccess.osm import thematic_extract, create_water_raster
 from geohealthaccess.preprocessing import (
-    compute_aspect,
     compute_slope,
     concatenate_bands,
     create_grid,
@@ -106,7 +107,7 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
     time = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S_%f")
     log_basename = f"geohealthaccess-download_{time}.log"
     log_file = os.path.join(logs_dir, log_basename)
-    log_tmp = os.path.join(tempdir, log_basename)
+    log_tmp = os.path.join(gettempdir(), log_basename)
 
     logger.add(
         log_tmp, format=LOGFORMAT, enqueue=True, backtrace=True, level="DEBUG",
@@ -116,52 +117,50 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
 
     # Set data directories automatically if they are not provided
     if not output_dir:
-        output_dir = os.path.join(os.curdir, "Data", "Input")
+        output_dir = os.path.join(os.curdir, "data", "raw")
         logger.info(
             f"Output directory not provided. Using {os.path.abspath(output_dir)}."
         )
 
     # Create data directories
-    NAMES = ("Population", "Land_Cover", "OpenStreetMap", "Surface_Water", "Elevation")
-    datadirs = [os.path.join(output_dir, name) for name in NAMES]
-    for datadir in datadirs:
-        storage.mkdir(datadir)
+    worldpop_dir = os.path.join(output_dir, "worldpop")
+    cglc_dir = os.path.join(output_dir, "cglc")
+    osm_dir = os.path.join(output_dir, "osm")
+    gsw_dir = os.path.join(output_dir, "gsw")
+    srtm_dir = os.path.join(output_dir, "srtm")
+    for data_dir in (worldpop_dir, cglc_dir, osm_dir, gsw_dir, srtm_dir):
+        storage.mkdir(data_dir)
 
     # Population
     wp = WorldPop()
     wp.login()
-    wp.download(country, os.path.join(output_dir, NAMES[0]), overwrite=overwrite)
+    wp.download(country, worldpop_dir, overwrite=overwrite)
     wp.logout()
 
     # Land Cover
     cglc = CGLC()
     tiles = cglc.search(geom)
     for tile in tiles:
-        cglc.download(tile, os.path.join(output_dir, NAMES[1]), overwrite=overwrite)
+        cglc.download(tile, cglc_dir, overwrite=overwrite)
 
     # OpenStreetMap
     geofab = Geofabrik()
     region_id, _ = geofab.search(geom)
-    geofab.download(region_id, os.path.join(output_dir, NAMES[2]), overwrite=overwrite)
+    geofab.download(region_id, osm_dir, overwrite=overwrite)
 
     # Global Surface WaterTrue
     gsw = GSW()
     tiles = gsw.search(geom)
     for tile in tiles:
-        gsw.download(
-            tile, "seasonality", os.path.join(output_dir, NAMES[3]), overwrite=overwrite
-        )
+        gsw.download(tile, "seasonality", gsw_dir, overwrite=overwrite)
 
     # Digital elevation model
     srtm = SRTM()
     srtm.authentify(earthdata_user, earthdata_pass)
     tiles = srtm.search(geom)
-    dst_dir = os.path.join(output_dir, NAMES[4])
     with ThreadPoolExecutor(max_workers=5) as e:
         for i, tile in enumerate(tiles):
-            e.submit(
-                srtm.download, tile, dst_dir, True, overwrite, i,
-            )
+            e.submit(srtm.download, tile, srtm_dir, True, overwrite, i)
 
     # Write logs
     storage.cp(log_tmp, log_file)
@@ -194,33 +193,33 @@ def preprocess(
     if not logs_dir:
         logs_dir = os.curdir
 
+    time = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S_%f")
+    log_basename = f"geohealthaccess-preprocessing_{time}.log"
+    log_file = os.path.join(logs_dir, log_basename)
+    log_tmp = os.path.join(gettempdir(), log_basename)
+
     logger.add(
-        os.path.join(logs_dir, "geohealthaccess-preprocessing_{time}.log"),
-        format=LOGFORMAT,
-        enqueue=True,
-        backtrace=True,
-        level="DEBUG",
+        log_tmp, format=LOGFORMAT, enqueue=True, backtrace=True, level="DEBUG",
     )
 
     # Set data directories if not provided and create them if necessary
     if not input_dir:
-        input_dir = os.path.join(os.curdir, "Data", "Input")
+        input_dir = os.path.join(os.curdir, "data", "raw")
     if not output_dir:
-        output_dir = os.path.join(os.curdir, "Data", "Intermediary")
-    input_dir, output_dir = Path(input_dir), Path(output_dir)
-    for p in (input_dir, output_dir):
-        p.mkdir(parents=True, exist_ok=True)
+        output_dir = os.path.join(os.curdir, "data", "input")
+    for dir_ in (input_dir, output_dir):
+        storage.mkdir(dir_)
 
     # Quality checks
     if not skip_qa:
         logger.info("Checking input elevation data...")
-        qa.srtm(os.path.join(input_dir, "Elevation"))
+        qa.srtm(os.path.join(input_dir, "srtm"))
         logger.info("Checking input land cover data...")
-        qa.cglc(os.path.join(input_dir, "Land_Cover"))
+        qa.cglc(os.path.join(input_dir, "cglc"))
         logger.info("Checking input OpenStreetMap data...")
-        qa.osm(os.path.join(input_dir, "OpenStreetMap"))
+        qa.osm(os.path.join(input_dir, "osm"))
         logger.info("Checking input population data...")
-        qa.worldpop(os.path.join(input_dir, "Population"))
+        qa.worldpop(os.path.join(input_dir, "worldpop"))
 
     # Create raster grid from CLI options
     geom = country_geometry(country)
@@ -234,15 +233,18 @@ def preprocess(
         "geom": geom,
     }
 
-    raw = Raw(input_dir)
     preprocess_land_cover(
-        src_files=raw.land_cover,
-        dst_raster=output_dir.joinpath("land_cover.tif").as_posix(),
+        src_files=storage.glob(os.path.join(input_dir, "cglc", "*LC100*.zip")),
+        dst_raster=os.path.join(output_dir, "land_cover.tif"),
         **args,
     )
-    preprocess_elevation(src_files=raw.elevation, dst_dir=output_dir, **args)
+    preprocess_elevation(
+        src_files=storage.glob(os.path.join(input_dir, "srtm", "*SRTM*.hgt.zip")),
+        dst_dir=output_dir,
+        **args,
+    )
     preprocess_osm(
-        src_file=raw.openstreetmap[0],
+        src_file=storage.glob(os.path.join(input_dir, "osm", "*.osm.pbf"))[0],
         dst_dir=output_dir,
         dst_crs=dst_crs,
         dst_shape=shape,
@@ -251,14 +253,17 @@ def preprocess(
         overwrite=overwrite,
     )
     preprocess_surface_water(
-        src_files=raw.surface_water,
-        dst_raster=output_dir.joinpath("surface_water.tif").as_posix(),
+        src_files=storage.glob(os.path.join(input_dir, "gsw", "seasonality*.tif")),
+        dst_raster=os.path.join(output_dir, "water.tif"),
         **args,
     )
 
     logger.info("Writing area of interest to disk.")
-    with open(output_dir.joinpath("area_of_interest.geojson"), "w") as f:
+    with storage.open(os.path.join(output_dir, "area_of_interest.geojson"), "w") as f:
         json.dump(geom.__geo_interface__, f)
+
+    storage.cp(log_tmp, log_file)
+    storage.rm(log_tmp)
 
 
 def preprocess_land_cover(
@@ -287,9 +292,10 @@ def preprocess_land_cover(
     overwrite : bool, optional
         Overwrite existing files.
     """
-    if os.path.isfile(dst_raster) and not overwrite:
+    if storage.exists(dst_raster) and not overwrite:
         logger.info("Land cover data already preprocessed. Skipping.")
         return
+
     logger.info("Starting preprocessing of land cover data.")
     LC_CLASSES = [
         "bare",
@@ -302,55 +308,62 @@ def preprocess_land_cover(
         "water-permanent",
         "water-seasonal",
     ]
-    with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
 
-        tmpdir = Path(tmpdir)
-        for tile in src_files:
-            unzip(tile, tmpdir)
+    # some intermediary files must be stored in an user data directory
+    # as the size will be too high when using a memory-based filesystem
+    # for /tmp.
+    tmp_data_dir = os.path.join(user_data_dir(appname="geohealthaccess"), "cglc")
+    os.makedirs(tmp_data_dir, exist_ok=True)
+    for src_file in src_files:
+        dst_file = os.path.join(tmp_data_dir, os.path.basename(src_file))
+        storage.cp(src_file, dst_file)
+        unzip(dst_file, tmp_data_dir)
 
-        reprojected_files = []
-        tile_names = unique_tiles(tmpdir)
+    reprojected_files = []
+    tile_names = unique_tiles(tmp_data_dir)
 
-        if not tile_names:
-            raise MissingDataError("Land cover data not found.")
+    if not tile_names:
+        raise MissingDataError("Land cover data not found.")
 
-        for lc_class in LC_CLASSES:
-            tiles = [
-                p.as_posix()
-                for p in tmpdir.glob(f"*{lc_class}-coverfraction-layer*.tif")
-            ]
-            if len(tiles) > 1:
-                src_file = merge_tiles(
-                    tiles, os.path.join(tmpdir, f"{lc_class}_mosaic.tif"), nodata=255,
-                )
-            else:
-                src_file = tiles[0]
-            reprojected_files.append(
-                reproject(
-                    src_raster=src_file,
-                    dst_raster=os.path.join(tmpdir, f"{lc_class}.tif"),
-                    dst_crs=dst_crs,
-                    dst_bounds=dst_bounds,
-                    dst_res=dst_res,
-                    src_nodata=255,
-                    dst_nodata=255,
-                    dst_dtype="Byte",
-                    resampling_method="cubic",
-                    overwrite=overwrite,
-                )
-            )
-
-        if len(reprojected_files) > 1:
-            raster = concatenate_bands(
-                src_files=reprojected_files,
-                dst_file=dst_raster,
-                band_descriptions=LC_CLASSES,
+    for lc_class in LC_CLASSES:
+        tiles = storage.glob(
+            os.path.join(tmp_data_dir, f"*{lc_class}-coverfraction-layer*.tif")
+        )
+        if len(tiles) > 1:
+            src_file = merge_tiles(
+                tiles, os.path.join(tmp_data_dir, f"{lc_class}_mosaic.tif"), nodata=255,
             )
         else:
-            raster = reprojected_files[0]
+            src_file = tiles[0]
+        reprojected_files.append(
+            reproject(
+                src_raster=src_file,
+                dst_raster=os.path.join(tmp_data_dir, f"{lc_class}.tif"),
+                dst_crs=dst_crs,
+                dst_bounds=dst_bounds,
+                dst_res=dst_res,
+                src_nodata=255,
+                dst_nodata=255,
+                dst_dtype="Byte",
+                resampling_method="cubic",
+                overwrite=overwrite,
+            )
+        )
 
-        if geom:
-            mask_raster(raster, geom)
+    if len(reprojected_files) > 1:
+        raster = concatenate_bands(
+            src_files=reprojected_files,
+            dst_file=dst_raster,
+            band_descriptions=LC_CLASSES,
+        )
+    else:
+        raster = reprojected_files[0]
+
+    if geom:
+        mask_raster(raster, geom)
+
+    storage.cp(raster, dst_raster)
+    shutil.rmtree(tmp_data_dir)
 
 
 def preprocess_osm(
@@ -376,31 +389,36 @@ def preprocess_osm(
         Overwrite existing files.
     """
     logger.info("Starting preprocessing of OSM data.")
-    for theme in ("roads", "health", "water", "ferry"):
-        dst_file = os.path.join(dst_dir, f"{theme}.gpkg")
-        if os.path.isfile(dst_file) and not overwrite:
-            logger.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
-            continue
-        try:
-            thematic_extract(src_file, theme, dst_file)
-        except MissingDataError:
-            logger.warning(
-                f"Skipping extraction of `{theme}` objects due to missing data."
-            )
-    osm_water = os.path.join(dst_dir, "water.gpkg")
-    dst_file = os.path.join(dst_dir, "water_osm.tif")
-    create_water_raster(
-        osm_water,
-        dst_file,
-        dst_crs,
-        dst_shape,
-        dst_transform,
-        include_streams=False,
-        geom=geom,
-        overwrite=overwrite,
-    )
-    if geom:
-        mask_raster(dst_file, geom)
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+        tmp_src_file = os.path.join(tmp_dir, os.path.basename(src_file))
+        storage.cp(src_file, tmp_src_file)
+        for theme in ("roads", "health", "water", "ferry"):
+            dst_file = os.path.join(dst_dir, f"{theme}.gpkg")
+            tmp_dst_file = os.path.join(tmp_dir, os.path.basename(dst_file))
+            if storage.exists(dst_file) and not overwrite:
+                logger.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
+                continue
+            try:
+                thematic_extract(tmp_src_file, theme, tmp_dst_file)
+                storage.cp(tmp_dst_file, dst_file)
+            except MissingDataError:
+                logger.warning(
+                    f"Skipping extraction of `{theme}` objects due to missing data."
+                )
+        tmp_water_raster = os.path.join(tmp_dir, "water_osm.tif")
+        create_water_raster(
+            os.path.join(tmp_dir, "water.gpkg"),
+            tmp_water_raster,
+            dst_crs,
+            dst_shape,
+            dst_transform,
+            include_streams=False,
+            geom=geom,
+            overwrite=overwrite,
+        )
+        if geom:
+            mask_raster(tmp_water_raster, geom)
+        storage.cp(tmp_water_raster, os.path.join(dst_dir, "water_osm.tif"))
 
 
 def preprocess_surface_water(
@@ -425,21 +443,27 @@ def preprocess_surface_water(
     overwrite : bool, optional
         Overwrite existing files.
     """
-    if os.path.isfile(dst_raster) and not overwrite:
+    if storage.exists(dst_raster) and not overwrite:
         logger.info(f"{os.path.basename(dst_raster)} already exists. Skipping.")
         return
     logger.info("Starting preprocessing of surface water data.")
-    with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
-        if len(src_files) > 1:
-            src_file = merge_tiles(
-                src_files, os.path.join(tmpdir, "mosaic.tif"), nodata=255
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+        tmp_src_files = []
+        for src_file in src_files:
+            tmp_src_file = os.path.join(tmp_dir, os.path.basename(src_file))
+            storage.cp(src_file, os.path.join(tmp_dir, os.path.basename(src_file)))
+            tmp_src_files.append(tmp_src_file)
+        if len(tmp_src_files) > 1:
+            mosaic = merge_tiles(
+                tmp_src_files, os.path.join(tmp_dir, "mosaic.tif"), nodata=255
             )
 
         else:
-            src_file = src_files[0]
+            mosaic = tmp_src_files[0]
+        tmp_dst_file = os.path.join(tmp_dir, os.path.basename(dst_raster))
         dst_raster = reproject(
-            src_raster=src_file,
-            dst_raster=dst_raster,
+            src_raster=mosaic,
+            dst_raster=tmp_dst_file,
             dst_crs=dst_crs,
             dst_bounds=dst_bounds,
             dst_res=dst_res,
@@ -450,7 +474,8 @@ def preprocess_surface_water(
             overwrite=overwrite,
         )
         if geom:
-            mask_raster(dst_raster, geom)
+            mask_raster(tmp_dst_file, geom)
+        storage.cp(tmp_dst_file, dst_raster)
 
 
 def preprocess_elevation(
@@ -458,7 +483,7 @@ def preprocess_elevation(
 ):
     """Preprocess input elevation data.
 
-    Creates elevation, slope and aspect rasters from SRTM tiles.
+    Creates elevation and slope rasters from SRTM tiles.
 
     Parameters
     ----------
@@ -480,8 +505,7 @@ def preprocess_elevation(
     logger.info("Starting preprocessing of elevation data.")
     dst_dem = os.path.join(dst_dir, "elevation.tif")
     dst_slope = os.path.join(dst_dir, "slope.tif")
-    dst_aspect = os.path.join(dst_dir, "aspect.tif")
-    all_exists = all([os.path.isfile(f) for f in (dst_dem, dst_slope, dst_aspect)])
+    all_exists = all([storage.exists(f) for f in (dst_dem, dst_slope)])
     if all_exists and not overwrite:
         logger.info("All topograpy rasters already exists. Skipping processing.")
         return
@@ -489,36 +513,28 @@ def preprocess_elevation(
     with TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
 
         # unzip all tiles in a temporary directory
-        tmpdir = Path(tmpdir)
         for tile in src_files:
-            unzip(tile, tmpdir)
+            storage.unzip(tile, tmpdir)
 
         # merge tiles into a single mosaic if necessary
-        tiles = [f.as_posix() for f in tmpdir.glob("*.hgt")]
+        tiles = storage.glob(os.path.join(tmpdir, "*.hgt"))
         if len(tiles) > 1:
             dem = merge_tiles(tiles, os.path.join(tmpdir, "mosaic.tif"), nodata=-32768)
         else:
             dem = tiles[0]
 
         # compute slope and aspect before reprojection
-        if not os.path.isfile(dst_slope) or overwrite:
+        if not storage.exists(dst_slope) or overwrite:
             slope = compute_slope(
                 dem, os.path.join(tmpdir, "slope.tif"), percent=False, scale=111120
             )
         else:
             logger.info("Slope raster already exists. Skipping processing.")
             slope = dst_slope
-        if not os.path.isfile(dst_aspect) or overwrite:
-            aspect = compute_aspect(
-                dem, os.path.join(tmpdir, "aspect.tif"), trigonometric=True
-            )
-        else:
-            logger.info("Aspect raster already exists. Skipping processing.")
-            aspect = dst_aspect
 
-        for src, dst in zip((dem, slope, aspect), (dst_dem, dst_slope, dst_aspect)):
+        for src, dst in zip((dem, slope), (dst_dem, dst_slope)):
 
-            if os.path.isfile(dst) and not overwrite:
+            if storage.exists(dst) and not overwrite:
                 logger.info(
                     f"{os.path.basename(dst)} already exists. Skipping processing."
                 )
@@ -531,9 +547,11 @@ def preprocess_elevation(
                 nodata = -32768
                 dtype = "Int16"
 
-            dst = reproject(
+            dst_tmp = os.path.join(tmpdir, os.path.basename(dst))
+
+            dst_tmp = reproject(
                 src_raster=src,
-                dst_raster=dst,
+                dst_raster=dst_tmp,
                 dst_crs=dst_crs,
                 dst_bounds=dst_bounds,
                 dst_res=dst_res,
@@ -544,7 +562,9 @@ def preprocess_elevation(
                 overwrite=overwrite,
             )
             if geom:
-                mask_raster(dst, geom)
+                mask_raster(dst_tmp, geom)
+
+            storage.cp(dst_tmp, dst)
 
 
 @cli.command()
