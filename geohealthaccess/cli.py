@@ -17,7 +17,6 @@ from datetime import datetime
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 import shutil
 import sys
 from tempfile import TemporaryDirectory, gettempdir
@@ -31,7 +30,6 @@ from rasterio.crs import CRS
 from shapely.geometry import shape
 
 from geohealthaccess.cglc import CGLC, unique_tiles
-from geohealthaccess.data import Intermediary
 from geohealthaccess.errors import MissingDataError
 from geohealthaccess.geofabrik import Geofabrik
 from geohealthaccess.gsw import GSW
@@ -259,7 +257,7 @@ def preprocess(
     )
 
     logger.info("Writing area of interest to disk.")
-    with storage.open(os.path.join(output_dir, "area_of_interest.geojson"), "w") as f:
+    with storage.open_(os.path.join(output_dir, "area_of_interest.geojson"), "w") as f:
         json.dump(geom.__geo_interface__, f)
 
     storage.cp(log_tmp, log_file)
@@ -601,6 +599,7 @@ def preprocess_elevation(
 
 @cli.command()
 @click.option("--input-dir", "-i", type=click.Path(), help="Input data directory")
+@click.option("--interm-dir", type=click.Path(), help="Intermediary data directory")
 @click.option("--output-dir", "-o", type=click.Path(), help="Output data directory")
 @click.option("--car/--no-car", default=True, help="Enable/disable car scenario")
 @click.option("--walk/--no-walk", default=False, help="Enable/disable walk scenario")
@@ -627,6 +626,7 @@ def preprocess_elevation(
 )
 def access(
     input_dir,
+    interm_dir,
     output_dir,
     car,
     walk,
@@ -641,25 +641,27 @@ def access(
     if not logs_dir:
         logs_dir = os.curdir
 
+    time = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S_%f")
+    log_basename = f"geohealthaccess-access_{time}.log"
+    log_file = os.path.join(logs_dir, log_basename)
+    log_tmp = os.path.join(gettempdir(), log_basename)
+
     logger.add(
-        os.path.join(logs_dir, "geohealthaccess-access_{time}.log"),
-        format=LOGFORMAT,
-        enqueue=True,
-        backtrace=True,
-        level="DEBUG",
+        log_tmp, format=LOGFORMAT, enqueue=True, backtrace=True, level="DEBUG",
     )
 
     # Set data directories if not provided and create them if necessary
     if not input_dir:
-        input_dir = Path(os.path.join(os.curdir, "Data", "Intermediary"))
+        input_dir = os.path.join(os.curdir, "data", "input")
+    if not interm_dir:
+        interm_dir = os.path.join(os.curdir, "data", "intermediary")
     if not output_dir:
-        output_dir = Path(os.path.join(os.curdir, "Data", "Output"))
-    input_dir, output_dir = Path(input_dir), Path(output_dir)
-    for p in (input_dir, output_dir):
-        p.mkdir(parents=True, exist_ok=True)
-    data = Intermediary(input_dir)
+        output_dir = os.path.join(os.curdir, "data", "output")
+    for dir_ in (input_dir, interm_dir, output_dir):
+        storage.mkdir(dir_)
 
-    with open(input_dir.joinpath("area_of_interest.geojson")) as f:
+    aoi_path = os.path.join(input_dir, "area_of_interest.geojson")
+    with storage.open_(aoi_path) as f:
         aoi = shape(json.load(f))
 
     # Quality checks
@@ -678,106 +680,156 @@ def access(
     # Use default travel speeds if JSON file is not provided
     if not travel_speeds:
         travel_speeds = resource_filename(__name__, "resources/travel-speeds.json")
-    with open(travel_speeds) as f:
+    with storage.open_(travel_speeds) as f:
         travel_speeds = json.load(f)
 
-    # Speed rasters
-    with rasterio.open(data.land_cover) as src:
-        dst_transform = src.transform
-        dst_crs = src.crs
-        dst_width = src.width
-        dst_height = src.height
-    obstacles = travel_obstacles(
-        src_water=(data.surface_water, data.osm_water_raster),
-        src_slope=data.slope,
-        dst_file=input_dir.joinpath("obstacle.tif").as_posix(),
-        max_slope=35,
-        overwrite=overwrite,
-    )
-    landcover_speed = speed_from_landcover(
-        data.land_cover,
-        dst_file=input_dir.joinpath("landcover_speed.tif").as_posix(),
-        speeds=travel_speeds["land-cover"],
-        overwrite=overwrite,
-    )
-    transport_speed = speed_from_roads(
-        data.roads,
-        dst_file=input_dir.joinpath("transport_speed.tif").as_posix(),
-        dst_transform=dst_transform,
-        dst_crs=dst_crs,
-        dst_width=dst_width,
-        dst_height=dst_height,
-        src_ferry=data.ferry,
-        speeds=travel_speeds["transport"],
-        overwrite=overwrite,
-    )
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
 
-    for mode in ("car", "walk"):
+        # Get raster grid from input land cover raster
+        land_cover = os.path.join(tmp_dir, "land_cover.tif")
+        storage.cp(os.path.join(input_dir, "land_cover.tif"), land_cover)
+        with rasterio.open(land_cover) as src:
+            dst_transform = src.transform
+            dst_crs = src.crs
+            dst_width = src.width
+            dst_height = src.height
 
-        # Skip if disabled in cli options
-        if mode == "car" and not car:
-            continue
-        if mode == "walk" and not walk:
-            continue
-
-        # Compute speed and friction rasters
-        speed = combine_speed(
-            landcover_speed,
-            transport_speed,
-            obstacles,
-            dst_file=input_dir.joinpath(f"speed_{mode}.tif").as_posix(),
-            mode=mode,
-        )
-
-        friction = compute_friction(
-            speed,
-            dst_file=input_dir.joinpath(f"friction_{mode}.tif").as_posix(),
-            max_time=3600,
-            one_meter=mode == "walk",
-        )
-        mask_raster(friction, aoi)
-
-    if not destinations:
-        destinations = [data.health]
-
-    for features in destinations:
-
-        basename = os.path.basename(features)
-        name, ext = os.path.splitext(basename)
-        dst_file = input_dir.joinpath(f"{name}.tif").as_posix()
-        dest_raster = rasterize_destinations(
-            features,
-            dst_file,
-            dst_transform=dst_transform,
-            dst_crs=dst_crs,
-            dst_height=dst_height,
-            dst_width=dst_width,
+        # Compute a raster with all non-passable pixels based on water and slope
+        water_gsw = os.path.join(tmp_dir, "water_gsw.tif")
+        water_osm = os.path.join(tmp_dir, "water_osm.tif")
+        elevation = os.path.join(tmp_dir, "elevation.tif")
+        slope = os.path.join(tmp_dir, "slope.tif")
+        storage.cp(os.path.join(input_dir, "water.tif"), water_gsw)
+        storage.cp(os.path.join(input_dir, "water_osm.tif"), water_osm)
+        storage.cp(os.path.join(input_dir, "elevation.tif"), elevation)
+        storage.cp(os.path.join(input_dir, "slope.tif"), slope)
+        obstacles = travel_obstacles(
+            src_water=(water_gsw, water_osm),
+            src_slope=slope,
+            dst_file=os.path.join(tmp_dir, "obstacle.tif"),
+            max_slope=35,
             overwrite=overwrite,
         )
-        mask_raster(dest_raster, aoi)
 
-        if car:
-            isotropic_costdistance(
-                src_friction=input_dir.joinpath("friction_car.tif").as_posix(),
-                src_target=dest_raster,
-                dst_cost=output_dir.joinpath(f"cost_car_{name}.tif").as_posix(),
-                dst_nearest=output_dir.joinpath(f"nearest_car_{name}.tif").as_posix(),
-                dst_backlink=output_dir.joinpath(f"backlink_car_{name}.tif").as_posix(),
-            )
-        if walk:
-            anisotropic_costdistance(
-                src_friction=input_dir.joinpath("friction_walk.tif").as_posix(),
-                src_target=dest_raster,
-                src_elevation=data.elevation,
-                dst_cost=output_dir.joinpath(f"cost_walk_{name}.tif").as_posix(),
-                dst_nearest=output_dir.joinpath(f"nearest_walk_{name}.tif").as_posix(),
-                dst_backlink=output_dir.joinpath(
-                    f"backlink_walk_{name}.tif"
-                ).as_posix(),
+        # Create speed rasters from land cover and road network
+        landcover_speed = speed_from_landcover(
+            land_cover,
+            dst_file=os.path.join(tmp_dir, "speed_landcover.tif"),
+            speeds=travel_speeds["land-cover"],
+            overwrite=overwrite,
+        )
+        roads = os.path.join(tmp_dir, "roads.gpkg")
+        ferry = os.path.join(tmp_dir, "ferry.gpkg")
+        storage.cp(os.path.join(input_dir, "roads.gpkg"), roads)
+        if storage.exists(os.path.join(input_dir, "ferry.gpkg")):
+            storage.cp(os.path.join(input_dir, "ferry.gpkg"), ferry)
+        else:
+            ferry = None
+        transport_speed = speed_from_roads(
+            roads,
+            dst_file=os.path.join(tmp_dir, "speed_transport.tif"),
+            dst_transform=dst_transform,
+            dst_crs=dst_crs,
+            dst_width=dst_width,
+            dst_height=dst_height,
+            src_ferry=ferry,
+            speeds=travel_speeds["transport"],
+            overwrite=overwrite,
+        )
+
+        # Clean temporary directory
+        for f in (land_cover, water_gsw, water_osm, slope, roads):
+            os.remove(f)
+
+        for mode in ("car", "walk"):
+
+            # Skip if disabled in cli options
+            if mode == "car" and not car:
+                continue
+            if mode == "walk" and not walk:
+                continue
+
+            # Compute speed and friction rasters
+            speed = combine_speed(
+                landcover_speed,
+                transport_speed,
+                obstacles,
+                dst_file=os.path.join(tmp_dir, f"speed_{mode}.tif"),
+                mode=mode,
             )
 
-        # for traveltimes in output_dir.glob("cost_*.tif"):
-        #    seconds_to_minutes(traveltimes)
+            friction = compute_friction(
+                speed,
+                dst_file=os.path.join(tmp_dir, f"friction_{mode}.tif"),
+                max_time=3600,
+                one_meter=mode == "walk",
+            )
+
+            mask_raster(friction, aoi)
+
+            storage.cp(landcover_speed, os.path.join(interm_dir, "landcover_speed.tif"))
+            storage.cp(transport_speed, os.path.join(interm_dir, "transport_speed.tif"))
+            storage.cp(obstacles, os.path.join(interm_dir, "obstacle.tif"))
+            storage.cp(friction, os.path.join(interm_dir, f"friction_{mode}.tif"))
+
+            # Clean temporary directory
+            for f in (landcover_speed, transport_speed, obstacles):
+                os.remove(f)
+
+        if not destinations:
+            osm_health = os.path.join(tmp_dir, "health.gpkg")
+            storage.cp(os.path.join(input_dir, "health.gpkg"), osm_health)
+            destinations = [osm_health]
+
+        for features in destinations:
+
+            basename = os.path.basename(features)
+            name, ext = os.path.splitext(basename)
+            features_tmp = os.path.join(tmp_dir, basename)
+            if not os.path.isfile(features_tmp):
+                storage.cp(features, features_tmp)
+            dst_file_tmp = os.path.join(tmp_dir, f"{name}.tif")
+            dest_raster = rasterize_destinations(
+                features_tmp,
+                dst_file_tmp,
+                dst_transform=dst_transform,
+                dst_crs=dst_crs,
+                dst_height=dst_height,
+                dst_width=dst_width,
+                overwrite=overwrite,
+            )
+            mask_raster(dest_raster, aoi)
+
+            if car:
+                isotropic_costdistance(
+                    src_friction=os.path.join(tmp_dir, "friction_car.tif"),
+                    src_target=dest_raster,
+                    dst_cost=os.path.join(tmp_dir, f"cost_car_{name}.tif"),
+                    dst_nearest=os.path.join(tmp_dir, f"nearest_car_{name}.tif"),
+                    dst_backlink=os.path.join(tmp_dir, f"backlink_car_{name}.tif"),
+                )
+            if walk:
+                elevation = os.path.join(tmp_dir, "elevation.tif")
+                storage.cp(os.path.join(input_dir, "elevation.tif"), elevation)
+                anisotropic_costdistance(
+                    src_friction=os.path.join(tmp_dir, "friction_walk.tif"),
+                    src_target=dest_raster,
+                    src_elevation=elevation,
+                    dst_cost=os.path.join(tmp_dir, f"cost_walk_{name}.tif"),
+                    dst_nearest=os.path.join(tmp_dir, f"nearest_walk_{name}.tif"),
+                    dst_backlink=os.path.join(tmp_dir, f"backlink_walk_{name}.tif"),
+                )
+
+        for output in ("cost", "nearest", "backlink"):
+            rasters = storage.glob(os.path.join(tmp_dir, f"{output}*.tif"))
+            for raster in rasters:
+                src = os.path.join(tmp_dir, os.path.basename(raster))
+                dst = os.path.join(output_dir, os.path.basename(raster))
+                storage.cp(src, dst)
+
+    # Write logs
+    storage.cp(log_tmp, log_file)
+    storage.rm(log_tmp)
 
     # quality check
     if quality_checks:

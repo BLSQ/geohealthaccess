@@ -310,7 +310,7 @@ def glob(pattern):
         raise IOError(f"{loc.protocol} not supported.")
 
 
-def open(loc, mode="r"):
+def open_(loc, mode="r"):
     """Return a file-like object regardless of the file system."""
     loc = Location(loc)
 
