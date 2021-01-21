@@ -4,6 +4,8 @@ from glob import glob as local_glob
 import os
 import socket
 import shutil
+from tempfile import TemporaryDirectory
+import zipfile
 
 try:
     import gcsfs
@@ -325,3 +327,36 @@ def open(loc, mode="r"):
 
     else:
         raise IOError(f"{loc.protocol} not supported.")
+
+
+def unzip(src_file, dst_dir):
+    """Extract contents of a .zip archive in dst_dir.
+
+    Can read .zip file from a cloud filesystem and copy its contents
+    to another cloud filesystem, but processing is performed locally.
+    """
+    src_file, dst_dir = Location(src_file), Location(dst_dir)
+
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        if src_file.protocol == "local":
+            with zipfile.ZipFile(src_file.path, "r") as z:
+                z.extractall(tmp_dir)
+
+        elif src_file.protocol == "s3":
+            fs = get_s3fs()
+            with fs.open(src_file.path) as archive:
+                with zipfile.ZipFile(archive, "r") as z:
+                    z.extractall(tmp_dir)
+
+        elif src_file.protocol == "gcs":
+            fs = get_gcsfs()
+            with fs.open(src_file.path) as archive:
+                with zipfile.ZipFile(archive, "r") as z:
+                    z.extractall(tmp_dir)
+
+        else:
+            raise IOError(f"{src_file.protocol} not supported.")
+
+        for f in os.listdir(tmp_dir):
+            cp(os.path.join(tmp_dir, f), os.path.join(dst_dir.location, f))
