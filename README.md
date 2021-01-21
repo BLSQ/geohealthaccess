@@ -180,14 +180,14 @@ for instance:
 
 ``` sh
 geohealthaccess download \
-	--country BDI \
-	--output-dir "s3://<bucket_name>/bdi/data/raw" \
+  --country BDI \
+  --output-dir "s3://<bucket_name>/bdi/data/raw" \
   --logs-dir "s3://<bucket_name>/bdi/logs"
 
 geohealthaccess preprocess \
-	--country BDI \
-	--crs "EPSG:3857" \
-	--resolution 100 \
+  --country BDI \
+  --crs "EPSG:3857" \
+  --resolution 100 \
   --input-dir "s3://<bucket_name>/bdi/data/raw" \
   --output-dir "s3://<bucket_name>/bdi/data/input" \
   --logs-dir "s3://<bucket_name>/bdi/logs"
