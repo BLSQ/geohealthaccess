@@ -101,7 +101,7 @@ Options:
   --help                     Show this message and exit.
 ```
 
-If `output-dir` is not provided, files will be written to `./Data/Input`.
+If `output-dir` is not provided, files will be written to `./data/raw`.
 
 NASA EarthData credentials can also be set using environment variables:
 
@@ -131,7 +131,7 @@ Options:
   --help                  Show this message and exit.
 ```
 
-If not specified, `input-dir` will be set to `./Data/Input` and `output-dir` to `./Data/Intermediary`.
+If not specified, `input-dir` will be set to `./data/raw` and `output-dir` to `./data/input`.
 
 ### Modeling
 
@@ -156,11 +156,12 @@ Options:
   --help                    Show this message and exit.
 ```
 
-If not specified, `input-dir` is set to `./Data/Intermediary` and `output-dir`
-to `./Data/Output`. By default, only the `car` scenario is enabled and if no
-`destinations` are provided, health facilities extracted from OpenStreetMap will
-be used as target points for the cost distance analysis. Likewise, default
-values for travel speeds are used if the `--travel-speeds` option is not set.
+If not specified, `input-dir` is set to `./data/input`, `interm-dir` to
+`./data/intermediary` and `output-dir` to `./data/output`. By default, only the
+`car` scenario is enabled and if no `destinations` are provided, health
+facilities extracted from OpenStreetMap will be used as target points for the
+cost distance analysis. Likewise, default values for travel speeds are used if
+the `--travel-speeds` option is not set.
 
 Three output rasters are created for each enabled scenario and provided
 destination points:
@@ -170,6 +171,44 @@ destination points:
 * `nearest_<scenario>_<destinations>.tif` : ID of the nearest `destinations`
   feature.
 * and `backlink_<scenario>_<destinations>.tif` : backlink raster.
+
+## S3 and Google Cloud Storage
+
+Directories and files provided as option to the geohalthaccess CLIs can be
+located on S3 and GCS buckets. Paths must be prefixed with `s3://` or `gcs://`,
+for instance:
+
+``` sh
+geohealthaccess download \
+	--country BDI \
+	--output-dir "s3://<bucket_name>/bdi/data/raw" \
+  --logs-dir "s3://<bucket_name>/bdi/logs"
+
+geohealthaccess preprocess \
+	--country BDI \
+	--crs "EPSG:3857" \
+	--resolution 100 \
+  --input-dir "s3://<bucket_name>/bdi/data/raw" \
+  --output-dir "s3://<bucket_name>/bdi/data/input" \
+  --logs-dir "s3://<bucket_name>/bdi/logs"
+
+geohealthaccess acces --car --no-walk --no-bike \
+  --input-dir "s3://<bucket_name>/bdi/data/input" \
+  --interm-dir "s3://<bucket_name>/bdi/data/intermediary" \
+  --output-dir "s3://<bucket_name>/bdi/data/output" \
+  --logs-dir "s3://<bucket_name>/bdi/data/logs"
+```
+
+The following environment variables are required to allow S3 and/or GCS access:
+
+* `S3_ACCESS_KEY`
+* `S3_SECRET_KEY`
+* `S3_ENDPOINT_URL` (defaults to `s3.amazonaws.com`)
+* `S3_REGION_NAME` (defaults to `us-east-1`)
+* `GCE_CREDENTIALS` (path to JSON file containing credentials)
+
+Using S3 without `S3_SECRET_KEY` or GCS without `GCE_CREDENTIALS` defaults to
+anonymous access.
 
 ## Example
 
