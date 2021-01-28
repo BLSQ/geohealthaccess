@@ -3,9 +3,9 @@
 * [Description](#description)
 * [Installation](#installation)
 * [Usage](#usage)
-  + [Data acquisition](#data-acquisition)
-  + [Preprocessing](#preprocessing)
-  + [Modeling](#modeling)
+    + [Data acquisition](#data-acquisition)
+    + [Preprocessing](#preprocessing)
+    + [Modeling](#modeling)
 * [Example](#example)
 * [Docker](#docker)
 * [Methodology](#methodology)
@@ -15,13 +15,11 @@
 
 ![Accessibility map](https://raw.githubusercontent.com/BLSQ/geohealthaccess/master/docs/images/travel-times-example.png)
 
-Modeling population accessibility to health facilities has always been
-tedious and time-consuming. From the selection of relevant data sources
-to the modeling in itself, a wide range of skills and software solutions
-are required. GeoHealthAccess is a tool that aims to automate the process
-using a set of high resolution, global and open datasets -- in order to
-enable fast and automated country-scaled analysis. To that end, input datasets
-are automatically pulled from various sources:
+Modeling population accessibility to health facilities has always been tedious and time-consuming. From the selection of
+relevant data sources to the modeling in itself, a wide range of skills and software solutions are required.
+GeoHealthAccess is a tool that aims to automate the process using a set of high resolution, global and open datasets --
+in order to enable fast and automated country-scaled analysis. To that end, input datasets are automatically pulled from
+various sources:
 
 * [Geofabrik](https://www.geofabrik.de) (OpenStreetMap) for the transport network ;
 * [Copernicus Global Land Cover](https://lcviewer.vito.be/) for land cover ;
@@ -31,9 +29,9 @@ are automatically pulled from various sources:
 
 ## Installation
 
-GeoHealthAccess have three system dependencies: `gdal` is used to process raster
-data, `osmium-tool` to process OpenStreetMap data and `grass` to perform a cost
-distance analysis. Alternatively, a docker image is also available (see below).
+GeoHealthAccess have three system dependencies: `gdal` is used to process raster data, `osmium-tool` to process
+OpenStreetMap data and `grass` to perform a cost distance analysis. Alternatively, a docker image is also available (see
+below).
 
 ``` sh
 # Ubuntu 20.04
@@ -80,8 +78,8 @@ Commands:
 
 ### Data acquisition
 
-NASA EarthData credentials are required to download SRTM tiles. An account can
-be created [here](https://urs.earthdata.nasa.gov/users/new).
+NASA EarthData credentials are required to download SRTM tiles. An account can be
+created [here](https://urs.earthdata.nasa.gov/users/new).
 
 ``` sh
 geohealthaccess download --help
@@ -158,25 +156,22 @@ Options:
 
 If not specified, `input-dir` is set to `./data/input`, `interm-dir` to
 `./data/intermediary` and `output-dir` to `./data/output`. By default, only the
-`car` scenario is enabled and if no `destinations` are provided, health
-facilities extracted from OpenStreetMap will be used as target points for the
-cost distance analysis. Likewise, default values for travel speeds are used if
+`car` scenario is enabled and if no `destinations` are provided, health facilities extracted from OpenStreetMap will be
+used as target points for the cost distance analysis. Likewise, default values for travel speeds are used if
 the `--travel-speeds` option is not set.
 
-Three output rasters are created for each enabled scenario and provided
-destination points:
+Three output rasters are created for each enabled scenario and provided destination points:
 
-* `cost_<scenario>_<destinations>.tif` : cumulated cost (or travel time, in
-  minutes) to reach the nearest `destinations` feature.
+* `cost_<scenario>_<destinations>.tif` : cumulated cost (or travel time, in minutes) to reach the nearest `destinations`
+  feature.
 * `nearest_<scenario>_<destinations>.tif` : ID of the nearest `destinations`
   feature.
 * and `backlink_<scenario>_<destinations>.tif` : backlink raster.
 
 ## S3 and Google Cloud Storage
 
-Directories and files provided as option to the geohalthaccess CLIs can be
-located on S3 and GCS buckets. Paths must be prefixed with `s3://` or `gcs://`,
-for instance:
+Directories and files provided as option to the geohalthaccess CLIs can be located on S3 and GCS buckets. Paths must be
+prefixed with `s3://` or `gcs://`, for instance:
 
 ``` sh
 geohealthaccess download \
@@ -207,8 +202,7 @@ The following environment variables are required to allow S3 and/or GCS access:
 * `S3_REGION_NAME` (defaults to `us-east-1`)
 * `GCE_CREDENTIALS` (path to JSON file containing credentials)
 
-Using S3 without `S3_SECRET_KEY` or GCS without `GCE_CREDENTIALS` defaults to
-anonymous access.
+Using S3 without `S3_SECRET_KEY` or GCS without `GCE_CREDENTIALS` defaults to anonymous access.
 
 ## Example
 
@@ -235,15 +229,18 @@ geohealthaccess access --car --walk
 geohealthaccess access --car --walk -d hospitals.geojson -d clinics.geojson
 ```
 
-## Docker
+## Using, building and publishing the Docker image
 
-A docker image is available on [Docker
-Hub](https://hub.docker.com/r/yannforget/geohealthaccess).
+A docker image is available on [Docker Hub](https://hub.docker.com/r/blsq/geohealthaccess).
 
 ``` sh
 cd <project_dir>
-docker run -v $(pwd):/project:rw yannforget/geohealthaccess:latest
+docker run -v $(pwd):/project:rw blsq/geohealthaccess:latest
 ```
+
+Images are automatically rebuilt and published on Docker Hub through a GitHub workflow triggered each time a new release
+is published in this repo. Alternatively, you can also trigger the workflow manually from the
+[Actions section](https://github.com/BLSQ/geohealthaccess/actions).
 
 ## Methodology
 
@@ -254,8 +251,8 @@ docker run -v $(pwd):/project:rw yannforget/geohealthaccess:latest
 
 The GeoHealthAccess project is funded by [Innoviris](https://innoviris.brussels/)
 and led by a partnership between [Bluesquare](https://bluesquarehub.com/) and
-the [Spatial Epidemiology Lab](https://spell.ulb.be/) (Université Libre de Bruxelles).
-The project is based on a previous work from [IGEAT-ANAGEO](http://igeat.ulb.ac.be/en/introduction/)
+the [Spatial Epidemiology Lab](https://spell.ulb.be/) (Université Libre de Bruxelles). The project is based on a
+previous work from [IGEAT-ANAGEO](http://igeat.ulb.ac.be/en/introduction/)
 (Université Libre de Bruxelles) and the
 [Department of Geography](https://www.unamur.be/en/sci/geography) (University of Namur)
 in the [She Decides](https://github.com/yannforget/shedecides) project.
@@ -266,3 +263,4 @@ in the [She Decides](https://github.com/yannforget/shedecides) project.
 * Sabine Vanhuysse (IGEAT-ANAGEO, Université Libre de Bruxelles)
 * Taïs Grippa (IGEAT-ANAGEO, Université Libre de Bruxelles)
 * Catherine Linard (Department of Geography, University of Namur)
+* Pierre Vanliefland (Bluesquare)
