@@ -39,8 +39,9 @@ jobs:
       #            blsq/geohealthaccess:latest
       - name: Build and push test (on release)
         if: ${{ github.event_name == 'release' }}
+        # Extract tag only, without the "v" prefix
         run: |
-          echo tag: $GITHUB_REF
+          echo tag: ${GITHUB_REF##*/v}
       - name: Build and push (manual)
         if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: docker/build-push-action@6efc2b01cbb63cfc68c370c6c806586fa6384a3a
