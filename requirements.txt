@@ -1,13 +1,15 @@
 appdirs
 beautifulsoup4
 click
+gcsfs
 gdal
 geopandas
+loguru
 numpy
 pandas
 rasterio
 requests
 requests_file
+s3fs
 shapely
 tqdm
-loguru
