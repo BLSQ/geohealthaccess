@@ -70,7 +70,7 @@ def get_s3fs():
         anon=anon,
         client_kwargs={
             "region_name": os.getenv("S3_REGION_NAME", "us-east-1"),
-            "endpoint_url": os.getenv("S3_ENDPOINT_URL", "s3.amazonaws.com"),
+            "endpoint_url": os.getenv("S3_ENDPOINT_URL"),
         },
     )
 
@@ -90,7 +90,7 @@ def is_gce_instance():
 def get_gcsfs():
     """Initialize a GCS filesystem from environment variables.
 
-    Uses the `GCS_CREDENTIALS` environment variable to locate the JSON file
+    Uses the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to locate the JSON file
     containing the credentials. If the environment variable is not set, will
     fall back to the metadata service (if running within google) or
     anonymous access.
@@ -103,8 +103,8 @@ def get_gcsfs():
     if not has_gcsfs:
         raise ImportError("gcsfs library is required when using GCS urls.")
 
-    if os.getenv("GCE_CREDENTIALS"):
-        token = os.getenv("GCE_CREDENTIALS")
+    if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+        token = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     elif is_gce_instance():
         token = "cloud"
     else:

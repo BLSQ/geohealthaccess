@@ -19,6 +19,7 @@ RUN apt-get update && \
 RUN mkdir /app
 
 # Install python dependencies
+RUN pip3 install --upgrade pip
 COPY requirements.txt /app/
 RUN pip3 install -r /app/requirements.txt
 
