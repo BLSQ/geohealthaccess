@@ -49,12 +49,12 @@ def get_s3fs():
     """Initialize a S3 filesystem from environment variables.
 
     Uses the following environment variables:
-        * `S3_ACCESS_KEY`
-        * `S3_SECRET_KEY`
+        * `AWS_ACCESS_KEY_ID`
+        * `AWS_SECRET_ACCESS_KEY`
         * `S3_REGION_NAME` (defaults to "us-east-1")
         * `S3_ENDPOINT_URL` (defaults to "s3.amazonaws.com")
 
-    If `S3_SECRET_KEY`, anonymous access is used (public buckets only).
+    If `AWS_SECRET_ACCESS_KEY` is not provided, anonymous access is used (public buckets only).
 
     Returns
     -------
@@ -63,10 +63,10 @@ def get_s3fs():
     """
     if not has_s3fs:
         raise ImportError("s3fs library is required when using s3 urls.")
-    anon = not bool(os.getenv("S3_SECRET_KEY"))
+    anon = not bool(os.getenv("AWS_SECRET_ACCESS_KEY"))
     return s3fs.S3FileSystem(
-        key=os.getenv("S3_ACCESS_KEY"),
-        secret=os.getenv("S3_SECRET_KEY"),
+        key=os.getenv("AWS_ACCESS_KEY_ID"),
+        secret=os.getenv("AWS_SECRET_ACCESS_KEY"),
         anon=anon,
         client_kwargs={
             "region_name": os.getenv("S3_REGION_NAME", "us-east-1"),
