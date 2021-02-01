@@ -20,7 +20,7 @@ earthdata_env_variables = {
 cloud_storage_env_variables = {
     "AWS_ACCESS_KEY_ID": Variable.get("gha_aws_access_key_id"),
     "AWS_SECRET_ACCESS_KEY": Variable.get("gha_aws_secret_access_key"),
-    "AWS_REGION": Variable.get("gha_s3_aws_region"),
+    "AWS_REGION": Variable.get("gha_aws_region"),
     # "GOOGLE_APPLICATION_CREDENTIALS": Variable.get("gha_google_application_credentials"),
 }
 
