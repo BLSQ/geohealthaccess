@@ -89,6 +89,7 @@ for country in countries:
             "--resolution=100",  # TODO: check with Yann
             f"--input-dir={download_output_dir}",
             f"--output-dir={preprocess_output_dir}",
+            "--overwrite",  # FIXME: should not be necessary
         ],
         env_vars={**cloud_storage_env_variables,},
         task_id=preprocess_task_id,
