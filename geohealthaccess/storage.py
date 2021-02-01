@@ -23,14 +23,14 @@ except ImportError:
 
 
 class Location:
-    def __init__(self, location):
+    def __init__(self, loc):
         """Parsed location string (file path or S3/GCS URL)."""
-        self.location = location
+        self.loc = loc
 
     @property
     def protocol(self):
         """Return protocol of a location."""
-        parsed_url = self.location.split("://")
+        parsed_url = self.loc.split("://")
         if len(parsed_url) == 1:
             return "local"
         else:
@@ -40,9 +40,9 @@ class Location:
     def path(self):
         """Return location path (without scheme/protocol)."""
         if self.protocol == "local":
-            return self.location
+            return self.loc
         else:
-            return self.location.split("://")[-1]
+            return self.loc.split("://")[-1]
 
 
 def get_s3fs():
@@ -118,24 +118,24 @@ def ls(loc):
 
     Simulates the behavior of os.listdir().
     """
-    loc = Location(loc)
+    location = Location(loc)
 
     # local
-    if loc.protocol == "local":
-        return os.listdir(loc.path)
+    if location.protocol == "local":
+        return os.listdir(location.path)
 
     # s3
-    elif loc.protocol == "s3":
+    elif location.protocol == "s3":
         fs = get_s3fs()
-        return [f.split("/")[-1] for f in fs.ls(loc.path)]
+        return [f.split("/")[-1] for f in fs.ls(location.path)]
 
     # gcs
-    elif loc.protocol == "gcs":
+    elif location.protocol == "gcs":
         fs = get_gcsfs()
-        return [f.split("/")[-1] for f in fs.ls(loc.path)]
+        return [f.split("/")[-1] for f in fs.ls(location.path)]
 
     else:
-        raise IOError(f"{loc.protocol} not supported.")
+        raise IOError(f"{location.protocol} not supported.")
 
 
 def cp(src, dst):
@@ -185,24 +185,24 @@ def cp(src, dst):
 
 def rm(loc):
     """Remove a file."""
-    loc = Location(loc)
+    location = Location(loc)
 
     # local
-    if loc.protocol == "local":
-        os.remove(loc.path)
+    if location.protocol == "local":
+        os.remove(location.path)
 
     # s3
-    elif loc.protocol == "s3":
+    elif location.protocol == "s3":
         fs = get_s3fs()
-        fs.rm(loc.path)
+        fs.rm(location.path)
 
     # gcs
-    elif loc.protocol == "gcs":
+    elif location.protocol == "gcs":
         fs = get_gcsfs()
-        fs.rm(loc.path)
+        fs.rm(location.path)
 
     else:
-        raise IOError(f"{loc.protocol} protocol not supported.")
+        raise IOError(f"{location.protocol} protocol not supported.")
 
 
 def mv(src, dst):
@@ -238,22 +238,22 @@ def exists(location_string):
     loc = Location(location_string)
 
     # local
-    if loc.protocol == "local":
-        return os.path.exists(loc.path)
+    if location.protocol == "local":
+        return os.path.exists(location.path)
 
     # s3
-    elif loc.protocol == "s3":
+    elif location.protocol == "s3":
         fs = get_s3fs()
-        return fs.exists(loc.path)
+        return fs.exists(location.path)
 
     # gcs
-    elif loc.protocol == "gcs":
+    elif location.protocol == "gcs":
         fs = get_gcsfs()
-        return fs.exists(loc.path)
+        return fs.exists(location.path)
 
     else:
         raise IOError(
-            f'The "{loc.protocol}" protocol is not supported ({location_string}).'
+            f'The "{location.protocol}" protocol is not supported ({location_string}).'
         )
 
 
@@ -263,30 +263,30 @@ def mkdir(loc):
     This is not needed for S3 and GCS as directories cannot be created and
     are not needed anyway.
     """
-    loc = Location(loc)
-    if loc.protocol == "local":
-        os.makedirs(loc.path, exist_ok=True)
+    location = Location(loc)
+    if location.protocol == "local":
+        os.makedirs(location.path, exist_ok=True)
 
 
 def size(loc):
     """Get size of a file in bytes."""
-    loc = Location(loc)
-    if not exists(loc.location):
-        raise FileNotFoundError(f"No file found at {loc.location}.")
+    location = Location(loc)
+    if not exists(location.location):
+        raise FileNotFoundError(f"No file found at {location.location}.")
 
-    if loc.protocol == "local":
-        return os.path.getsize(loc.path)
+    if location.protocol == "local":
+        return os.path.getsize(location.path)
 
-    elif loc.protocol == "s3":
+    elif location.protocol == "s3":
         fs = get_s3fs()
-        return fs.size(loc.path)
+        return fs.size(location.path)
 
-    elif loc.protocol == "gcs":
+    elif location.protocol == "gcs":
         fs = get_gcsfs()
-        return fs.size(loc.path)
+        return fs.size(location.path)
 
     else:
-        raise IOError(f"{loc.protocol} not supported.")
+        raise IOError(f"{location.protocol} not supported.")
 
 
 def glob(pattern):
@@ -295,40 +295,40 @@ def glob(pattern):
     S3 and GCS file paths are prefixed with the relevant schemes, i.e.
     s3:// or gcs://.
     """
-    loc = Location(pattern)
+    location = Location(pattern)
 
-    if loc.protocol == "local":
-        return local_glob(loc.path)
+    if location.protocol == "local":
+        return local_glob(location.path)
 
-    elif loc.protocol == "s3":
+    elif location.protocol == "s3":
         fs = get_s3fs()
-        return [f"s3://{path}" for path in fs.glob(loc.path)]
+        return [f"s3://{path}" for path in fs.glob(location.path)]
 
-    elif loc.protocol == "gcs":
+    elif location.protocol == "gcs":
         fs = get_gcsfs()
-        return [f"gcs://{path}" for path in fs.glob(loc.path)]
+        return [f"gcs://{path}" for path in fs.glob(location.path)]
 
     else:
-        raise IOError(f"{loc.protocol} not supported.")
+        raise IOError(f"{location.protocol} not supported.")
 
 
 def open_(loc, mode="r"):
     """Return a file-like object regardless of the file system."""
-    loc = Location(loc)
+    location = Location(loc)
 
-    if loc.protocol == "local":
-        return open(loc.path, mode)
+    if location.protocol == "local":
+        return open(location.path, mode)
 
-    elif loc.protocol == "s3":
+    elif location.protocol == "s3":
         fs = get_s3fs()
-        return fs.open(loc.path, mode)
+        return fs.open(location.path, mode)
 
-    elif loc.protocol == "gcs":
+    elif location.protocol == "gcs":
         fs = get_gcsfs()
-        return fs.open(loc.path, mode)
+        return fs.open(location.path, mode)
 
     else:
-        raise IOError(f"{loc.protocol} not supported.")
+        raise IOError(f"{location.protocol} not supported.")
 
 
 def unzip(src_file, dst_dir):
