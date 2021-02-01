@@ -52,7 +52,7 @@ download_image = KubernetesPodOperator(
     dag=dag,
 )
 
-countries = ["SLE"]  # FIXME
+countries = ["BDI"]  # FIXME: configurable
 
 for country in countries:
     # TODO: bucket configuration should be more flexible

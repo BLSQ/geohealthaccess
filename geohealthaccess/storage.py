@@ -48,13 +48,11 @@ class Location:
 def get_s3fs():
     """Initialize a S3 filesystem from environment variables.
 
-    Uses the following environment variables:
+    Automatically uses the following environment variables:
         * `AWS_ACCESS_KEY_ID`
         * `AWS_SECRET_ACCESS_KEY`
         * `AWS_REGION` (defaults to "us-east-1")
         * `S3_ENDPOINT_URL` (defaults to "s3.amazonaws.com")
-
-    If `AWS_SECRET_ACCESS_KEY` is not provided, anonymous access is used (public buckets only).
 
     Returns
     -------
@@ -63,15 +61,8 @@ def get_s3fs():
     """
     if not has_s3fs:
         raise ImportError("s3fs library is required when using s3 urls.")
-    anon = not bool(os.getenv("AWS_SECRET_ACCESS_KEY"))
     return s3fs.S3FileSystem(
-        key=os.getenv("AWS_ACCESS_KEY_ID"),
-        secret=os.getenv("AWS_SECRET_ACCESS_KEY"),
-        anon=anon,
-        client_kwargs={
-            "region_name": os.getenv("AWS_REGION", "us-east-1"),
-            "endpoint_url": os.getenv("S3_ENDPOINT_URL"),
-        },
+        client_kwargs={"endpoint_url": os.getenv("S3_ENDPOINT_URL"),},
     )
 
 
@@ -90,7 +81,7 @@ def is_gce_instance():
 def get_gcsfs():
     """Initialize a GCS filesystem from environment variables.
 
-    Uses the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to locate the JSON file
+    Automatically uses the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to locate the JSON file
     containing the credentials. If the environment variable is not set, will
     fall back to the metadata service (if running within google) or
     anonymous access.
@@ -103,14 +94,7 @@ def get_gcsfs():
     if not has_gcsfs:
         raise ImportError("gcsfs library is required when using GCS urls.")
 
-    if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-        token = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    elif is_gce_instance():
-        token = "cloud"
-    else:
-        token = "anon"
-
-    return gcsfs.GCSFileSystem(token=token)
+    return gcsfs.GCSFileSystem()
 
 
 def ls(loc):
