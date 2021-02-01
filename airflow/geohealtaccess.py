@@ -31,9 +31,9 @@ dag = DAG(
         "start_date": days_ago(0),  # FIXME
         "catchup": False,  # FIXME
         "email": ["pvanliefland@bluesquarehub.com"],
-        "email_on_failure": True,
-        "email_on_retry": True,
-        "email_on_success": True,
+        "email_on_failure": False,  # TODO: True
+        "email_on_retry": False,  # TODO: True,
+        "email_on_success": False,  # TODO: True,
         "retries": 0,  # FIXME
         "retry_delay": timedelta(minutes=5),
     },
