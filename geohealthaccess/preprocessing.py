@@ -176,10 +176,12 @@ def merge_tiles(src_files, dst_file, nodata=-1):
         vrt = os.path.join(tmpdir, "mosaic.vrt")
         command = ["gdalbuildvrt", "-oo", "NUM_THREADS=ALL_CPUS", vrt] + src_files
         logger.info(f"Running command `{' '.join(command)}`.")
-        p = subprocess.run(
-            command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        log_gdal_output(p.stdout, p.stderr, prefix="gdalbuildvrt")
+        try:
+            p = subprocess.run(
+                command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+        finally:
+            log_gdal_output(p.stdout, p.stderr, prefix="gdalbuildvrt")
 
         command = ["gdal_translate", "-of", "GTiff", "-a_nodata", str(nodata)]
         # Add GDAL creation options for GeoTIFF format
@@ -187,10 +189,12 @@ def merge_tiles(src_files, dst_file, nodata=-1):
             command += ["-co", creation_opt]
         command += [vrt, dst_file]
         logger.info(f"Running command `{' '.join(command)}`.")
-        p = subprocess.run(
-            command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        log_gdal_output(p.stdout, p.stderr, prefix="gdal_translate")
+        try:
+            p = subprocess.run(
+                command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+        finally:
+            log_gdal_output(p.stdout, p.stderr, prefix="gdal_translate")
 
     logger.info(f"Merged {len(src_files)} tiles into {os.path.basename(dst_file)}.")
     return dst_file
@@ -258,14 +262,16 @@ def reproject(
         command += ["-dstnodata", str(dst_nodata)]
     for creation_opt in GDAL_CO:
         command += ["-co", creation_opt]  # GDAL creation options for GeoTIFF driver
-    p = subprocess.run(
-        command,
-        check=True,
-        env=os.environ,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    log_gdal_output(p.stdout, p.stderr, prefix="gdalwarp")
+    try:
+        p = subprocess.run(
+            command,
+            check=True,
+            env=os.environ,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    finally:
+        log_gdal_output(p.stdout, p.stderr, prefix="gdalwarp")
     logger.info(f"Reprojected raster {os.path.basename(src_raster)}.")
     return dst_raster
 
@@ -343,10 +349,12 @@ def compute_slope(src_dem, dst_file, percent=False, scale=None):
         command += ["-co", opt]
     command += [src_dem, dst_file]
     logger.info(f"Running command: {' '.join(command)}")
-    p = subprocess.run(
-        command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    log_gdal_output(p.stdout, p.stderr, prefix="gdaldem")
+    try:
+        p = subprocess.run(
+            command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    finally:
+        log_gdal_output(p.stdout, p.stderr, prefix="gdaldem")
     logger.info(f"Created slope raster `{os.path.basename(dst_file)}`.")
     return dst_file
 
@@ -389,10 +397,12 @@ def compute_aspect(src_dem, dst_file, trigonometric=False):
         command += ["-co", opt]
     command += [src_dem, dst_file]
     logger.info(f"Running command: {' '.join(command)}")
-    p = subprocess.run(
-        command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    log_gdal_output(p.stdout, p.stderr, prefix="gdaldem")
+    try:
+        p = subprocess.run(
+            command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    finally:
+        log_gdal_output(p.stdout, p.stderr, prefix="gdaldem")
     logger.info(f"Created aspect raster `{os.path.basename(dst_file)}`.")
     return dst_file
 
