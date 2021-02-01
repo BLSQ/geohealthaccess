@@ -252,7 +252,7 @@ def exists(loc):
         return fs.exists(loc.path)
 
     else:
-        raise IOError(f"{loc.protocol} protocol not supported.")
+        raise IOError(f'"{loc.protocol}" protocol not supported.')
 
 
 def mkdir(loc):

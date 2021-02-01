@@ -68,8 +68,8 @@ for country in countries:
         arguments=[
             "download",
             f"--country={country}",
-            f"--output-dir {download_output_dir}",
-            f"--logs-dir {logs_dir}",
+            f'--output-dir="{download_output_dir}"',
+            f'--logs-dir="{logs_dir}"',
         ],
         env_vars={**earthdata_env_variables, **cloud_storage_env_variables,},
         task_id=download_task_id,
@@ -86,8 +86,8 @@ for country in countries:
             f"--country={country}",
             "--crs=EPSG:3857",  # TODO: check with Yann
             "--resolution=100",  # TODO: check with Yann
-            f"--input_dir {download_output_dir}",
-            f"--output-dir {preprocess_output_dir}",
+            f'--input-dir="{download_output_dir}"',
+            f'--output-dir="{preprocess_output_dir}"',
         ],
         env_vars={**cloud_storage_env_variables,},
         task_id=preprocess_task_id,
@@ -102,9 +102,9 @@ for country in countries:
         arguments=[
             "access",
             "--car",  # TODO: should be configurable
-            f"--input-dir={preprocess_output_dir}",
-            f"--interm-dir={access_interm_dir}",
-            f"--output-dir={access_output_dir}",
+            f'--input-dir="{preprocess_output_dir}"',
+            f'--interm-dir="{access_interm_dir}"',
+            f'--output-dir="{access_output_dir}"',
         ],
         env_vars={**cloud_storage_env_variables,},
         task_id=access_task_id,
