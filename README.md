@@ -199,7 +199,7 @@ The following environment variables are required to allow S3 and/or GCS access:
 * `AWS_ACCESS_KEY_ID`
 * `AWS_SECRET_ACCESS_KEY`
 * `S3_ENDPOINT_URL`
-* `S3_REGION_NAME` (defaults to `us-east-1`)
+* `AWS_REGION` (defaults to `us-east-1`)
 * `GOOGLE_APPLICATION_CREDENTIALS` (path to JSON file containing credentials)
 
 Using S3 without `AWS_SECRET_ACCESS_KEY` or GCS without `GOOGLE_APPLICATION_CREDENTIALS` defaults to anonymous access.

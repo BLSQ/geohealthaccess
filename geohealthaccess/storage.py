@@ -51,7 +51,7 @@ def get_s3fs():
     Uses the following environment variables:
         * `AWS_ACCESS_KEY_ID`
         * `AWS_SECRET_ACCESS_KEY`
-        * `S3_REGION_NAME` (defaults to "us-east-1")
+        * `AWS_REGION` (defaults to "us-east-1")
         * `S3_ENDPOINT_URL` (defaults to "s3.amazonaws.com")
 
     If `AWS_SECRET_ACCESS_KEY` is not provided, anonymous access is used (public buckets only).
@@ -69,7 +69,7 @@ def get_s3fs():
         secret=os.getenv("AWS_SECRET_ACCESS_KEY"),
         anon=anon,
         client_kwargs={
-            "region_name": os.getenv("S3_REGION_NAME", "us-east-1"),
+            "region_name": os.getenv("AWS_REGION", "us-east-1"),
             "endpoint_url": os.getenv("S3_ENDPOINT_URL"),
         },
     )
