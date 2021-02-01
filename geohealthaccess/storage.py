@@ -2,10 +2,15 @@
 
 from glob import glob as local_glob
 import os
-import socket
 import shutil
 from tempfile import TemporaryDirectory
 import zipfile
+
+from loguru import logger
+
+
+logger.disable(__name__)
+
 
 try:
     import gcsfs
@@ -94,6 +99,7 @@ def ls(path):
     Simulates the behavior of os.listdir().
     """
     location = Location(path)
+    logger.info(f"Listing files in {path}")
 
     # local
     if location.protocol == "local":
@@ -118,6 +124,7 @@ def cp(src_path, dst_path):
 
     Copying a file from S3 to GCS is not supported.
     """
+    logger.info(f"Copying {src_path} to {dst_path}")
     src_location, dst_location = Location(src_path), Location(dst_path)
 
     # local
@@ -161,6 +168,7 @@ def cp(src_path, dst_path):
 def rm(path):
     """Remove a file."""
     location = Location(path)
+    logger.info(f"Removing file {path}")
 
     # local
     if location.protocol == "local":
@@ -187,6 +195,7 @@ def mv(src_path, dst_path):
     copy() and rm() instead.
     """
     src_location, dst_location = Location(src_path), Location(dst_path)
+    logger.info(f"Moving {src_path} to {dst_path}")
 
     # local
     if src_location.protocol == "local" and dst_location.protocol == "local":
@@ -209,6 +218,7 @@ def mv(src_path, dst_path):
 def exists(path):
     """Check if a file exists."""
     location = Location(path)
+    logger.info(f"Checking existence of {path}")
 
     # local
     if location.protocol == "local":
@@ -235,12 +245,14 @@ def mkdir(path):
     are not needed anyway.
     """
     location = Location(path)
+    logger.info(f"Creating directory {path}")
     if location.protocol == "local":
         os.makedirs(location.path, exist_ok=True)
 
 
 def size(path):
     """Get size of a file in bytes."""
+    logger.info(f"Getting size of file {path}")
     if not exists(path):
         raise FileNotFoundError(f"No file found at {path}.")
 
@@ -286,6 +298,7 @@ def glob(pattern):
 
 def open_(path, mode="r"):
     """Return a file-like object regardless of the file system."""
+    logger.info(f"Opening file {path}")
     location = Location(path)
 
     if location.protocol == "local":
@@ -309,23 +322,21 @@ def unzip(src_file_path, dst_dir_path):
     Can read .zip file from a cloud filesystem and copy its contents
     to another cloud filesystem, but processing is performed locally.
     """
-    src_file_location, dst_dir_location = (
-        Location(src_file_path),
-        Location(dst_dir_path),
-    )
+    logger.info(f"Unzipping {src_file_path} to {dst_dir_path}")
+    src_file_location = Location(src_file_path)
 
     with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
-        if src_file.protocol == "local":
+        if src_file_location.protocol == "local":
             with zipfile.ZipFile(src_file_location.path, "r") as z:
                 z.extractall(tmp_dir)
 
-        elif src_file.protocol == "s3":
+        elif src_file_location.protocol == "s3":
             fs = get_s3fs()
             with fs.open(src_file_location.path) as archive:
                 with zipfile.ZipFile(archive, "r") as z:
                     z.extractall(tmp_dir)
 
-        elif src_file.protocol == "gcs":
+        elif src_file_location.protocol == "gcs":
             fs = get_gcsfs()
             with fs.open(src_file_location.path) as archive:
                 with zipfile.ZipFile(archive, "r") as z:
