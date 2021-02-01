@@ -233,9 +233,9 @@ def mv(src, dst):
         )
 
 
-def exists(location_string):
+def exists(loc):
     """Check if a file exists."""
-    loc = Location(location_string)
+    location = Location(loc)
 
     # local
     if location.protocol == "local":
@@ -253,7 +253,7 @@ def exists(location_string):
 
     else:
         raise IOError(
-            f'The "{location.protocol}" protocol is not supported ({location_string}).'
+            f'The "{location.protocol}" protocol is not supported ({location}).'
         )
 
 
