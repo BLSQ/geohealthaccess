@@ -9,9 +9,15 @@ def run(args, *, logger=None):
 
     try:
         completed_process = subprocess.run(
-            args, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            args,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
-    except Exception as e:
+    except (OSError, ValueError) as e:
+        # This only happens if subprocess.run raises an exception not linked ta a non-zero return code
+        # (mostly OSError for non-existent files and ValueError if subprocess.run() is called with invalid arguments)
         if logger:
             logger(str(e))
 

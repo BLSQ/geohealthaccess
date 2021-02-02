@@ -20,10 +20,28 @@ class MockLogger:
 @pytest.mark.parametrize(
     "args, return_code, exception_class, expected_log_output",
     [
-        (("ls",), 0, None, None),
-        (("plop",), 127, OSError, None),
-        (("ls", "AUTHORS.md",), 0, None, "AUTHORS.md\n"),
-        (("plop",), 127, OSError, "[Errno 2] No such file or directory: 'plop'"),
+        (("ls",), 0, None, None),  # Successful command
+        (("plop",), None, OSError, None),  # File does not exist -> OSError
+        (("ls boum",), None, OSError, None),  # Non-zero return code
+        (
+            ("ls", "AUTHORS.md",),
+            0,
+            None,
+            "AUTHORS.md\n",
+        ),  # Successful command, with logging
+        (
+            ("plop",),
+            None,
+            OSError,
+            "[Errno 2] No such file or directory: 'plop'",
+        ),  # File does not exist, with logging
+        (
+            ("ls", "boum",),
+            2,
+            None,
+            "ls: cannot access 'boum': No such file or directory\n",
+        ),
+        # Non-zero return code, with logging
     ],
 )
 def test_process_run(args, return_code, exception_class, expected_log_output):
