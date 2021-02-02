@@ -3,6 +3,10 @@
 import subprocess
 
 
+class ProcessError(Exception):
+    pass
+
+
 def run(args, *, logger=None):
     """Run the provided command using subprocess.run, with sensible defaults,
     log if appropriate and return the CompletedSubprocess instance."""
@@ -23,11 +27,12 @@ def run(args, *, logger=None):
 
         raise
 
+    success = completed_process.returncode == 0
+
     if logger:
-        logger(
-            completed_process.stdout
-            if completed_process.returncode == 0
-            else completed_process.stderr
-        )
+        logger(completed_process.stdout if success else completed_process.stderr)
+
+    if not success:
+        raise ProcessError(completed_process.stdout)
 
     return completed_process

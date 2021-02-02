@@ -4,7 +4,7 @@ from loguru import logger
 import pytest
 from subprocess import CompletedProcess
 
-from geohealthaccess.process import run
+from geohealthaccess.process import run, ProcessError
 
 logger.disable(__name__)
 
@@ -38,7 +38,7 @@ class MockLogger:
         (
             ("ls", "boum",),
             2,
-            None,
+            ProcessError,
             "ls: cannot access 'boum': No such file or directory\n",
         ),
         # Non-zero return code, with logging
