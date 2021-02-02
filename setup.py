@@ -35,7 +35,7 @@ setup(
         "shapely",
         "tqdm",
     ],
-    extras_require={"dev": ["pytest", "pytest-cov", "vcrpy"]},
+    extras_require={"dev": ["airflow", "pytest", "pytest-cov", "vcrpy"]},
     package_data={
         "geohealthaccess": [
             "resources/*.geojson",
