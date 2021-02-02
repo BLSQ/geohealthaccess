@@ -249,6 +249,11 @@ Images are automatically rebuilt and published on Docker Hub through a GitHub wo
 is published in this repo. Alternatively, you can also trigger the workflow manually from the
 [Actions section](https://github.com/BLSQ/geohealthaccess/actions).
 
+## Running the tests
+
+We use `pytest` for our test suite. Make sure that the development dependencies are installed, and simply launch
+`pytest` from the geohealthaccess directory (or using Docker: `docker-compose run --entrypoint pytest app`).
+
 ## Methodology
 
 ![Processing chain](/docs/images/processing-chain.png)
