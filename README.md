@@ -229,11 +229,20 @@ geohealthaccess access --car --walk -d hospitals.geojson -d clinics.geojson
 
 ## Using, building and publishing the Docker image
 
-A docker image is available on [Docker Hub](https://hub.docker.com/r/blsq/geohealthaccess).
+A docker image is available on [Docker Hub](https://hub.docker.com/r/blsq/geohealthaccess). To launch the
+`geohealthaccess` app locally:
 
-``` sh
-cd <project_dir>
+```bash
+cd <path_to_geohealthaccess>
 docker run -v $(pwd):/project:rw blsq/geohealthaccess:latest
+```
+
+We also provide a `docker-compose.yml` file to facilitate local development using Docker:
+
+```bash
+cd <path_to_geohealthaccess>
+docker-compose build
+docker-compose run app
 ```
 
 Images are automatically rebuilt and published on Docker Hub through a GitHub workflow triggered each time a new release
