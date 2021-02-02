@@ -1,3 +1,5 @@
+"""subprocess helpers"""
+
 import subprocess
 
 
@@ -15,7 +17,7 @@ def run(command, *, logger=None):
         )
     except Exception as e:
         if logger:
-            logger(e.message)
+            logger(str(e))
 
         raise
 
