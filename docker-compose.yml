@@ -15,4 +15,4 @@ services:
       # S3_ENDPOINT_URL:
       GOOGLE_APPLICATION_CREDENTIALS:
     volumes:
-      - .:/project
+      - .:/app
