@@ -4,6 +4,9 @@ LABEL maintainer="yannforget@mailbox.org"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Dev mode
+ARG DEV
+
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -22,6 +25,10 @@ RUN mkdir /app
 RUN pip3 install --upgrade pip
 COPY requirements.txt /app/
 RUN pip3 install -r /app/requirements.txt
+
+# Dev dependencies
+COPY requirements-dev.txt /app/
+RUN if [ "$DEV" = "true" ] ; then pip3 install -r /app/requirements-dev.txt ; fi
 
 # Install package
 COPY geohealthaccess /app/geohealthaccess
