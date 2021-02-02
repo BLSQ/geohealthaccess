@@ -36,7 +36,6 @@ COPY tests /app/tests
 COPY setup.py /app/
 RUN pip3 install -e /app
 
-RUN mkdir /project
-WORKDIR /project
+WORKDIR /app
 ENTRYPOINT ["geohealthaccess"]
 CMD ["--help"]
