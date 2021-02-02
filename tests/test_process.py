@@ -18,32 +18,32 @@ class MockLogger:
 
 
 @pytest.mark.parametrize(
-    "command, return_code, exception_class, log",
+    "args, return_code, exception_class, expected_log_output",
     [
-        ("ls", 0, None, False),
-        ("kapoué", 127, OSError, False),
-        ("ls", 0, None, True),
-        ("kapoué", 127, OSError, True),
+        (("ls",), 0, None, None),
+        (("plop",), 127, OSError, "[Errno 2] No such file or directory: 'plop'"),
+        (("ls", "AUTHORS.md",), 0, None, "AUTHORS.md\n"),
+        (("plop",), 127, OSError, "[Errno 2] No such file or directory: 'plop'"),
     ],
 )
-def test_process_run(command, return_code, exception_class, log):
+def test_process_run(args, return_code, exception_class, expected_log_output):
     _mock_logger = MockLogger()
     _mock_log = (
-        lambda output_string: _mock_logger.info(output_string) if log is True else None
+        lambda output_string: _mock_logger.info(output_string)
+        if expected_log_output is not None
+        else None
     )
 
     if exception_class is not None:
         with pytest.raises(exception_class):
-            run(command, logger=_mock_log)
+            run(args, logger=_mock_log)
     else:
-        completed_process = run(command, logger=_mock_log)
+        completed_process = run(args, logger=_mock_log)
 
         assert isinstance(completed_process, CompletedProcess)
         assert completed_process.returncode == return_code
 
-        log_assertion = (
-            _mock_logger.output_string is not None
-            if log
-            else _mock_logger.output_string is None
-        )
-        assert log_assertion
+    if expected_log_output is not None:
+        assert _mock_logger.output_string == expected_log_output
+    else:
+        assert _mock_logger.output_string is None
