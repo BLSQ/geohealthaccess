@@ -21,7 +21,7 @@ class MockLogger:
     "args, return_code, exception_class, expected_log_output",
     [
         (("ls",), 0, None, None),
-        (("plop",), 127, OSError, "[Errno 2] No such file or directory: 'plop'"),
+        (("plop",), 127, OSError, None),
         (("ls", "AUTHORS.md",), 0, None, "AUTHORS.md\n"),
         (("plop",), 127, OSError, "[Errno 2] No such file or directory: 'plop'"),
     ],
