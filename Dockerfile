@@ -37,6 +37,9 @@ COPY tests /app/tests
 COPY setup.py /app/
 RUN pip3 install -e /app
 
+ENV GDAL_DATA=/usr/share/gdal
+ENV PROJ_LIB=/usr/share/proj
+
 WORKDIR /app
 ENTRYPOINT ["geohealthaccess"]
 CMD ["--help"]
