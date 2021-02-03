@@ -14,6 +14,7 @@ RUN apt-get update && \
     osmium-tool \
     grass-core \
     gdal-bin \
+    libgdal-dev \
     proj-bin \
     grass-core \
     python3-pip \
