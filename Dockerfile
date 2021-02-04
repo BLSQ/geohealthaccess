@@ -18,6 +18,9 @@ RUN apt-get update && \
     locales \
     osmium-tool \
     grass-core \
+    gdal-bin \
+    proj-bin \
+    python3-six \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir /app
