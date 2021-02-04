@@ -4,28 +4,35 @@ LABEL maintainer="yannforget@mailbox.org"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+ENV PATH=/opt/conda/bin:$PATH
+ARG PATH=/opt/conda/bin:$PATH
+
 # Dev mode
 ARG DEV
 
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+    wget \
+    ca-certificates \
     locales \
     osmium-tool \
     grass-core \
-    gdal-bin \
-    libgdal-dev \
-    proj-bin \
-    grass-core \
-    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir /app
 
-# Install python dependencies
-RUN pip3 install --upgrade pip
-COPY requirements.txt /app/
-RUN pip3 install -r /app/requirements.txt
+# Install miniconda
+ARG MINICONDA_VERSION="py38_4.9.2"
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh \
+    && mkdir -p /opt \
+    && bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -b -p /opt/conda \
+    && rm -f Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh
+
+# Create and initialize conda environment
+COPY environment.yml /app/
+RUN conda env create -f /app/environment.yml
+SHELL ["conda", "run", "-n", "geohealthaccess", "/bin/bash", "-c"]
 
 # Dev dependencies
 COPY requirements-dev.txt /app/
@@ -37,8 +44,6 @@ COPY tests /app/tests
 COPY setup.py /app/
 RUN pip3 install -e /app
 
-ENV GDAL_DATA=/usr/share/gdal
-
 WORKDIR /app
-ENTRYPOINT ["geohealthaccess"]
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "geohealthaccess", "geohealthaccess"]
 CMD ["--help"]

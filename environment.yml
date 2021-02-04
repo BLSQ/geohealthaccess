@@ -3,16 +3,22 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.8.0
+  - python>=3.8
   - appdirs=1.4.3
   - beautifulsoup4=4.8.1
   - fiona=1.8.11
   - geopandas=0.6.2
   - gdal=3.0.2
-  - libgdal
   - numpy=1.17.3
   - pandas=0.25.3
   - rasterio=1.1.1
   - requests=2.22.0
   - shapely=1.6.4
   - tqdm=4.39.0
+  - click
+  - loguru
+  - gcsfs
+  - s3fs
+  - pip
+  - pip:
+    - requests_file
