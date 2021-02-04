@@ -251,8 +251,8 @@ is published in this repo. Alternatively, you can also trigger the workflow manu
 
 ## Running the tests
 
-We use `pytest` for our test suite. Make sure that the development dependencies are installed, and simply launch
-`pytest` from the geohealthaccess directory (or using Docker: `docker-compose run --entrypoint pytest app`).
+We use `pytest` for our test suite. Make sure that the development dependencies are installed, and simply launch the 
+`test` command using the CLI (or using Docker: `docker-compose run app test`).
 
 ## Methodology
 

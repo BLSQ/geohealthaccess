@@ -21,6 +21,7 @@ import shutil
 import sys
 from tempfile import TemporaryDirectory, gettempdir
 
+import pytest
 from appdirs import user_data_dir
 import click
 from loguru import logger
@@ -72,6 +73,11 @@ logger.enable("")
 def cli():
     """Map accessibility to health services."""
     pass
+
+@cli.command()
+def test():
+    """Run test suite."""
+    pytest.main(["tests"])
 
 
 @cli.command()

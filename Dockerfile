@@ -37,10 +37,6 @@ COPY environment.yml /app/
 RUN conda env create -f /app/environment.yml
 SHELL ["conda", "run", "-n", "geohealthaccess", "/bin/bash", "-c"]
 
-# Dev dependencies
-COPY requirements-dev.txt /app/
-RUN if [ "$DEV" = "true" ] ; then pip3 install -r /app/requirements-dev.txt ; fi
-
 # Install package
 COPY geohealthaccess /app/geohealthaccess
 COPY tests /app/tests
@@ -48,5 +44,5 @@ COPY setup.py /app/
 RUN pip3 install -e /app
 
 WORKDIR /app
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "geohealthaccess", "geohealthaccess"]
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "geohealthaccess", "python", "-m", "geohealthaccess.cli"]
 CMD ["--help"]
