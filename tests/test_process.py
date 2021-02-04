@@ -24,10 +24,10 @@ class MockLogger:
         (("plop",), None, OSError, None),  # File does not exist -> OSError
         (("ls boum",), None, OSError, None),  # Non-zero return code
         (
-            ("ls", "AUTHORS.md",),
+            ("ls", "setup.py",),
             0,
             None,
-            "AUTHORS.md\n",
+            "setup.py\n",
         ),  # Successful command, with logging
         (
             ("plop",),
