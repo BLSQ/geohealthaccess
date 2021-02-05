@@ -1,14 +1,12 @@
 """Tests for preprocessing module."""
 
-
-from geohealthaccess.preprocessing import reproject
-import pytest
-from pkg_resources import resource_filename
 import os
-from tempfile import TemporaryDirectory
+from pkg_resources import resource_filename
+import pytest
 import rasterio
-from rasterio import Affine
 from rasterio.crs import CRS
+from tempfile import TemporaryDirectory
+
 from geohealthaccess import preprocessing
 
 
