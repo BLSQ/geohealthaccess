@@ -254,6 +254,17 @@ is published in this repo. Alternatively, you can also trigger the workflow manu
 We use `pytest` for our test suite. Make sure that the development dependencies are installed, and simply launch the 
 `test` command using the CLI (or using Docker: `docker-compose run app test`).
 
+## Deploying on Airflow
+
+The whole flow (`download`, `preprocess` and `access`) can be orchestrated using 
+[Apache Airflow](https://airflow.apache.org/). The DAG can be found in the `airflow` directory and is ready to used.
+
+It relies on a few Airflow variables to run:
+
+- `gha_earthdata_username` and `gha_earthdata_password` for the EarthData credentials
+- `gha_aws_access_key_id`, `gha_aws_secret_access_key` and `gha_aws_region` for AWS S3 storage if appropriate
+- `gha_google_application_credentials` for GCP GCS storage if appropriate
+
 ## Methodology
 
 ![Processing chain](/docs/images/processing-chain.png)
