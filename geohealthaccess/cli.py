@@ -64,7 +64,11 @@ LOGFORMAT = "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> <level>{level}</level
 
 logger.remove()
 logger.add(
-    sys.stdout, format=LOGFORMAT, enqueue=True, backtrace=True, level="INFO",
+    sys.stdout,
+    format=LOGFORMAT,
+    enqueue=True,
+    backtrace=True,
+    level="INFO",
 )
 logger.enable("")
 
@@ -73,6 +77,7 @@ logger.enable("")
 def cli():
     """Map accessibility to health services."""
     pass
+
 
 @cli.command()
 def test():
@@ -114,7 +119,11 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
     log_tmp = os.path.join(gettempdir(), log_basename)
 
     logger.add(
-        log_tmp, format=LOGFORMAT, enqueue=True, backtrace=True, level="DEBUG",
+        log_tmp,
+        format=LOGFORMAT,
+        enqueue=True,
+        backtrace=True,
+        level="DEBUG",
     )
 
     geom = country_geometry(country)
@@ -174,14 +183,21 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
 @cli.command()
 @click.option("--country", "-c", type=str, required=True, help="ISO A3 country code")
 @click.option(
-    "--crs", "-s", type=str, required=True, help="EPSG, PROJ or WKT CRS string",
+    "--crs",
+    "-s",
+    type=str,
+    required=True,
+    help="EPSG, PROJ or WKT CRS string",
 )
 @click.option(
     "--resolution", "-r", type=float, default=100, help="Pixel size in `crs` units"
 )
 @click.option("--input-dir", "-i", type=click.Path(), help="Input data directory")
 @click.option(
-    "--output-dir", "-o", type=click.Path(), help="Output data directory",
+    "--output-dir",
+    "-o",
+    type=click.Path(),
+    help="Output data directory",
 )
 @click.option("--logs-dir", "-l", type=click.Path(), help="Logs output directory")
 @click.option(
@@ -203,7 +219,11 @@ def preprocess(
     log_tmp = os.path.join(gettempdir(), log_basename)
 
     logger.add(
-        log_tmp, format=LOGFORMAT, enqueue=True, backtrace=True, level="DEBUG",
+        log_tmp,
+        format=LOGFORMAT,
+        enqueue=True,
+        backtrace=True,
+        level="DEBUG",
     )
 
     # Set data directories if not provided and create them if necessary
@@ -335,7 +355,9 @@ def preprocess_land_cover(
         )
         if len(tiles) > 1:
             src_file = merge_tiles(
-                tiles, os.path.join(tmp_data_dir, f"{lc_class}_mosaic.tif"), nodata=255,
+                tiles,
+                os.path.join(tmp_data_dir, f"{lc_class}_mosaic.tif"),
+                nodata=255,
             )
         else:
             src_file = tiles[0]
@@ -653,7 +675,11 @@ def access(
     log_tmp = os.path.join(gettempdir(), log_basename)
 
     logger.add(
-        log_tmp, format=LOGFORMAT, enqueue=True, backtrace=True, level="DEBUG",
+        log_tmp,
+        format=LOGFORMAT,
+        enqueue=True,
+        backtrace=True,
+        level="DEBUG",
     )
 
     # Set data directories if not provided and create them if necessary
