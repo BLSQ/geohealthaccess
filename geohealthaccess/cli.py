@@ -112,6 +112,8 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
     """Download input datasets."""
     if not logs_dir:
         logs_dir = os.curdir
+    else:
+        os.makedirs(logs_dir, exist_ok=True)
 
     time = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S_%f")
     log_basename = f"geohealthaccess-download_{time}.log"
@@ -212,6 +214,8 @@ def preprocess(
     """Preprocess and co-register input datasets."""
     if not logs_dir:
         logs_dir = os.curdir
+    else:
+        os.makedirs(logs_dir, exist_ok=True)
 
     time = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S_%f")
     log_basename = f"geohealthaccess-preprocessing_{time}.log"
@@ -668,6 +672,8 @@ def access(
     """Map travel times to the provided health facilities."""
     if not logs_dir:
         logs_dir = os.curdir
+    else:
+        os.makedirs(logs_dir, exist_ok=True)
 
     time = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S_%f")
     log_basename = f"geohealthaccess-access_{time}.log"
