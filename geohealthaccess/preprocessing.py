@@ -235,6 +235,8 @@ def reproject(
     if overwrite:
         command += ["-overwrite"]
     command += [src_raster, dst_raster]  # input/output files
+    if dst_dtype:
+        command += ["-ot", dst_dtype]
     if src_nodata:
         command += ["-srcnodata", str(src_nodata)]
     if dst_nodata:
