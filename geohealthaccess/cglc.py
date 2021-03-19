@@ -1,5 +1,4 @@
 import os
-from collections import namedtuple
 from tempfile import TemporaryDirectory
 
 import numpy as np
