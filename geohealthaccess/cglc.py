@@ -3,6 +3,8 @@ from collections import namedtuple
 from tempfile import TemporaryDirectory
 
 import numpy as np
+from rasterio.crs import CRS
+from rasterio.warp import transform_bounds
 import requests
 from loguru import logger
 
@@ -270,11 +272,11 @@ class CGLC:
         return size_from_url(self.session, url)
 
 
-def preprocess(input_dir, dst_dir, bounds, crs, res, geom=None, overwrite=False):
+def preprocess(input_dir, dst_dir, geom, crs, res, overwrite=False):
     """Process land cover tiles into a new grid.
 
     Raw land cover tiles are merged and reprojected to the grid identified
-    by `crs`, `bounds` and `res`. Data outside `geom` are assigned
+    by `crs`, `geom` and `res`. Data outside `geom` are assigned
     NaN values.
 
     Parameters
@@ -283,14 +285,12 @@ def preprocess(input_dir, dst_dir, bounds, crs, res, geom=None, overwrite=False)
         Path to directory where land cover tiles are stored.
     dst_dir : str
         Path to output directory.
-    bounds : tuple
-        Target raster extent (xmin, ymin, xmax, ymax).
+    geom : shapely geometry, optional
+        Area of interest. Used to create a nodata mask.
     crs : CRS
         Target CRS.
     res : int or float
         Target spatial resolution in `crs` units.
-    geom : shapely geometry, optional
-        Area of interest. Used to create a nodata mask.
     overwrite : bool, optional
         Overwrite existing files.
 
@@ -299,6 +299,7 @@ def preprocess(input_dir, dst_dir, bounds, crs, res, geom=None, overwrite=False)
     str
         Path to output directory.
     """
+    bounds = transform_bounds(CRS.from_epsg(4326), crs, *geom.bounds)
     lc = CGLC()
     for label in lc.LABELS:
         dst_file = os.path.join(dst_dir, f"{label}.tif")
