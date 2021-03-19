@@ -317,10 +317,9 @@ def preprocess(input_dir, dst_dir, geom, crs, res, overwrite=False):
                 dst_crs=crs,
                 dst_bounds=bounds,
                 dst_res=res,
-                src_nodata=255,
                 dst_nodata=-9999,
                 dst_dtype="Float32",
-                resampling_method="cubic",
+                resampling_method="bilinear",
                 overwrite=overwrite,
             )
             if geom:
