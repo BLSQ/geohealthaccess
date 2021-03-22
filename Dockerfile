@@ -44,5 +44,8 @@ COPY setup.py /app/
 RUN pip3 install -e /app
 
 WORKDIR /app
+RUN source /opt/conda/envs/geohealthaccess/etc/conda/activate.d/gdal-activate.sh && \
+    source /opt/conda/envs/geohealthaccess/etc/conda/activate.d/geotiff-activate.sh && \
+    source /opt/conda/envs/geohealthaccess/etc/conda/activate.d/proj4-activate.sh
 ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "geohealthaccess", "python", "-m", "geohealthaccess.cli"]
 CMD ["--help"]

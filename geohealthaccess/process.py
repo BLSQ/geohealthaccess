@@ -4,10 +4,6 @@ import os
 import subprocess
 
 
-GDAL_DATA = "/usr/share/gdal"
-PROJ_LIB = "/usr/share/proj"
-
-
 class ProcessError(Exception):
     pass
 
@@ -15,16 +11,10 @@ class ProcessError(Exception):
 def run(args, *, logger=None):
     """Run the provided command using subprocess.run, with sensible defaults,
     log if appropriate and return the CompletedSubprocess instance."""
-    
-    # Make sure GDAL and PROJ env. variables are set
-    env = os.environ.copy()
-    env["GDAL_DATA"] = GDAL_DATA
-    env["PROJ_LIB"] = PROJ_LIB
-
     try:
         completed_process = subprocess.run(
             args,
-            env=env,
+            env=os.environ.copy(),
             check=False,
             text=True,
             stdout=subprocess.PIPE,
