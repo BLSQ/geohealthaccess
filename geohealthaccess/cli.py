@@ -57,7 +57,7 @@ from geohealthaccess.srtm import SRTM
 from geohealthaccess import storage
 from geohealthaccess import qa
 from geohealthaccess.utils import country_geometry, unzip
-from geohealthaccess.worldpop import WorldPop
+from geohealthaccess import worldpop
 
 
 LOGFORMAT = "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> <level>{level}</level> <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> {message}"
@@ -147,10 +147,14 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
         storage.mkdir(data_dir)
 
     # Population
-    wp = WorldPop()
-    wp.login()
-    wp.download(country, worldpop_dir, overwrite=overwrite)
-    wp.logout()
+    worldpop.download(
+        country=country,
+        output_dir=worldpop_dir,
+        year=2020,
+        un_adj=True,
+        show_progress=True,
+        overwrite=overwrite,
+    )
 
     # Land Cover
     cglc = CGLC()
