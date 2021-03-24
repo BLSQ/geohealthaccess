@@ -177,9 +177,8 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
     srtm = SRTM()
     srtm.authentify(earthdata_user, earthdata_pass)
     tiles = srtm.search(geom)
-    with ThreadPoolExecutor(max_workers=5) as e:
-        for i, tile in enumerate(tiles):
-            e.submit(srtm.download, tile, srtm_dir, True, overwrite, i)
+    for tile in tiles:
+        srtm.download(tile, srtm_dir, show_progress=True, overwrite=overwrite)
 
     # Write logs
     storage.cp(log_tmp, log_file)
