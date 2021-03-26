@@ -6,13 +6,39 @@ import tempfile
 import geopandas as gpd
 import pytest
 from pkg_resources import resource_filename
+import requests
+from shapely import wkt
 
 from geohealthaccess.osm import (
     _count_objects,
     tags_filter,
     thematic_extract,
     to_geojson,
+    Geofabrik,
 )
+
+
+def test_geofabrik_search():
+    geo = Geofabrik()
+    with open(resource_filename(__name__, "data/madagascar.wkt")) as f:
+        geom = wkt.load(f)
+    assert "madagascar-latest" in geo.search(geom)
+    with open(resource_filename(__name__, "data/senegal.wkt")) as f:
+        geom = wkt.load(f)
+    assert "senegal-and-gambia" in geo.search(geom)
+
+
+def test_geofabrik_download(monkeypatch):
+    def mockreturn(self, chunk_size):
+        return [b"", b"", b""]
+
+    monkeypatch.setattr(requests.Response, "iter_content", mockreturn)
+
+    geo = Geofabrik()
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+        fp = geo.download("ben", tmp_dir, show_progress=False, overwrite=False)
+        assert os.path.isfile(fp)
+        assert os.path.basename(fp) == "benin-latest.osm.pbf"
 
 
 def test_count_objects():

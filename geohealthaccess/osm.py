@@ -8,19 +8,105 @@ import os
 from subprocess import run, PIPE, DEVNULL
 import tempfile
 import functools
+from pkg_resources import resource_filename
 
 from loguru import logger
 import numpy as np
+import requests
 import rasterio
 from rasterio.features import rasterize
 import geopandas as gpd
 
 from geohealthaccess.preprocessing import default_compression
-from geohealthaccess.errors import OsmiumNotFoundError, MissingDataError
-from geohealthaccess.utils import human_readable_size
+from geohealthaccess.errors import (
+    OsmiumNotFoundError,
+    MissingDataError,
+    GeoHealthAccessError,
+)
+from geohealthaccess.utils import (
+    country_geometry,
+    download_from_url,
+    human_readable_size,
+)
 
 
 logger.disable(__name__)
+
+
+class Geofabrik:
+    """Acess OSM data hosted on Geofabrik website.
+
+    See <http://download.geofabrik.de/>_.
+    """
+
+    def __init__(self):
+        """Initialize Geofabrik catalog."""
+        self.catalog = gpd.read_file(
+            resource_filename(__name__, "resources/geofabrik.geojson"), driver="GeoJSON"
+        )
+        self.catalog.set_index("id", inplace=True)
+
+    def search(self, geom, min_cover=98):
+        """Search product matching the input geometry.
+
+        The function look for (almost) exact matches. Geofabrik products
+        covering less than `min_cover` are excluded from the results.
+        The product satisfying `min_cover` with the lowest total surface
+        is returned.
+
+        Parameters
+        ----------
+        geom : shapely geometry
+            Area of interest (EPSG:4326).
+        min_cover : int, optional
+            Min. coverage by the Geofabrik product in percents.
+            Default=98%.
+
+        Returns
+        -------
+        str
+            URL of the .osm.pbf file.
+        """
+        results = self.catalog[self.catalog.intersects(geom)]
+        contains = results.geometry.apply(
+            lambda g: geom.intersection(g).area / geom.area
+        )
+        results = results[contains >= min_cover / 100]
+        if results.empty:
+            raise GeoHealthAccessError("Found no matching OSM product on Geofabrik.")
+        results = results.to_crs(epsg=3857)
+        product = results[results.area == results.area.min()].iloc[0]
+        return product.urls["pbf"]
+
+    def download(self, country, output_dir, show_progress=True, overwrite=False):
+        """Search and download OSM product matching the input geometry.
+
+        See `Geofabrik.search()` docstring for more information about the
+        search process.
+
+        Parameters
+        ----------
+        country : str
+            Country ISO A3 code.
+        output_dir : str
+            Path to output directory.
+        show_progress : bool, optional
+            Show progress bar. Default=False.
+        overwrite : bool, optional
+            Overwrite existing files. Default=True.
+
+        Returns
+        -------
+        str
+            Path to output file.
+        """
+        geom = country_geometry(country)
+        url = self.search(geom, min_cover=95)
+        with requests.Session() as s:
+            fp = download_from_url(
+                s, url, output_dir, show_progress=show_progress, overwrite=overwrite
+            )
+        return fp
 
 
 def requires_osmium(func):
