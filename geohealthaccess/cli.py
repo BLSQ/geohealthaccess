@@ -755,7 +755,7 @@ def access(
         # Create speed rasters from land cover and road network
         landcover_speed = speed_from_landcover(
             land_cover,
-            dst_file=os.path.join(tmp_dir, "speed_landcover.tif"),
+            dst_file=os.path.join(tmp_dir, "landcover_speed.tif"),
             speeds=travel_speeds["land-cover"],
             overwrite=overwrite,
         )
@@ -812,10 +812,6 @@ def access(
             storage.cp(transport_speed, os.path.join(interm_dir, "transport_speed.tif"))
             storage.cp(obstacles, os.path.join(interm_dir, "obstacle.tif"))
             storage.cp(friction, os.path.join(interm_dir, f"friction_{mode}.tif"))
-
-            # Clean temporary directory
-            for f in (landcover_speed, transport_speed, obstacles):
-                os.remove(f)
 
         if not destinations:
             osm_health = os.path.join(tmp_dir, "health.gpkg")
