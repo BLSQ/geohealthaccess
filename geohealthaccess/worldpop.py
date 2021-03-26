@@ -9,9 +9,7 @@ See `<https://www.worldpop.org/>`_ for more information about the WorldPop proje
 from loguru import logger
 import requests
 
-from geohealthaccess import storage
-from geohealthaccess.utils import download_from_url, size_from_url
-from pkg_resources import parse_requirements
+from geohealthaccess.utils import download_from_url
 
 
 logger.disable("__name__")
