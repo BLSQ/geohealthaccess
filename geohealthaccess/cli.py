@@ -16,7 +16,6 @@ Getting help for a specific subcommand::
 from datetime import datetime
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor
 import shutil
 import sys
 from tempfile import TemporaryDirectory, gettempdir
