@@ -16,7 +16,6 @@ Getting help for a specific subcommand::
 from datetime import datetime
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor
 import shutil
 import sys
 from tempfile import TemporaryDirectory, gettempdir
@@ -57,7 +56,7 @@ from geohealthaccess.srtm import SRTM
 from geohealthaccess import storage
 from geohealthaccess import qa
 from geohealthaccess.utils import country_geometry, unzip
-from geohealthaccess.worldpop import WorldPop
+from geohealthaccess import worldpop
 
 
 LOGFORMAT = "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> <level>{level}</level> <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> {message}"
@@ -147,10 +146,14 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
         storage.mkdir(data_dir)
 
     # Population
-    wp = WorldPop()
-    wp.login()
-    wp.download(country, worldpop_dir, overwrite=overwrite)
-    wp.logout()
+    worldpop.download(
+        country=country,
+        output_dir=worldpop_dir,
+        year=2020,
+        un_adj=True,
+        show_progress=True,
+        overwrite=overwrite,
+    )
 
     # Land Cover
     cglc = CGLC()
@@ -173,9 +176,8 @@ def download(country, output_dir, earthdata_user, earthdata_pass, logs_dir, over
     srtm = SRTM()
     srtm.authentify(earthdata_user, earthdata_pass)
     tiles = srtm.search(geom)
-    with ThreadPoolExecutor(max_workers=5) as e:
-        for i, tile in enumerate(tiles):
-            e.submit(srtm.download, tile, srtm_dir, True, overwrite, i)
+    for tile in tiles:
+        srtm.download(tile, srtm_dir, show_progress=True, overwrite=overwrite)
 
     # Write logs
     storage.cp(log_tmp, log_file)
@@ -752,7 +754,7 @@ def access(
         # Create speed rasters from land cover and road network
         landcover_speed = speed_from_landcover(
             land_cover,
-            dst_file=os.path.join(tmp_dir, "speed_landcover.tif"),
+            dst_file=os.path.join(tmp_dir, "landcover_speed.tif"),
             speeds=travel_speeds["land-cover"],
             overwrite=overwrite,
         )
@@ -809,10 +811,6 @@ def access(
             storage.cp(transport_speed, os.path.join(interm_dir, "transport_speed.tif"))
             storage.cp(obstacles, os.path.join(interm_dir, "obstacle.tif"))
             storage.cp(friction, os.path.join(interm_dir, f"friction_{mode}.tif"))
-
-            # Clean temporary directory
-            for f in (landcover_speed, transport_speed, obstacles):
-                os.remove(f)
 
         if not destinations:
             osm_health = os.path.join(tmp_dir, "health.gpkg")
