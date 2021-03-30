@@ -3,13 +3,13 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 import rasterio
-from rasterio.crs import CRS
-from rasterio.warp import transform_bounds
 import requests
 from loguru import logger
+from rasterio.crs import CRS
+from rasterio.warp import transform_bounds
 
 from geohealthaccess import storage
-from geohealthaccess.preprocessing import reproject, mask_raster
+from geohealthaccess.preprocessing import mask_raster, reproject
 
 logger.disable("__name__")
 

@@ -1,18 +1,14 @@
 """Tests for cglc module."""
 
 import os
-from glob import glob
 from tempfile import TemporaryDirectory
-import tempfile
 
-import numpy as np
 import pytest
 import rasterio
-import requests
-from shapely.geometry import Point
 from pkg_resources import resource_filename
 from rasterio.crs import CRS
 from shapely import wkt
+from shapely.geometry import Point
 
 from geohealthaccess import cglc
 
