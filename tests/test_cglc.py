@@ -3,11 +3,13 @@
 import os
 from glob import glob
 from tempfile import TemporaryDirectory
+import tempfile
 
 import numpy as np
 import pytest
 import rasterio
 import requests
+from shapely.geometry import Point
 from pkg_resources import resource_filename
 from rasterio.crs import CRS
 from shapely import wkt
@@ -53,79 +55,31 @@ def test_search(catalog):
         assert tiles == expected
 
 
-def test_download(catalog, monkeypatch):
-    tile = "W020N20"
-
-    # mock requests iter_content method so that file content
-    # is not downloaded.
-    # nb: a header request is still sent.
-    def mockreturn(self, chunk_size):
-        return [b"", b"", b""]
-
-    monkeypatch.setattr(requests.Response, "iter_content", mockreturn)
-
-    with TemporaryDirectory() as tmpdir:
-        f = catalog.download(
-            tile=tile,
-            label="BuiltUp",
-            output_dir=tmpdir,
-            year=2019,
-            show_progress=False,
-        )
-        f = os.path.basename(f)
-        assert f.startswith(tile) and f.endswith(".tif")
-        assert "BuiltUp" in f and "2019" in f
-
-
-def test_download_all(catalog, monkeypatch):
-    tile = "W020N20"
-
-    # mock requests iter_content method so that file content
-    # is not downloaded.
-    # nb: a header request is still sent.
-    def mockreturn(self, chunk_size):
-        return [b"", b"", b""]
-
-    monkeypatch.setattr(requests.Response, "iter_content", mockreturn)
-
-    with TemporaryDirectory() as tmpdir:
-        catalog.download_all(
-            tile=tile,
-            output_dir=tmpdir,
-            year=2019,
-            show_progress=False,
-        )
-        for label in catalog.LABELS:
-            assert glob(os.path.join(tmpdir, f"*{label}*.tif"))
+def test_download(catalog):
+    # dummy geometry covering 4 different CGLC tiles
+    geom = Point(20, 0).buffer(0.1)
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+        dst_file = os.path.join(tmp_dir, "tree.tif")
+        catalog.download(geom=geom, label="Tree", dst_file=dst_file, year=2019)
+        with rasterio.open(dst_file) as src:
+            data = src.read(1, masked=True)
+            assert data.min() >= 0
+            assert data.max() <= 100
+            assert data.shape == (201, 201)
 
 
 def test_preprocess(catalog):
-    # use geometry from D.R. Congo
-    with open(resource_filename(__name__, "data/cod.wkt")) as f:
-        geom = wkt.load(f)
-    with TemporaryDirectory() as tmpdir:
-        # reproject to 10km pixel sizes for faster processing
-        cglc.preprocess(
-            input_dir=os.path.join(resource_filename(__name__, "data/cglc")),
-            dst_dir=tmpdir,
-            geom=geom,
-            crs=CRS.from_epsg(3857),
-            res=10000,
-            overwrite=False,
-        )
+    src_dir = resource_filename(__name__, "data/cglc-raw-data")
+    print(src_dir)
+    geom = Point(20, 0).buffer(0.1)
+    crs = CRS.from_epsg(3857)
+    res = 500
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+        cglc.preprocess(src_dir, tmp_dir, geom, crs, res)
         for label in catalog.LABELS:
-            # check that raster exists
-            ls = glob(os.path.join(tmpdir, f"*{label}*.tif"))
-            assert ls
-            with rasterio.open(ls[0]) as src:
-                # check raster metadata
-                assert src.crs == CRS.from_epsg(3857)
-                assert src.nodata == -9999
-                assert src.dtypes[0] == "float32"
+            src_file = os.path.join(tmp_dir, f"landcover_{label}.tif")
+            with rasterio.open(src_file) as src:
+                assert src.crs == crs
                 data = src.read(1, masked=True)
-                # values should be between 0 and 100 as they are percentages
                 assert data.min() >= 0
                 assert data.max() <= 100
-                # at least 25% of non-null pixels
-                h, w = data.shape
-                assert np.count_nonzero(data) / (h * w) >= 0.25

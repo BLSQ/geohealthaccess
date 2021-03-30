@@ -2,6 +2,7 @@ import os
 from tempfile import TemporaryDirectory
 
 import numpy as np
+import rasterio
 from rasterio.crs import CRS
 from rasterio.warp import transform_bounds
 import requests
@@ -189,7 +190,7 @@ class CGLC:
         logger.info(f"{len(tiles)} tiles required to cover the input geometry.")
         return tiles
 
-    def download(
+    def download_(
         self, tile, label, output_dir, year=2019, show_progress=True, overwrite=False
     ):
         """Download a CGLC tile.
@@ -219,21 +220,95 @@ class CGLC:
             self.session, url, output_dir, show_progress, overwrite
         )
 
-    def download_all(
-        self, tile, output_dir, year=2019, show_progress=True, overwrite=False
-    ):
-        """Download all land cover layers in a tile.
+    def download(self, geom, label, dst_file, year=2019, overwrite=False):
+        """Download data from a single or multiple CGLC tiles.
+
+        CGLC tiles are hosted as Cloud Optimized GeoTIFFs, allowing us to avoid
+        downloading data outside of `geom`.
+
+        Notes
+        -----
+        The function supports S3 or GCS URLs for `dst_file`.
+
+        Parameters
+        ----------
+        geom : shapely geometry
+            Data outside the boundaries of `geom` will not be downloaded.
+        label : str
+            Land cover label.
+        dst_file : str
+            Path to output raster.
+        year : int, optional
+            Epoch (between 2015 and 2019). Default=2019.
+        overwrite : bool, optional
+            Force overwrite of existing files.
+
+        Returns
+        -------
+        str
+            Path to output GeoTIFF.
+        """
+        if storage.exists(dst_file) and not overwrite:
+            if overwrite:
+                logger.info(f"Removing old {os.path.basename(dst_file)} file.")
+                storage.rm(dst_file)
+            else:
+                logger.info(
+                    f"{os.path.basename(dst_file)} already exists. Skipping download."
+                )
+                return dst_file
+
+        tiles = self.search(geom)
+        for i, tile in enumerate(tiles):
+            url = self.download_url(tile, label, year)
+            with rasterio.open(url) as src:
+                profile = src.profile
+                win = src.window(*geom.bounds)
+                transform = src.window_transform(win)
+                if i == 0:
+                    shape = (
+                        len(tiles),
+                        win.round_lengths().height,
+                        win.round_lengths().width,
+                    )
+                    data = np.empty(shape, dtype=np.uint8)
+                data[i, :, :] = src.read(
+                    1, masked=True, boundless=True, window=win
+                ).astype(np.uint8)
+
+        # merge tiles
+        # we temporarily use -1 as nodata value to make sure
+        # the 255 value is ignored in the max operation
+        data = data.astype(np.int16)
+        data[data == 255] = -1
+        mosaic = np.max(data, axis=0)
+        mosaic[mosaic == -1] = 255
+        mosaic = mosaic.astype(np.uint8)
+
+        with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+            dst_file_tmp = os.path.join(tmp_dir, "cglc.tif")
+            profile.update(
+                transform=transform, height=data.shape[1], width=data.shape[2]
+            )
+            with rasterio.open(dst_file_tmp, "w", **profile) as dst:
+                dst.write(mosaic, 1)
+            storage.cp(dst_file_tmp, dst_file)
+
+        return dst_file
+
+    def download_all(self, geom, output_dir, year=2019, overwrite=False):
+        """Download all land cover layers for a given geometry.
 
         Parameters
         ----------
         tile : str
             Tile name (e.g. E020N60).
+        geom : shapely geometry
+            Area of interest.
         output_dir : str
             Path to output directory.
         year : int, optional
             Epoch (between 2015 and 2019). Default=2019.
-        show_progress : bool, optional
-            Show download progress bar.
         overwrite : bool, optional
             Force overwrite of existing files.
 
@@ -243,11 +318,11 @@ class CGLC:
             List of output files.
         """
         files = []
-        os.makedirs(output_dir, exist_ok=True)
+        storage.mkdir(output_dir)
         for label in self.LABELS:
-            files.append(
-                self.download(tile, label, output_dir, year, show_progress, overwrite)
-            )
+            logger.info(f"Downloading `{label}` land cover data.")
+            dst_file = os.path.join(output_dir, f"landcover_{label}.tif")
+            files.append(self.download(geom, label, dst_file, year, overwrite))
         return files
 
     def download_size(self, tile, label, year=2019):
@@ -271,7 +346,7 @@ class CGLC:
         return size_from_url(self.session, url)
 
 
-def preprocess(input_dir, dst_dir, geom, crs, res, overwrite=False):
+def preprocess(src_dir, dst_dir, geom, crs, res, overwrite=False):
     """Process land cover tiles into a new grid.
 
     Raw land cover tiles are merged and reprojected to the grid identified
@@ -280,18 +355,18 @@ def preprocess(input_dir, dst_dir, geom, crs, res, overwrite=False):
 
     Parameters
     ----------
-    input_dir : str
+    src_dir : str
         Path to directory where land cover tiles are stored.
     dst_dir : str
         Path to output directory.
-    geom : shapely geometry, optional
+    geom : shapely geometry
         Area of interest. Used to create a nodata mask.
     crs : CRS
         Target CRS.
     res : int or float
         Target spatial resolution in `crs` units.
     overwrite : bool, optional
-        Overwrite existing files.
+        Overwrite existing files. Default=False.
 
     Returns
     -------
@@ -301,27 +376,27 @@ def preprocess(input_dir, dst_dir, geom, crs, res, overwrite=False):
     bounds = transform_bounds(CRS.from_epsg(4326), crs, *geom.bounds)
     lc = CGLC()
     for label in lc.LABELS:
-        dst_file = os.path.join(dst_dir, f"{label}.tif")
+        src_file = os.path.join(src_dir, f"landcover_{label}.tif")
+        dst_file = os.path.join(dst_dir, f"landcover_{label}.tif")
         if storage.exists(dst_file) and not overwrite:
             logger.info(f"Land cover {label} already preprocessed. Skipping.")
-            return dst_dir
+            continue
         with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
-            tmp_f = os.path.join(tmp_dir, f"{label}_merged.tif")
-            tiles = storage.glob(os.path.join(input_dir, f"*LC100*{label}*.tif"))
-            merged_tiles = merge_tiles(tiles, tmp_f, nodata=255)
-            tmp_f = os.path.join(tmp_dir, f"{label}_reproj.tif")
-            reproj = reproject(
-                merged_tiles,
-                tmp_f,
+            src_file_tmp = os.path.join(tmp_dir, f"landcover_{label}.tif")
+            storage.cp(src_file, src_file_tmp)
+            dst_file_tmp = os.path.join(tmp_dir, f"landcover_{label}_reproj.tif")
+            dst_file_tmp = reproject(
+                src_file_tmp,
+                dst_file_tmp,
                 dst_crs=crs,
                 dst_bounds=bounds,
                 dst_res=res,
+                src_nodata=255,
                 dst_nodata=-9999,
                 dst_dtype="Float32",
                 resampling_method="bilinear",
                 overwrite=overwrite,
             )
-            if geom:
-                masked = mask_raster(reproj, geom)
-            storage.cp(masked, os.path.join(dst_dir, f"{label}.tif"))
+            mask_raster(dst_file_tmp, geom)
+            storage.cp(dst_file_tmp, dst_file)
     return dst_dir
