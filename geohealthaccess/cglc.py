@@ -9,8 +9,7 @@ import requests
 from loguru import logger
 
 from geohealthaccess import storage
-from geohealthaccess.preprocessing import merge_tiles, reproject, mask_raster
-from geohealthaccess.utils import download_from_url, size_from_url
+from geohealthaccess.preprocessing import reproject, mask_raster
 
 logger.disable("__name__")
 
@@ -190,36 +189,6 @@ class CGLC:
         logger.info(f"{len(tiles)} tiles required to cover the input geometry.")
         return tiles
 
-    def download_(
-        self, tile, label, output_dir, year=2019, show_progress=True, overwrite=False
-    ):
-        """Download a CGLC tile.
-
-        Parameters
-        ----------
-        tile : str
-            Tile name (e.g. E020N60).
-        label : str
-            Land cover label.
-        output_dir : str
-            Path to output directory.
-        year : int, optional
-            Epoch (between 2015 and 2019). Default=2019.
-        show_progress : bool, optional
-            Show download progress bar.
-        overwrite : bool, optional
-            Force overwrite of existing files.
-
-        Returns
-        -------
-        str
-            Path to output file.
-        """
-        url = self.download_url(tile, label, year)
-        return download_from_url(
-            self.session, url, output_dir, show_progress, overwrite
-        )
-
     def download(self, geom, label, dst_file, year=2019, overwrite=False):
         """Download data from a single or multiple CGLC tiles.
 
@@ -324,26 +293,6 @@ class CGLC:
             dst_file = os.path.join(output_dir, f"landcover_{label}.tif")
             files.append(self.download(geom, label, dst_file, year, overwrite))
         return files
-
-    def download_size(self, tile, label, year=2019):
-        """Get download size of a tile.
-
-        Parameters
-        ----------
-        tile : str
-            Tile name (e.g. E020N60).
-        label : str
-            Land cover label.
-        year : int, optional
-            Epoch (between 2015 and 2019). Default=2019.
-
-        Returns
-        -------
-        int
-            Size in bytes.
-        """
-        url = self.download_url(tile, label, year)
-        return size_from_url(self.session, url)
 
 
 def preprocess(src_dir, dst_dir, geom, crs, res, overwrite=False):
