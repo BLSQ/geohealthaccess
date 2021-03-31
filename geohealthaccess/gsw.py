@@ -26,15 +26,19 @@ References
 """
 
 import itertools
+import os
+from tempfile import TemporaryDirectory
 
 import geopandas as gpd
-from loguru import logger
 import requests
+from loguru import logger
 from rasterio.crs import CRS
+from rasterio.warp import transform_bounds
 from shapely.geometry import Polygon
 
+from geohealthaccess import storage
+from geohealthaccess.preprocessing import mask_raster, merge_tiles, reproject
 from geohealthaccess.utils import download_from_url, size_from_url
-
 
 logger.disable("__name__")
 
@@ -212,3 +216,70 @@ class GSW:
         """
         url = self.url(tile, product)
         return size_from_url(self.session, url)
+
+
+def preprocess(src_dir, dst_file, dst_crs, dst_res, geom, overwrite=False):
+    """Preprocess SRTM elevation data.
+
+    Creates a surface water raster from Global Surface Water tiles.
+    Parameters
+    ----------
+    src_dir : str
+        Path to directory where GSW tiles are stored.
+    dst_file : str
+        Path to output raster.
+    dst_crs : CRS
+        Target coordinate reference system as a rasterio CRS object.
+    dst_res : int or float
+        Target spatial resolution in `dst_crs` units.
+    geom : shapely geometry
+        Area of interest (EPSG:4326).
+    overwrite : bool, optional
+        Overwrite existing files.
+
+    Returns
+    -------
+    str
+        Path to outptut raster.
+    """
+    if storage.exists(dst_file) and not overwrite:
+        logger.info(
+            f"{os.path.basename(dst_file)} already exists. Skipping processing."
+        )
+        return dst_file
+
+    tiles = storage.glob(os.path.join(src_dir, "*.tif"))
+    dst_bounds = transform_bounds(CRS.from_epsg(4326), dst_crs, *geom.bounds)
+
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        # Make a local copy of all tiles
+        for tile in tiles:
+            storage.cp(tile, os.path.join(tmp_dir, os.path.basename(tile)))
+
+        # Merge tiles if necessary
+        tiles = storage.glob(os.path.join(tmp_dir, "*.tif"))
+        if len(tiles) > 1:
+            mosaic = merge_tiles(tiles, os.path.join(tmp_dir, "mosaic.tif"), nodata=255)
+        else:
+            mosaic = tiles[0]
+
+        # Reproject
+        dst_tmp = reproject(
+            src_raster=mosaic,
+            dst_raster=os.path.join(tmp_dir, "surface_water.tif"),
+            dst_crs=dst_crs,
+            dst_bounds=dst_bounds,
+            dst_res=dst_res,
+            src_nodata=255,
+            dst_nodata=255,
+            dst_dtype="Byte",
+            resampling_method="max",
+        )
+
+        # Assign nodata to pixels outside boundaries
+        dst_tmp = mask_raster(dst_tmp, geom)
+
+        storage.cp(dst_tmp, dst_file)
+
+    return dst_file
