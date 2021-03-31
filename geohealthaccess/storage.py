@@ -70,7 +70,9 @@ def get_s3fs():
     if not has_s3fs:
         raise ImportError("s3fs library is required when using s3 urls.")
     return s3fs.S3FileSystem(
-        client_kwargs={"endpoint_url": os.getenv("S3_ENDPOINT_URL"),},
+        client_kwargs={
+            "endpoint_url": os.getenv("S3_ENDPOINT_URL"),
+        },
     )
 
 
