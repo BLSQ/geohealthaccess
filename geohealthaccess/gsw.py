@@ -274,7 +274,7 @@ def preprocess(src_dir, dst_file, dst_crs, dst_res, geom, overwrite=False):
             src_nodata=255,
             dst_nodata=255,
             dst_dtype="Byte",
-            resampling_method="max",
+            resampling_method="med",
         )
 
         # Assign nodata to pixels outside boundaries
