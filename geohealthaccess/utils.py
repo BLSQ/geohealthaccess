@@ -5,6 +5,8 @@ import os
 from tempfile import TemporaryDirectory
 import zipfile
 from urllib.parse import urlparse
+import random
+import string
 
 from loguru import logger
 from pkg_resources import resource_string
@@ -273,3 +275,8 @@ def unzip_all(src_dir, remove_archives=False):
         progress.update(1)
     progress.close()
     return src_dir
+
+
+def random_string(length=16):
+    chars = string.ascii_lowercase + string.ascii_uppercase + string.digits
+    return "".join(random.choice(chars) for i in range(length))
