@@ -1,15 +1,15 @@
 {
     "land-cover": {
-        "bare": 3.00,
-        "crops": 2.50,
-        "grass": 4.86,
-        "moss": 4.86,
-        "shrub": 3.00,
-        "snow": 1.62,
-        "tree": 4.00,
-        "urban": 5.00,
-        "water-permanent": 0.00,
-        "water-seasonal": 0.5
+        "Bare": 3.00,
+        "Crops": 2.50,
+        "Grass": 4.86,
+        "MossLichen": 4.86,
+        "Shrub": 3.00,
+        "Snow": 1.62,
+        "Tree": 4.00,
+        "BuiltUp": 5.00,
+        "PermanentWater": 0.00,
+        "SeasonalWater": 0.5
     },
     "transport": {
         "highway": {
