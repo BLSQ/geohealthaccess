@@ -233,13 +233,11 @@ class CGLC:
             with rasterio.open(url) as src:
                 profile = src.profile
                 win = src.window(*geom.bounds)
-                transform = src.window_transform(win)
+                win = win.round_offsets(op="floor")
+                win = win.round_shape(op="ceil")
+                transform = rasterio.windows.transform(win, src.transform)
                 if i == 0:
-                    shape = (
-                        len(tiles),
-                        win.round_lengths().height,
-                        win.round_lengths().width,
-                    )
+                    shape = (len(tiles), win.height, win.width)
                     data = np.empty(shape, dtype=np.uint8)
                 data[i, :, :] = src.read(
                     1, masked=True, boundless=True, window=win
