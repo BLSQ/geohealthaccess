@@ -7,6 +7,7 @@ import requests
 from loguru import logger
 from rasterio.crs import CRS
 from rasterio.warp import transform_bounds
+from tqdm import tqdm
 
 from geohealthaccess import storage
 from geohealthaccess.preprocessing import mask_raster, reproject
@@ -263,7 +264,9 @@ class CGLC:
 
         return dst_file
 
-    def download_all(self, geom, output_dir, year=2019, overwrite=False):
+    def download_all(
+        self, geom, output_dir, year=2019, show_progress=True, overwrite=False
+    ):
         """Download all land cover layers for a given geometry.
 
         Parameters
@@ -276,6 +279,8 @@ class CGLC:
             Path to output directory.
         year : int, optional
             Epoch (between 2015 and 2019). Default=2019.
+        show_progress : bool, optional
+            Show progress bar.
         overwrite : bool, optional
             Force overwrite of existing files.
 
@@ -286,10 +291,18 @@ class CGLC:
         """
         files = []
         storage.mkdir(output_dir)
+
+        if show_progress:
+            pbar = tqdm(total=len(self.LABELS), desc="land cover")
+
         for label in self.LABELS:
             logger.info(f"Downloading `{label}` land cover data.")
             dst_file = os.path.join(output_dir, f"landcover_{label}.tif")
             files.append(self.download(geom, label, dst_file, year, overwrite))
+            if show_progress:
+                pbar.update(1)
+
+        pbar.close()
         return files
 
 
