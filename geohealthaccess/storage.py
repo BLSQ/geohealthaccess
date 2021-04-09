@@ -424,7 +424,7 @@ def _check_mtimes(src_path, dst_path):
 def _no_ending_slash(path):
     """Remove ending slash of a directory path if necessary."""
     if path.endswith("/"):
-        return path[-1]
+        return path[:-1]
     else:
         return path
 
