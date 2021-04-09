@@ -222,6 +222,7 @@ class GeoHealthAccess:
             "shape": self.shape,
             "area": self.area_of_interest.wkt,
             "bounds": self.bounds,
+            "resolution": self.resolution,
         }
         with open(os.path.join(self.input_dir, "meta.json"), "w") as dst:
             json.dump(meta, dst)
@@ -231,10 +232,12 @@ class GeoHealthAccess:
         with open(os.path.join(self.input_dir, "meta.json")) as f:
             meta = json.load(f)
         self.transform = rasterio.Affine.from_gdal(*meta["transform"])
+        self.resolution = int(meta["resolution"])
         self.crs = rasterio.crs.CRS.from_string(meta["crs"])
         self.shape = tuple(meta["shape"])
         self.area_of_interest = wkt.loads(meta["area"])
         self.bounds = tuple(meta["bounds"])
+        self.mask = self.compute_mask()
 
     def load_moving_speeds(self, fp=None):
         """Load moving speeds from a JSON file.
