@@ -1,168 +1,295 @@
 """Tests for storage module.
 
-These tests rely on a local S3-compatible setup such as Minio [1].
-Example setup::
+Notes
+-----
+These tests rely on a local S3-compatible setup with Minio.
+
+Installation::
 
     # download minio binary
     wget https://dl.min.io/server/minio/release/darwin-amd64/minio
     chmod +x minio
 
-    # copy test data
-    mkdir -p /minio
-    cp -r \
-        /app/geohealthaccess/tests/data/dji-test-data \
-        /minio/dji
-
-    # run local minio server
-    ./minio server /tmp/minio
-
-References
-----------
-.. [1] `<https://github.com/minio/minio>`_
+    # put minio executable somewhere in $PATH
 """
 
 import os
+import shutil
+import subprocess
+from contextlib import contextmanager
 from tempfile import TemporaryDirectory
 
+import psutil
 import pytest
+import s3fs
 from pkg_resources import resource_filename
 
 from geohealthaccess import storage
-from geohealthaccess.storage import Location
 
 
-@pytest.mark.parametrize(
-    "location, protocol, path",
-    [
-        ("/data/output/cost.tif", "local", "/data/output/cost.tif"),
-        ("../input/", "local", "../input/"),
-        ("s3://my-bucket/data/cost.tif", "s3", "my-bucket/data/cost.tif"),
-        ("gcs://my-bucket/data/input/", "gcs", "my-bucket/data/input/"),
-    ],
-)
-def test_storage_location(location, protocol, path):
-    loc = Location(location)
-    assert loc.protocol == protocol
-    assert loc.path == path
+@contextmanager
+def minio_serve(data_dir):
+    """A Context Manager to launch and close a Minio server."""
+    p = subprocess.Popen(["minio", "server", "--address", ":9001", data_dir])
+    try:
+        yield p
+    finally:
+        psutil.Process(p.pid).kill()
+
+
+def _minio_available():
+    """Check if Minio command is available."""
+    return bool(shutil.which("minio"))
+
+
+# A decorator to skip tests if minio is not running
+minio = pytest.mark.skipif(not _minio_available(), reason="requires minio")
 
 
 @pytest.fixture
-def local_s3(monkeypatch):
-    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "minioadmin")
-    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "minioadmin")
-    monkeypatch.setenv("S3_ENDPOINT_URL", "http://127.0.0.1:9000")
-    monkeypatch.setenv("AWS_DEFAULT_REGION", "")
+def mock_s3fs(monkeypatch):
+    """Mock storage.get_s3fs() to use local Minio server."""
 
-
-LOCAL_DIR = resource_filename(__name__, "data/dji-test-data")
-S3_DIR = "s3://geohealthaccess-tests/dji"
-
-
-def test_ls(local_s3):
-
-    local = storage.ls(LOCAL_DIR)
-    remote = storage.ls(S3_DIR)
-    assert "aoi.wkt" in local and "aoi.wkt" in remote
-
-
-def test_cp(local_s3):
-
-    # cp to s3
-    src = resource_filename(__name__, "data/madagascar.wkt")
-    dst = os.path.join(S3_DIR, "test", "madagascar.wkt")
-    storage.cp(src, dst)
-    assert "madagascar.wkt" in storage.ls(os.path.dirname(dst))
-
-    # cp from s3
-    src = dst
-    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
-        dst = os.path.join(tmp_dir, "madagascar.wkt")
-        storage.cp(src, dst)
-        assert "madagascar.wkt" in os.listdir(tmp_dir)
-
-
-def test_rm(local_s3):
-
-    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
-        src = resource_filename(__name__, "data/madagascar.wkt")
-        dst = os.path.join(tmp_dir, "madagascar.wkt")
-        storage.cp(src, dst)
-        storage.rm(dst)
-        assert "madagascar.wkt" not in os.listdir(tmp_dir)
-
-    # cp to s3
-    src = resource_filename(__name__, "data/madagascar.wkt")
-    dst = os.path.join(S3_DIR, "test", "madagascar.wkt")
-    storage.cp(src, dst)
-    assert "madagascar.wkt" in storage.ls(os.path.dirname(dst))
-    storage.rm(dst)
-    assert "madagascar.wkt" not in storage.ls(os.path.dirname(dst))
-
-
-def test_exists(local_s3):
-
-    local = resource_filename(__name__, "data/madagascar.wkt")
-    remote = os.path.join(S3_DIR, "aoi.wkt")
-    assert storage.exists(local)
-    assert not storage.exists(local + "xxx")
-    assert storage.exists(remote)
-    assert not storage.exists(remote + "xxx")
-
-
-def test_size(local_s3):
-
-    local = os.path.join(LOCAL_DIR, "gadm.gpkg")
-    remote = os.path.join(S3_DIR, "gadm.gpkg")
-    assert storage.size(local) == storage.size(remote) == 147456
-
-
-def test_glob(local_s3):
-
-    files = storage.glob(S3_DIR + "/input/*.tif")
-    assert len(files) == 15
-    for f in files:
-        assert f.startswith("s3://")
-        assert f.endswith(".tif")
-
-
-def test_open_(local_s3):
-
-    with storage.open_(S3_DIR + "/input/meta.json") as f:
-        assert "dji" in f.read()
-
-
-def test_recursive_download(local_s3):
-
-    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
-        remote_dir = S3_DIR + "/output"
-        storage.recursive_download(remote_dir, tmp_dir, show_progress=False)
-        fp = os.path.join(tmp_dir, "walk", "cost.tif")
-        print([f for f in os.walk(tmp_dir)])
-        assert os.path.isfile(fp)
-        mtime = os.path.getmtime(fp)
-        storage.recursive_download(
-            remote_dir, tmp_dir, show_progress=False, overwrite=False
+    def mockreturn():
+        return s3fs.S3FileSystem(
+            key="minioadmin",
+            secret="minioadmin",
+            client_kwargs={"endpoint_url": "http://localhost:9001"},
         )
-        assert os.path.getmtime(fp) == mtime
-        storage.recursive_download(
-            remote_dir, tmp_dir, show_progress=False, overwrite=True
-        )
-        assert os.path.getmtime(fp) != mtime
+
+    monkeypatch.setattr(storage, "get_s3fs", mockreturn)
 
 
-def test_recursive_upload(local_s3):
+def test_storage_location():
 
-    local_dir = os.path.join(LOCAL_DIR, "output")
-    remote_dir = S3_DIR + "/test/output"
-    fp = remote_dir + "/walk/cost.tif"
+    loc = storage.Location("/data/output/cost.tif")
+    assert loc.protocol == "local"
+    assert loc.path == "/data/output/cost.tif"
 
-    for f in storage.find(remote_dir):
-        storage.rm(f)
+    loc = storage.Location("../input/")
+    assert loc.protocol == "local"
+    assert loc.path == "../input/"
 
-    storage.recursive_upload(local_dir, remote_dir, show_progress=False)
-    assert storage.exists(fp)
-    mtime = storage.mtime(fp)
-    storage.recursive_upload(
-        local_dir, remote_dir, show_progress=False, overwrite=False
-    )
-    assert storage.mtime(fp) == mtime
+    loc = storage.Location("s3://bucket/data/cost.tif")
+    assert loc.protocol == "s3"
+    assert loc.path == "bucket/data/cost.tif"
+
+    loc = storage.Location("gcs://bucket/data/input/")
+    assert loc.protocol == "gcs"
+    assert loc.path == "bucket/data/input/"
+
+
+@minio
+def test_ls(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+        test_data_dir = resource_filename(__name__, "data/com-test-data/input")
+        shutil.copytree(test_data_dir, os.path.join(tmp_dir, "bucket", "input"))
+
+        with minio_serve(tmp_dir):
+            ls_local = storage.ls(test_data_dir)
+            ls_remote = storage.ls("s3://bucket/input")
+
+    assert sorted(ls_local) == sorted(ls_remote)
+
+
+@minio
+def test_cp(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+        os.makedirs(os.path.join(tmp_dir, "bucket2"))
+        test_data_dir = resource_filename(__name__, "data/com-test-data/input")
+        shutil.copytree(test_data_dir, os.path.join(tmp_dir, "bucket", "input"))
+
+        with minio_serve(tmp_dir):
+
+            # from local to s3
+            src = os.path.join(test_data_dir, "elevation.tif")
+            dst = "s3://bucket/input/elevation.tif"
+            storage.cp(src, dst)
+            assert os.path.isfile(os.path.join(tmp_dir, "bucket/input/elevation.tif"))
+
+            # from s3 to local
+            dst2 = os.path.join(tmp_dir, "elevation.tif")
+            storage.cp(dst, dst2)
+            assert os.path.isfile(dst2)
+            assert os.path.getsize(src) == os.path.getsize(dst2)
+
+            # from s3 to s3
+            dst3 = "s3://bucket2/elevation.tif"
+            storage.cp(dst, dst3)
+            assert os.path.isfile(os.path.join(tmp_dir, "bucket2/elevation.tif"))
+
+
+@minio
+def test_rm(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+        test_data_dir = resource_filename(__name__, "data/com-test-data/input")
+        shutil.copytree(test_data_dir, os.path.join(tmp_dir, "bucket", "input"))
+
+        with minio_serve(tmp_dir):
+
+            # local
+            src1 = os.path.join(tmp_dir, "bucket/input/elevation.tif")
+            storage.rm(src1)
+            assert not os.path.isfile(src1)
+
+            # s3
+            src2 = "s3://bucket/input/health.gpkg"
+            storage.rm(src2)
+            assert not os.path.isfile(os.path.join(tmp_dir, "bucket/input/health.gpkg"))
+
+
+@minio
+def test_exists(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+        test_data_dir = resource_filename(__name__, "data/com-test-data/input")
+        shutil.copytree(test_data_dir, os.path.join(tmp_dir, "bucket", "input"))
+
+        with minio_serve(tmp_dir):
+
+            # local
+            src1 = os.path.join(test_data_dir, "elevation.tif")
+            assert storage.exists(src1)
+            assert not storage.exists(src1 + "xxx")
+
+            # s3
+            src2 = "s3://bucket/input/elevation.tif"
+            assert storage.exists(src2)
+            assert not storage.exists(src2 + "xxx")
+
+
+@minio
+def test_size(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+        test_data_dir = resource_filename(__name__, "data/com-test-data/input")
+        shutil.copytree(test_data_dir, os.path.join(tmp_dir, "bucket", "input"))
+
+        with minio_serve(tmp_dir):
+
+            # local
+            src1 = os.path.join(test_data_dir, "elevation.tif")
+            assert storage.size(src1) == 4365
+
+            # s3
+            src2 = "s3://bucket/input/elevation.tif"
+            assert storage.size(src2) == 4365
+
+
+@pytest.mark.skip(reason="issue with timezones")
+@minio
+def test_mtime(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+        test_data_dir = resource_filename(__name__, "data/com-test-data/input")
+        shutil.copytree(test_data_dir, os.path.join(tmp_dir, "bucket", "input"))
+
+        with minio_serve(tmp_dir):
+
+            src1 = os.path.join(tmp_dir, "bucket/input/elevation.tif")
+            src2 = "s3://bucket/input/elevation.tif"
+            assert storage.mtime(src1) == storage.mtime(src2) == os.path.getmtime(src1)
+
+
+@minio
+def test_open_(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+        test_data_dir = resource_filename(__name__, "data/com-test-data/input")
+        shutil.copytree(test_data_dir, os.path.join(tmp_dir, "bucket", "input"))
+
+        with minio_serve(tmp_dir):
+
+            with storage.open_(os.path.join(test_data_dir, "meta.json")) as f:
+                assert "com" in f.read()
+
+            with storage.open_("s3://bucket/input/meta.json") as f:
+                assert "com" in f.read()
+
+
+@minio
+def test_check_sizes(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+        test_data_dir = resource_filename(__name__, "data/com-test-data/input")
+        shutil.copytree(test_data_dir, os.path.join(tmp_dir, "bucket", "input"))
+
+        with minio_serve(tmp_dir):
+
+            src1 = os.path.join(tmp_dir, "bucket/input/elevation.tif")
+            src2 = "s3://bucket/input/elevation.tif"
+            assert storage._check_sizes(src1, src2)
+
+
+@pytest.mark.skip(reason="issue with timezones")
+@minio
+def test_check_mtimes(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+        test_data_dir = resource_filename(__name__, "data/com-test-data/input")
+        shutil.copytree(test_data_dir, os.path.join(tmp_dir, "bucket", "input"))
+
+        with minio_serve(tmp_dir):
+
+            src1 = os.path.join(tmp_dir, "bucket/input/elevation.tif")
+            src2 = "s3://bucket/input/elevation.tif"
+            assert not storage._check_mtimes(src1, src2)
+
+
+def test_no_ending_slash():
+    assert storage._no_ending_slash("/data/input/") == "/data/input"
+    assert storage._no_ending_slash("/data/input") == "/data/input"
+
+
+@minio
+def test_recursive_download(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+        test_data_dir = resource_filename(__name__, "data/com-test-data/raw")
+        shutil.copytree(test_data_dir, os.path.join(tmp_dir, "bucket", "raw"))
+
+        with minio_serve(tmp_dir):
+
+            src = "s3://bucket/raw"
+            dst = os.path.join(tmp_dir, "raw-test")
+            storage.recursive_download(src, dst, show_progress=False, overwrite=False)
+            fp = os.path.join(dst, "cglc/landcover_Bare.tif")
+            assert os.path.isfile(fp)
+            mtime = os.path.getmtime(fp)
+
+            # should not be downloaded again
+            storage.recursive_download(src, dst, show_progress=False, overwrite=False)
+            assert os.path.getmtime(fp) == mtime
+
+
+@minio
+def test_recursive_upload(mock_s3fs):
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        os.makedirs(os.path.join(tmp_dir, "bucket"))
+
+        with minio_serve(tmp_dir):
+
+            src = resource_filename(__name__, "data/com-test-data/raw")
+            dst = "s3://bucket/raw"
+            storage.recursive_upload(src, dst, show_progress=False, overwrite=False)
+            fp = os.path.join(tmp_dir, "raw/cglc/landcover_Bare.tif")
+            assert os.path.isfile(fp)
+            mtime = os.path.getmtime(fp)
+
+            # should not be uploaded again
+            storage.recursive_upload(src, dst, show_progress=False, overwrite=False)
+            assert os.path.getmtime(fp) == mtime
