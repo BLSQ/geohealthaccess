@@ -257,15 +257,16 @@ def access(
             pop = gha.population_counts(areas)
             pop_time = gha.accessibility_stats(cost, areas)
 
-            areas = areas.join(pop.rename("population").round().astype(int))
+            report = areas.copy()
+            report = report.join(pop.rename("population").round().astype(int))
 
             for mn, count in pop_time.items():
-                areas = areas.join(
+                report = report.join(
                     count.rename(f"population_{mn}mn").round().astype(int)
                 )
-                areas[f"population_{mn}mn_ratio"] = (
-                    areas[f"population_{mn}mn"] / areas["population"]
+                report[f"population_{mn}mn_ratio"] = (
+                    report[f"population_{mn}mn"] / report["population"]
                 ).round(4)
 
-            areas.to_file(os.path.join(dst_dir, "areas.gpkg"), driver="GPKG")
-            areas.drop(["geometry"], axis=1).to_csv("areas.csv", index=False)
+            report.to_file(os.path.join(dst_dir, "areas.gpkg"), driver="GPKG")
+            report.drop(["geometry"], axis=1).to_csv("areas.csv", index=False)
