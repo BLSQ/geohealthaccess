@@ -269,4 +269,6 @@ def access(
                 ).round(4)
 
             report.to_file(os.path.join(dst_dir, "areas.gpkg"), driver="GPKG")
-            report.drop(["geometry"], axis=1).to_csv("areas.csv", index=False)
+            report.drop(["geometry"], axis=1).to_csv(
+                os.path.join(dst_dir, "areas.csv"), index=False
+            )
