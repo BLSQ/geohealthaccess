@@ -1,28 +1,14 @@
 """Tests for CLI."""
 
 import os
-from tempfile import TemporaryDirectory
 from glob import glob
-from pkg_resources import resource_filename
-import requests
+from tempfile import TemporaryDirectory
 
 import pytest
 from click.testing import CliRunner
+from pkg_resources import resource_filename
 
 from geohealthaccess.cli import cli
-
-
-def _minio_is_running():
-    """Check that a Minio instance is running."""
-    try:
-        requests.get("http://localhost:9000")
-        return True
-    except requests.ConnectionError:
-        return False
-
-
-# marker to skip tests if minio is not running
-minio = pytest.mark.skipif(not _minio_is_running(), reason="requires minio")
 
 
 def _credentials_set():
