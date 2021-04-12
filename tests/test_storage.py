@@ -54,7 +54,7 @@ def mock_s3fs(monkeypatch):
         return s3fs.S3FileSystem(
             key="minioadmin",
             secret="minioadmin",
-            client_kwargs={"endpoint_url": "http://localhost:9001"},
+            client_kwargs={"endpoint_url": "http://localhost:9001", "region_name": ""},
         )
 
     monkeypatch.setattr(storage, "get_s3fs", mockreturn)
@@ -284,9 +284,9 @@ def test_recursive_upload(mock_s3fs):
         with minio_serve(tmp_dir):
 
             src = resource_filename(__name__, "data/com-test-data/raw")
-            dst = "s3://bucket/raw"
+            dst = "s3://bucket/com-raw"
             storage.recursive_upload(src, dst, show_progress=False, overwrite=False)
-            fp = os.path.join(tmp_dir, "raw/cglc/landcover_Bare.tif")
+            fp = os.path.join(tmp_dir, "bucket/com-raw/cglc/landcover_Bare.tif")
             assert os.path.isfile(fp)
             mtime = os.path.getmtime(fp)
 
