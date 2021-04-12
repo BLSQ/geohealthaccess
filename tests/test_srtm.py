@@ -11,6 +11,19 @@ from rasterio.crs import CRS
 from shapely.geometry import Point
 
 
+def _credentials_set():
+    """Check that EarthData credentials are set."""
+    user = bool(os.environ.get("EARTHDATA_USERNAME"))
+    pswd = bool(os.environ.get("EARTHDATA_PASSWORD"))
+    return user and pswd
+
+
+# marker to skip tests if earthdata credentials are not set
+earthdata = pytest.mark.skipif(
+    not _credentials_set(), reason="requires earthdata credentials"
+)
+
+
 @pytest.fixture(scope="module")
 def geom():
     """Small geometry that need 4 SRTM tiles to be covered."""
@@ -33,6 +46,7 @@ def test_srtm_search(geom):
 
 
 @pytest.mark.web
+@earthdata
 def test_srtm_download():
     catalog = SRTM()
     catalog.authentify(os.getenv("EARTHDATA_USERNAME"), os.getenv("EARTHDATA_PASSWORD"))

@@ -73,6 +73,7 @@ def test_compute_mask(djibouti):
     assert np.count_nonzero(mask) == pytest.approx(5100, abs=100)
 
 
+@pytest.mark.slow
 def test_preprocessing(djibouti):
 
     djibouti.raw_dir = os.path.join(
