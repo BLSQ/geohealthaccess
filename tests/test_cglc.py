@@ -52,6 +52,7 @@ def test_search(catalog):
 
 
 @pytest.mark.web
+@pytest.mark.slow
 def test_download(catalog):
     # dummy geometry covering 4 different CGLC tiles
     geom = Point(20, 0).buffer(0.1)
@@ -62,11 +63,11 @@ def test_download(catalog):
             data = src.read(1, masked=True)
             assert data.min() >= 0
             assert data.max() <= 100
-            assert data.shape == (201, 201)
+            assert data.shape == (202, 202)
 
 
 def test_preprocess(catalog):
-    src_dir = resource_filename(__name__, "data/com-test-data/raw/cglc")
+    src_dir = resource_filename(__name__, "data/cglc-raw-data")
     geom = Point(20, 0).buffer(0.1)
     crs = CRS.from_epsg(3857)
     res = 500
