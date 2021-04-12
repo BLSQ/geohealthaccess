@@ -32,6 +32,7 @@ def test_srtm_search(geom):
     assert sorted(expected_tiles) == sorted(tiles)
 
 
+@pytest.mark.web
 def test_srtm_download():
     catalog = SRTM()
     catalog.authentify(os.getenv("EARTHDATA_USERNAME"), os.getenv("EARTHDATA_PASSWORD"))
