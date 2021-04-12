@@ -22,7 +22,6 @@ from geohealthaccess import (
     cglc,
     grasshelper,
     gsw,
-    modeling,
     osm,
     srtm,
     storage,
@@ -541,7 +540,7 @@ class GeoHealthAccess:
         features = []
         for _, row in roads.iterrows():
             # Road segments
-            segment_speed = modeling.get_segment_speed(
+            segment_speed = self.segment_speed(
                 row.highway,
                 row.tracktype,
                 row.smoothness,
