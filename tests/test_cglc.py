@@ -51,6 +51,7 @@ def test_search(catalog):
         assert tiles == expected
 
 
+@pytest.mark.web
 def test_download(catalog):
     # dummy geometry covering 4 different CGLC tiles
     geom = Point(20, 0).buffer(0.1)
@@ -65,8 +66,7 @@ def test_download(catalog):
 
 
 def test_preprocess(catalog):
-    src_dir = resource_filename(__name__, "data/cglc-raw-data")
-    print(src_dir)
+    src_dir = resource_filename(__name__, "data/com-test-data/raw/cglc")
     geom = Point(20, 0).buffer(0.1)
     crs = CRS.from_epsg(3857)
     res = 500
