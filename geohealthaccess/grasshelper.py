@@ -4,14 +4,25 @@ This modules includes code from https://github.com/yannforget/shedecides
 
 import os
 import shutil
+import subprocess
 import sys
 
 from loguru import logger
 
-from geohealthaccess.config import find_grass_dir
-
+from geohealthaccess.errors import GrassNotFoundError
 
 logger.disable(__name__)
+
+
+def find_grass_dir():
+    """Try to find GRASS install directory."""
+    if "GISBASE" in os.environ:
+        return os.environ["GISBASE"]
+    p = subprocess.run(["grass", "--config", "path"], capture_output=True)
+    if p.returncode == 0:
+        return p.stdout.decode().strip()
+    else:
+        raise GrassNotFoundError()
 
 
 # Import GRASS python modules

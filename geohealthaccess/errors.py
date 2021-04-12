@@ -15,3 +15,7 @@ class BadDataError(GeoHealthAccessError):
 
 class OsmiumNotFoundError(GeoHealthAccessError):
     """Raised when osmium executable cannot be found."""
+
+
+class GrassNotFoundError(GeoHealthAccessError):
+    """GRASS directory cannot be found."""
