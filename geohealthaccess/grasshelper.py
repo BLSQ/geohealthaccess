@@ -116,7 +116,6 @@ def setup_environment(gisdb, crs):
     """
     LOCATION = "GEOHEALTHACCESS"
     MAPSET = "PERMANENT"
-
     if "GISBASE" not in os.environ:
         os.environ["GISBASE"] = find_grass_dir()
     logger.info(f'GISBASE = {os.environ["GISBASE"]}.')
