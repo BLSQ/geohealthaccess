@@ -272,3 +272,5 @@ def access(
             report.drop(["geometry"], axis=1).to_csv(
                 os.path.join(dst_dir, "areas.csv"), index=False
             )
+
+    gha.upload(show_progress=True, overwrite=overwrite)
