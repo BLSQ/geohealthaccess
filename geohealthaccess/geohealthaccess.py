@@ -182,6 +182,7 @@ class GeoHealthAccess:
         ]
         for remote_dir, local_dir in zip(remote_dirs, local_dirs):
             if remote_dir:
+                logger.info(f"recursive download from '{remote_dir}' to '{local_dir}'")
                 storage.recursive_download(
                     remote_dir,
                     local_dir,
@@ -205,6 +206,7 @@ class GeoHealthAccess:
         ]
         for remote_dir, local_dir in zip(remote_dirs, local_dirs):
             if remote_dir:
+                logger.info(f"recursive upload from '{local_dir}' to '{remote_dir}'")
                 storage.recursive_upload(
                     local_dir,
                     remote_dir,
