@@ -77,7 +77,6 @@ def get_s3fs():
         client_kwargs={
             "endpoint_url": os.getenv("S3_ENDPOINT_URL"),
         },
-        use_listings_cache=False
     )
 
 
