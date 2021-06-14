@@ -252,8 +252,8 @@ def display_map(model_var, month, metric, display_elements):
     
     if 'zone_data' not in display_elements:
         fig.update_traces(hoverinfo="skip", 
-                          hovertemplate=None)
-    
+                          hovertemplate=None,
+                          marker_coloraxis=None)
     
     if 'gha_raster' in display_elements:
         fig.update_layout(
@@ -261,13 +261,38 @@ def display_map(model_var, month, metric, display_elements):
                 {
                 "sourcetype": "raster",
                 "sourceattribution": "Bluesquare",
-                "source": ["https://gha-maps.s3.eu-central-1.amazonaws.com"
-                           "/tiles/{z}/{x}/{y}.png"],
-                "opacity" : 0.4
+                "source": ["https://qgis-server.bluesquare.org"
+                           "/cgi-bin/qgis_mapserv.fcgi?MAP=/home/qgis/projects"
+                           "/GHA_ISO_COST.qgz&service=WMS&request=GetMap&layers"
+                           "=cost_car_iso_f5f38704_ba1e_4a6d_a5ee_fd1752fa9cf3&styles="
+                           "&format=image/png&transparent=true&version=1.1.1&width=256&height=256"
+                           "&srs=EPSG:3857&bbox={bbox-epsg-3857}"],
+                "opacity" : 0.65
 
                 }
             ]
         )
+        
+        colorbar_trace  = go.Scatter(x=[None],
+                                     y=[None],
+                                     mode='markers',
+                                     marker=dict(
+                                         colorscale='greens', 
+                                         showscale=True,
+                                         cmin=-5,
+                                         cmax=5,
+                                         colorbar=dict(tickvals=[-4.8, 4.8], 
+                                                       ticktext=['Low', 'High'], 
+                                                       outlinewidth=0,
+                                                       x=-0.1,
+                                                       xpad=15
+                                                       )
+                                     ),
+                                     hoverinfo='none'
+                                    )
+        
+        fig['layout']['showlegend'] = False
+        fig.add_trace(colorbar_trace)
         
     if 'world_pop' in display_elements:
         fig.update_layout(
@@ -286,10 +311,34 @@ def display_map(model_var, month, metric, display_elements):
             ]
         )
         
+        colorbar_trace  = go.Scatter(x=[None],
+                             y=[None],
+                             mode='markers',
+                             marker=dict(
+                                 colorscale='ylorbr', 
+                                 showscale=True,
+                                 cmin=-5,
+                                 cmax=5,
+                                 colorbar=dict(tickvals=[-4.8, 4.8], 
+                                               ticktext=['Low', 'High'], 
+                                               outlinewidth=0,
+                                               x=-0.1,
+                                               xpad=15
+                                               )
+                             ),
+                             hoverinfo='none'
+                            )
+ 
+        fig['layout']['showlegend'] = False
+        fig.add_trace(colorbar_trace)
+        
+        
     fig.update_coloraxes(colorbar_x=-0.1,
                          colorbar_xpad=15)
     
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    fig.update_yaxes(visible=False, showticklabels=False)
+    fig.update_xaxes(visible=False, showticklabels=False)
     
     return fig
 
@@ -349,5 +398,5 @@ def cum_density_graph(hoverData, month):
     return fig  
 
 if __name__ == '__main__':
-    app.run_server(port=8090, debug=False)
+    app.run_server(port=8090, debug=True)
     
