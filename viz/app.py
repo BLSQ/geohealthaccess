@@ -83,28 +83,25 @@ app = JupyterDash(__name__)
 # app component layout
 app.layout = html.Div(id="app-main", children=[
     
-    dcc.Graph(id="map-main",
-              hoverData={'points': [{'hovertext': 'ks Mikope Zone de Santé'}]}),
-    
     html.Div(id='sidebar', children=[
         
         html.Div(id='ctrls-container', children=[
             html.Div(
                         [
-                        "GHA Variable",
+                        "Travel time to care",
                         dcc.Dropdown(
                             id='model_var', 
                             options=[
                                 {'value': 'Pop30mn', 
-                                 'label': 'Pop within 30 min of care'},
+                                 'label': '30 min'},
                                 {'value': 'Pop60mn', 
-                                 'label': 'Pop within 60 min of care'},
+                                 'label': '60 min'},
                                 {'value': 'Pop90mn', 
-                                 'label': 'Pop within 90 min of care'},
+                                 'label': '90 min'},
                                 {'value': 'Pop120mn', 
-                                 'label': 'Pop within 120 min of care'},
-                                {'value': 'Pop180mn', 'label': 
-                                 'Pop within 180 min of care'}
+                                 'label': '120 min'},
+                                {'value': 'Pop180mn', 
+                                 'label': '180 min'}
                             ],
                             value='Pop30mn',
                             clearable=False
@@ -175,7 +172,10 @@ app.layout = html.Div(id="app-main", children=[
                 ]
             ),
         ]
-    ),     
+    ),  
+    
+    dcc.Graph(id="map-main",
+              hoverData={'points': [{'hovertext': 'ks Mikope Zone de Santé'}]}),   
 ])
 
 # callback and graphing functions
@@ -205,9 +205,9 @@ def display_map(model_var, month, metric, display_elements):
                                    color_continuous_scale="rdbu",
                                    range_color=[0,100],
                                    opacity=zone_opacity,
-                                   center={"lat": -3.8114, "lon":21.6780},
+                                   center={"lat": -4.2514, "lon":20.6780},
                                    mapbox_style="carto-positron",
-                                   zoom=4.5,
+                                   zoom=4.65,
                                    hover_name='name',
                                    hover_data={'PopTotal':False,
                                                'fid':False,
@@ -225,9 +225,9 @@ def display_map(model_var, month, metric, display_elements):
                                 size='PopTotal',
                                 size_max=40,
                                 opacity=zone_opacity,
-                                center={"lat": -3.8114, "lon":21.6780},
+                                center={"lat": -4.2514, "lon":20.6780},
                                 mapbox_style="carto-positron",
-                                zoom=4.5,
+                                zoom=4.65,
                                 hover_name='name',
                                 hover_data={'PopTotal':False,
                                             'fid':False,
@@ -237,21 +237,31 @@ def display_map(model_var, month, metric, display_elements):
                                 labels={model_var + '_Percent': var_label,
                                         'Pop_readable': 'Population'})
         
-#         TODO: add size legend in marker form
-#         fig.add_trace(go.Scattermapbox(
-#             lat=['-5.956295'],
-#             lon=['11.04126'],
-#             mode='markers',
-#             marker=go.scattermapbox.Marker(
-#                 size=25
-#             ),
-#             text=['Test'],
-#             showlegend=False
-#         ))
+        marker_legend = pd.DataFrame(columns = ['lname', 'population', 
+                                                'latitude', 'longitude'],
+                                      data = [['2.5M population', 53, -10.48, 11.002433],
+                                              ['1M population', 33, -9.1, 11.002433],
+                                              ['500k population', 25, -8.1, 11.002433],
+                                              ['250k population', 15, -7.4, 11.002433],
+                                              ['100k population', 10, -6.9, 11.002433]])
+        
+        fig.add_trace(go.Scattermapbox(
+            lat=marker_legend.latitude,
+            lon=marker_legend.longitude,
+            mode='markers',
+            opacity=zone_opacity,
+            marker=go.scattermapbox.Marker(
+                size=marker_legend.population,
+                color='black'
+            ),
+            showlegend=False,
+            hoverinfo='text',
+            hovertext=marker_legend.lname
+        ))
     
     
     if 'zone_data' not in display_elements:
-        fig.update_traces(hoverinfo="skip", 
+        fig.update_traces(hoverinfo="skip",
                           hovertemplate=None,
                           marker_coloraxis=None)
     
@@ -277,15 +287,15 @@ def display_map(model_var, month, metric, display_elements):
                                      y=[None],
                                      mode='markers',
                                      marker=dict(
-                                         colorscale='greens', 
+                                         colorscale='greens_r', 
                                          showscale=True,
                                          cmin=-5,
                                          cmax=5,
-                                         colorbar=dict(tickvals=[-4.8, 4.8], 
-                                                       ticktext=['Low', 'High'], 
-                                                       outlinewidth=0,
-                                                       x=-0.1,
-                                                       xpad=15
+                                         colorbar=dict(title='Time to care',
+                                                       tickvals=[-4.85, -1.626, 1.626, 4.85], 
+                                                       ticktext=['<1 hour', '1-2 hours',
+                                                                 '2-3 hours', '>3 hours'],
+                                                       outlinewidth=0
                                                        )
                                      ),
                                      hoverinfo='none'
@@ -306,7 +316,7 @@ def display_map(model_var, month, metric, display_elements):
                            "&layers=Population&styles=&format=image/png"
                            "&transparent=true&version=1.1.1&width=256&height=256"
                            "&srs=EPSG:3857&bbox={bbox-epsg-3857}"],
-                "opacity" : 0.4   
+                "opacity" : 0.65   
                 }
             ]
         )
@@ -317,13 +327,11 @@ def display_map(model_var, month, metric, display_elements):
                              marker=dict(
                                  colorscale='ylorbr', 
                                  showscale=True,
-                                 cmin=-5,
-                                 cmax=5,
-                                 colorbar=dict(tickvals=[-4.8, 4.8], 
-                                               ticktext=['Low', 'High'], 
-                                               outlinewidth=0,
-                                               x=-0.1,
-                                               xpad=15
+                                 cmin=0,
+                                 cmax=53,
+                                 colorbar=dict(title='Population',
+                                               tickvals=[0, 10, 20, 30, 40, 50], 
+                                               outlinewidth=0
                                                )
                              ),
                              hoverinfo='none'
@@ -331,10 +339,8 @@ def display_map(model_var, month, metric, display_elements):
  
         fig['layout']['showlegend'] = False
         fig.add_trace(colorbar_trace)
-        
-        
-    fig.update_coloraxes(colorbar_x=-0.1,
-                         colorbar_xpad=15)
+    
+    
     
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     fig.update_yaxes(visible=False, showticklabels=False)
@@ -347,32 +353,39 @@ def display_map(model_var, month, metric, display_elements):
 @app.callback(
     Output("density", "figure"),
     Input("map-main", "hoverData"),
-    Input("month", "value"))
-def cum_density_graph(hoverData, month):
+    Input("month", "value"),
+    Input("display_elements", "value"))
+def cum_density_graph(hoverData, month, display_elements):
     fig_color = '#7570b3'
     
-    geo_unit_name = hoverData['points'][0]['hovertext']
+    if 'zone_data' in display_elements:
+        geo_unit_name = hoverData['points'][0]['hovertext']
     
-    tdf = gdf.drop(['geometry', 'PopTotal', 'Pop_readable', 
-                    'centroid_lat', 'centroid_lon'], 
-               axis=1).loc[gdf.name == geo_unit_name]
+        tdf = gdf.drop(['geometry', 'PopTotal', 'Pop_readable', 
+                        'centroid_lat', 'centroid_lon'], 
+                   axis=1).loc[gdf.name == geo_unit_name]
 
-    tdf = tdf.melt(id_vars=['fid', 'id', 'name'])
-    tdf = tdf.loc[tdf.variable.str.contains('Percent')]
+        tdf = tdf.melt(id_vars=['fid', 'id', 'name'])
+        tdf = tdf.loc[tdf.variable.str.contains('Percent')]
 
-    meta = tdf.variable.str.split('_', expand=True)
+        meta = tdf.variable.str.split('_', expand=True)
 
-    tdf['var'] = meta[0]
-    tdf['month'] = meta[1]
+        tdf['var'] = meta[0]
+        tdf['month'] = meta[1]
 
-    name_dict = {'Pop30mn': 30,
-                 'Pop60mn': 60,
-                 'Pop90mn': 90,
-                 'Pop120mn': 120,
-                 'Pop180mn': 180}
+        name_dict = {'Pop30mn': 30,
+                     'Pop60mn': 60,
+                     'Pop90mn': 90,
+                     'Pop120mn': 120,
+                     'Pop180mn': 180}
 
-    tdf['var'] = tdf['var'].replace(name_dict.keys(), name_dict.values())
-    tdf = tdf.loc[tdf.month == month]
+        tdf['var'] = tdf['var'].replace(name_dict.keys(), name_dict.values())
+        tdf = tdf.loc[tdf.month == month]
+    else:
+        geo_unit_name = ''
+        tdf = pd.DataFrame(data=None, columns=['fid', 'id', 'name', 
+                                               'variable', 'value', 
+                                               'var', 'month'])
 
     fig = px.area(tdf, 
                  x="var", y="value",
@@ -390,6 +403,7 @@ def cum_density_graph(hoverData, month):
                       line_color=fig_color)
 
     fig.update_layout(margin={"r":0,"l":0,"b":0},
+                      height=325,
                       yaxis_title='% with access',
                       xaxis_title='Travel time to care (min)',
                       title=geo_unit_name,
@@ -398,5 +412,5 @@ def cum_density_graph(hoverData, month):
     return fig  
 
 if __name__ == '__main__':
-    app.run_server(port=8090, debug=True)
+    app.run_server(port=8090, debug=False)
     
