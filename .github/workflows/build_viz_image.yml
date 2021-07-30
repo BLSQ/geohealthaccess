@@ -37,7 +37,7 @@ jobs:
         with:
           push: true
           context: viz
-          file: Dockerfile
+          file: viz/Dockerfile
           # GITHUB_REF looks like "refs/tags/v0.3.1" - we need to extract the actual version without the v prefix
           tags: |
             blsq/geohealthaccess-viz:${{ steps.version.outputs.number }}
@@ -48,7 +48,7 @@ jobs:
         with:
           push: true
           context: viz
-          file: Dockerfile
+          file: viz/Dockerfile
           tags: |
             blsq/geohealthaccess-viz:${{ github.event.inputs.tag }}
             blsq/geohealthaccess-viz:latest
