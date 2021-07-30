@@ -15,5 +15,5 @@ RUN mkdir /code
 COPY app.py /code
 COPY assets /code/assets
 
-EXPOSE 8090
+EXPOSE 8000
 CMD python /code/app.py

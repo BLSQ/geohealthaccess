@@ -85,9 +85,9 @@ gdf['centroid_lon'] = gdf['geometry'].centroid.x
 ########################
 
 if STANDALONE:
-    app = JupyterDash(__name__)
-else:
     app = dash.Dash(__name__)
+else:
+    app = JupyterDash(__name__)
 
 # app component layout
 app.layout = html.Div(id="app-main", children=[
@@ -421,5 +421,7 @@ def cum_density_graph(hoverData, month, display_elements):
     return fig  
 
 if __name__ == '__main__':
-    app.run_server(port=8090, debug=False)
-    
+    if STANDALONE:
+        app.run_server(port=8000, host='0.0.0.0', debug=False)
+    else:
+        app.run_server(port=8090, debug=False)
