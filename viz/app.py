@@ -2,16 +2,22 @@
 # 9 june 2021
 # dash visualization of GHA modeling results
 
+import os
+
+STANDALONE = os.environ.get("STANDALONE", "yes") == "yes"
+
 ##############################################
 ##### jupyter dash setup + package imports ###
 ##############################################
 
-from jupyter_dash.comms import _send_jupyter_config_comm_request
-_send_jupyter_config_comm_request()
+if not STANDALONE:
+    from jupyter_dash.comms import _send_jupyter_config_comm_request
 
-from jupyter_dash import JupyterDash
+    _send_jupyter_config_comm_request()
 
-JupyterDash.infer_jupyter_proxy_config()
+    from jupyter_dash import JupyterDash
+
+    JupyterDash.infer_jupyter_proxy_config()
 
 
 import pandas as pd
@@ -78,7 +84,10 @@ gdf['centroid_lon'] = gdf['geometry'].centroid.x
 #### dash app setup ####
 ########################
 
-app = JupyterDash(__name__)
+if STANDALONE:
+    app = JupyterDash(__name__)
+else:
+    app = dash.Dash(__name__)
 
 # app component layout
 app.layout = html.Div(id="app-main", children=[
