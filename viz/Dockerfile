@@ -13,7 +13,7 @@ RUN --mount=type=cache,mode=0755,target=/root/.cache/pip pip install -r requirem
 
 RUN mkdir /code
 COPY app.py /code
-COPY assets /code
+COPY assets /code/assets
 
 EXPOSE 8090
 CMD python /code/app.py
