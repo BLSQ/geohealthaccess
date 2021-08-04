@@ -50,4 +50,7 @@ div > label {
     background-color: white;
 }
 
-
+#sources{
+    padding: inherit;
+    font-size: 10px;
+}
