@@ -99,29 +99,6 @@ app.layout = html.Div(id="app-main", children=[
         
         html.Div(id='ctrls-container', children=[
             html.Div(
-                        [
-                        "Travel time to care",
-                        dcc.Dropdown(
-                            id='model_var', 
-                            options=[
-                                {'value': 'Pop30mn', 
-                                 'label': '30 min'},
-                                {'value': 'Pop60mn', 
-                                 'label': '60 min'},
-                                {'value': 'Pop90mn', 
-                                 'label': '90 min'},
-                                {'value': 'Pop120mn', 
-                                 'label': '120 min'},
-                                {'value': 'Pop180mn', 
-                                 'label': '180 min'}
-                            ],
-                            value='Pop30mn',
-                            clearable=False
-                    ),
-                ],
-            ),
-
-            html.Div(
                 [
                     "Month",
                     dcc.Dropdown(
@@ -140,6 +117,29 @@ app.layout = html.Div(id="app-main", children=[
                         ],
                         value='202001',
                         clearable=False
+                    ),
+                ],
+            ),            
+            
+            html.Div(
+                        [
+                        "Travel time to care",
+                        dcc.Dropdown(
+                            id='model_var', 
+                            options=[
+                                {'value': 'Pop30mn', 
+                                 'label': '30 min'},
+                                {'value': 'Pop60mn', 
+                                 'label': '60 min'},
+                                {'value': 'Pop90mn', 
+                                 'label': '90 min'},
+                                {'value': 'Pop120mn', 
+                                 'label': '120 min'},
+                                {'value': 'Pop180mn', 
+                                 'label': '180 min'}
+                            ],
+                            value='Pop30mn',
+                            clearable=False
                     ),
                 ],
             ),
@@ -209,7 +209,8 @@ app.layout = html.Div(id="app-main", children=[
 def display_map(model_var, month, display_type, display_elements):
     
     time_to_care = ''.join([s for s in model_var if s.isdigit()])
-    var_label = f'% with access within <br> {time_to_care} min of care <br> &nbsp;'
+    var_label_tooltip = f'% pop. within {time_to_care} min of care'
+    var_label_colorbar = f'% pop. within <br> {time_to_care} min of care <br>'
     
     model_var = f'{model_var}_{month}'
     
@@ -227,13 +228,13 @@ def display_map(model_var, month, display_type, display_elements):
                                    color_continuous_scale="rdbu",
                                    range_color=[0,100],
                                    opacity=zone_opacity,
-                                   center={"lat": -4.2514, "lon":20.6780},
+                                   center={"lat": -4.8514, "lon":22.6780},
                                    zoom=4.65,
                                    hover_name='name',
                                    hover_data={'PopTotal':False,
                                                'fid':False,
                                                'Pop_readable':True},
-                                   labels={model_var + '_Percent': var_label,
+                                   labels={model_var + '_Percent': var_label_tooltip,
                                            'Pop_readable': 'Population'})
         
     else:
@@ -246,7 +247,7 @@ def display_map(model_var, month, display_type, display_elements):
                                 size='PopTotal',
                                 size_max=40,
                                 opacity=zone_opacity,
-                                center={"lat": -4.2514, "lon":20.6780},
+                                center={"lat": -4.8514, "lon":22.6780},
                                 zoom=4.65,
                                 hover_name='name',
                                 hover_data={'PopTotal':False,
@@ -254,7 +255,7 @@ def display_map(model_var, month, display_type, display_elements):
                                             'centroid_lat': False,
                                             'centroid_lon': False,
                                             'Pop_readable':True},
-                                labels={model_var + '_Percent': var_label,
+                                labels={model_var + '_Percent': var_label_tooltip,
                                         'Pop_readable': 'Population'})
         
         marker_legend = pd.DataFrame(columns = ['display_name', 'lname', 'population', 
@@ -321,14 +322,20 @@ def display_map(model_var, month, display_type, display_elements):
                                          showscale=True,
                                          cmin=-5,
                                          cmax=5,
-                                         colorbar=dict(title='Time to care <br> &nbsp;',
+                                         colorbar=dict(title=dict(text='Time to care <br> &nbsp;',
+                                                                  font=dict(color='white')),
                                                        tickvals=[-4.85, -1.626, 1.626, 4.85], 
                                                        ticktext=['<1 hour', '1-2 hours',
                                                                  '2-3 hours', '>3 hours'],
                                                        outlinewidth=0,
                                                        thicknessmode='fraction',
-                                                       thickness=0.065,
-                                                       ticks='inside'
+                                                       thickness=0.04,
+                                                       ticks='inside',
+                                                       xpad=8,
+                                                       x=0.88,
+                                                       bgcolor='rgba(112, 128, 144, 0.72)',
+                                                       tickfont_color='white',
+                                                       tickcolor='white',
                                                        )
                                      ),
                                      hoverinfo='none'
@@ -362,12 +369,18 @@ def display_map(model_var, month, display_type, display_elements):
                                  showscale=True,
                                  cmin=0,
                                  cmax=53,
-                                 colorbar=dict(title='Population <br> &nbsp;',
+                                 colorbar=dict(title=dict(text='Population <br> &nbsp;',
+                                                                  font=dict(color='white')),
                                                tickvals=[0, 10, 20, 30, 40, 50], 
                                                outlinewidth=0,
                                                thicknessmode='fraction',
                                                thickness=0.065,
-                                               ticks='inside'
+                                               ticks='inside',
+                                               xpad=8,
+                                               x=0.9,
+                                               bgcolor='rgba(112, 128, 144, 0.72)',
+                                               tickfont_color='white',
+                                               tickcolor='white'                                               
                                                )
                              ),
                              hoverinfo='none'
@@ -381,8 +394,16 @@ def display_map(model_var, month, display_type, display_elements):
                       mapbox_accesstoken=token)
     
     fig.update_coloraxes(colorbar_thicknessmode='fraction',
-                         colorbar_thickness=0.065,
-                         colorbar_ticks='inside')
+                         colorbar_thickness=0.04,
+                         colorbar_ticks='inside',
+                         colorbar_xpad=8,
+                         colorbar_x=0.9,
+                         colorbar_title=var_label_colorbar,
+                         colorbar_bgcolor='rgba(112, 128, 144, 0.72)',
+                         colorbar_tickfont_color='white',
+                         colorbar_tickcolor='white',
+                         colorbar_title_font_color='white',
+                         colorbar_ticksuffix='%')
     
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     fig.update_yaxes(visible=False, showticklabels=False)
