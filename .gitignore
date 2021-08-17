@@ -130,6 +130,3 @@ dmypy.json
 notebooks/
 notes/
 
-# Viz
-.mapbox_token
-.mapbox_style 
