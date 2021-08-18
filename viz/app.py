@@ -84,6 +84,9 @@ gdf['centroid_lon'] = gdf['geometry'].centroid.x
 #### dash app setup ####
 ########################
 
+token = open(".mapbox_token").read()
+style = open(".mapbox_style").read()
+
 if STANDALONE:
     app = dash.Dash(__name__)
 else:
@@ -95,6 +98,29 @@ app.layout = html.Div(id="app-main", children=[
     html.Div(id='sidebar', children=[
         
         html.Div(id='ctrls-container', children=[
+            html.Div(
+                [
+                    "Month",
+                    dcc.Dropdown(
+                        id='month', 
+                        options=[
+                            {'value': '202001', 'label': 'Jan 2020'},
+                            {'value': '202002', 'label': 'Feb 2020'},
+                            {'value': '202003', 'label': 'Mar 2020'},
+                            {'value': '202004', 'label': 'Apr 2020'},
+                            {'value': '202005', 'label': 'May 2020'},
+                            {'value': '202006', 'label': 'Jun 2020'},
+                            {'value': '202007', 'label': 'Jul 2020'},
+                            {'value': '202008', 'label': 'Aug 2020'},
+                            {'value': '202009', 'label': 'Sep 2020'},
+                            {'value': '202010', 'label': 'Oct 2020'},
+                        ],
+                        value='202001',
+                        clearable=False
+                    ),
+                ],
+            ),            
+            
             html.Div(
                         [
                         "Travel time to care",
@@ -118,50 +144,11 @@ app.layout = html.Div(id="app-main", children=[
                 ],
             ),
 
-
-            html.Div(
-                [
-                    "Month",
-                    dcc.Dropdown(
-                        id='month', 
-                        options=[
-                            {'value': '202001', 'label': 'Jan 2020'},
-                            {'value': '202002', 'label': 'Feb 2020'},
-                            {'value': '202003', 'label': 'Mar 2020'},
-                            {'value': '202004', 'label': 'Apr 2020'},
-                            {'value': '202005', 'label': 'May 2020'},
-                            {'value': '202006', 'label': 'Jun 2020'},
-                            {'value': '202007', 'label': 'Jul 2020'},
-                            {'value': '202008', 'label': 'Aug 2020'},
-                            {'value': '202009', 'label': 'Sep 2020'},
-                            {'value': '202010', 'label': 'Oct 2020'},
-                        ],
-                        value='202001',
-                        clearable=False
-                    ),
-                ],
-            ),
-
-
-            html.Div(
-                [
-                    "Display",
-                    dcc.RadioItems(
-                        id='metric',
-                        options=[
-                            {'value': '', 'label': 'Markers'},
-                            {'value': '_Percent', 'label': 'Choropleth'},
-                        ],
-                        value=''
-                    )
-                ],
-            ),
-
             html.Div(
                 [
                     "Layers",
                     dcc.RadioItems(
-                        id='display_elements',
+                        id='display-elements',
                         options=[
                             {'label': 'Zone data', 'value': 'zone_data'},
                             {'label': 'Access raster', 'value': 'gha_raster'},
@@ -170,21 +157,46 @@ app.layout = html.Div(id="app-main", children=[
                         value='zone_data'
                     )
                 ],
-            )]
-        ),
+            ),
+            
+            html.Div(
+                [
+                    "Display",
+                    dcc.RadioItems(
+                        id='display-type',
+                        options=[
+                            {'value': 'markers', 'label': 'Markers'},
+                            {'value': 'choropleth', 'label': 'Choropleth'},
+                        ],
+                        value='markers'
+                    )
+                ],
+            )
+        ]),
         
         
         html.Div(id='density-container', children=[
-             dcc.Graph(id='density',
-                  config={'displayModeBar': False,
-                          'scrollZoom': False})
+            dcc.Graph(id='density',
+                      config={'displayModeBar': False,
+                              'scrollZoom': False}),
+            html.Div(id='sources', 
+                     children = ['Population data from ', 
+                                 html.A('UN WorldPop', 
+                                        href='https://population.un.org/wpp/'),
+                                 html.Br(),
+                                 'Travel time data from the ',
+                                 html.A('GeoHealthAcess project',
+                                        href='https://github.com/BLSQ/geohealthaccess/')
+                                ]
+                    )
                 ]
             ),
         ]
     ),  
     
     dcc.Graph(id="map-main",
-              hoverData={'points': [{'hovertext': 'ks Mikope Zone de Santé'}]}),   
+              hoverData={'points': [{'hovertext': 'ks Mikope Zone de Santé'}]},
+              config={'displayModeBar': False}),   
 ])
 
 # callback and graphing functions
@@ -192,13 +204,15 @@ app.layout = html.Div(id="app-main", children=[
     Output("map-main", "figure"), 
     [Input("model_var", "value"),
      Input("month", "value"),
-     Input("metric", "value"),
-     Input("display_elements", "value")])
-def display_map(model_var, month, metric, display_elements):
+     Input("display-type", "value"),
+     Input("display-elements", "value")])
+def display_map(model_var, month, display_type, display_elements):
     
-    var_label = "% of population" # f'% pop. within {model_var[3:5]} min of care'
+    time_to_care = ''.join([s for s in model_var if s.isdigit()])
+    var_label_tooltip = f'% pop. within {time_to_care} min of care'
+    var_label_colorbar = f'% pop. within <br> {time_to_care} min of care <br>'
     
-    model_var = f'{model_var}_{month}{metric}'
+    model_var = f'{model_var}_{month}'
     
     zone_opacity = 0.9
     
@@ -206,22 +220,21 @@ def display_map(model_var, month, metric, display_elements):
         zone_opacity = 0
 
     # choropleth for proportions
-    if metric == '_Percent':
+    if (display_type == 'choropleth') & ('zone_data' in display_elements):
         fig = px.choropleth_mapbox(gdf,
                                    geojson=gdf.geometry, 
                                    locations='fid', 
-                                   color=model_var,
+                                   color=model_var + "_Percent",
                                    color_continuous_scale="rdbu",
                                    range_color=[0,100],
                                    opacity=zone_opacity,
-                                   center={"lat": -4.2514, "lon":20.6780},
-                                   mapbox_style="carto-positron",
+                                   center={"lat": -4.8514, "lon":22.6780},
                                    zoom=4.65,
                                    hover_name='name',
                                    hover_data={'PopTotal':False,
                                                'fid':False,
                                                'Pop_readable':True},
-                                   labels={model_var: var_label,
+                                   labels={model_var + '_Percent': var_label_tooltip,
                                            'Pop_readable': 'Population'})
         
     else:
@@ -234,8 +247,7 @@ def display_map(model_var, month, metric, display_elements):
                                 size='PopTotal',
                                 size_max=40,
                                 opacity=zone_opacity,
-                                center={"lat": -4.2514, "lon":20.6780},
-                                mapbox_style="carto-positron",
+                                center={"lat": -4.8514, "lon":22.6780},
                                 zoom=4.65,
                                 hover_name='name',
                                 hover_data={'PopTotal':False,
@@ -243,29 +255,39 @@ def display_map(model_var, month, metric, display_elements):
                                             'centroid_lat': False,
                                             'centroid_lon': False,
                                             'Pop_readable':True},
-                                labels={model_var + '_Percent': var_label,
+                                labels={model_var + '_Percent': var_label_tooltip,
                                         'Pop_readable': 'Population'})
         
-        marker_legend = pd.DataFrame(columns = ['lname', 'population', 
+        marker_legend = pd.DataFrame(columns = ['display_name', 'lname', 'population', 
                                                 'latitude', 'longitude'],
-                                      data = [['2.5M population', 53, -10.48, 11.002433],
-                                              ['1M population', 33, -9.1, 11.002433],
-                                              ['500k population', 25, -8.1, 11.002433],
-                                              ['250k population', 15, -7.4, 11.002433],
-                                              ['100k population', 10, -6.9, 11.002433]])
+                                      data = [['', '2.5M population', 
+                                               53, -11.48, 11.002433],
+                                              ['', '1M population', 
+                                               33, -10.1, 11.002433],
+                                              ['', '500k population', 
+                                               25, -9.1, 11.002433],
+                                              ['', '250k population', 
+                                               15, -8.4, 11.002433],
+                                              ['Population scale <br><br><br>', '100k population', 
+                                               10, -7.9, 11.002433]])
         
         fig.add_trace(go.Scattermapbox(
             lat=marker_legend.latitude,
             lon=marker_legend.longitude,
-            mode='markers',
+            mode='markers+text',
             opacity=zone_opacity,
             marker=go.scattermapbox.Marker(
                 size=marker_legend.population,
                 color='black'
             ),
             showlegend=False,
+            text=marker_legend.display_name,
+            textposition = 'bottom center',
+            textfont=dict(
+                family="sans serif",
+                size=14),
             hoverinfo='text',
-            hovertext=marker_legend.lname
+            hovertext=marker_legend.lname,
         ))
     
     
@@ -300,11 +322,20 @@ def display_map(model_var, month, metric, display_elements):
                                          showscale=True,
                                          cmin=-5,
                                          cmax=5,
-                                         colorbar=dict(title='Time to care',
+                                         colorbar=dict(title=dict(text='Time to care <br> &nbsp;',
+                                                                  font=dict(color='white')),
                                                        tickvals=[-4.85, -1.626, 1.626, 4.85], 
                                                        ticktext=['<1 hour', '1-2 hours',
                                                                  '2-3 hours', '>3 hours'],
-                                                       outlinewidth=0
+                                                       outlinewidth=0,
+                                                       thicknessmode='fraction',
+                                                       thickness=0.04,
+                                                       ticks='inside',
+                                                       xpad=8,
+                                                       x=0.88,
+                                                       bgcolor='rgba(112, 128, 144, 0.72)',
+                                                       tickfont_color='white',
+                                                       tickcolor='white',
                                                        )
                                      ),
                                      hoverinfo='none'
@@ -338,9 +369,18 @@ def display_map(model_var, month, metric, display_elements):
                                  showscale=True,
                                  cmin=0,
                                  cmax=53,
-                                 colorbar=dict(title='Population',
+                                 colorbar=dict(title=dict(text='Population <br> &nbsp;',
+                                                                  font=dict(color='white')),
                                                tickvals=[0, 10, 20, 30, 40, 50], 
-                                               outlinewidth=0
+                                               outlinewidth=0,
+                                               thicknessmode='fraction',
+                                               thickness=0.065,
+                                               ticks='inside',
+                                               xpad=8,
+                                               x=0.9,
+                                               bgcolor='rgba(112, 128, 144, 0.72)',
+                                               tickfont_color='white',
+                                               tickcolor='white'                                               
                                                )
                              ),
                              hoverinfo='none'
@@ -350,6 +390,20 @@ def display_map(model_var, month, metric, display_elements):
         fig.add_trace(colorbar_trace)
     
     
+    fig.update_layout(mapbox_style=style, 
+                      mapbox_accesstoken=token)
+    
+    fig.update_coloraxes(colorbar_thicknessmode='fraction',
+                         colorbar_thickness=0.04,
+                         colorbar_ticks='inside',
+                         colorbar_xpad=8,
+                         colorbar_x=0.9,
+                         colorbar_title=var_label_colorbar,
+                         colorbar_bgcolor='rgba(112, 128, 144, 0.72)',
+                         colorbar_tickfont_color='white',
+                         colorbar_tickcolor='white',
+                         colorbar_title_font_color='white',
+                         colorbar_ticksuffix='%')
     
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     fig.update_yaxes(visible=False, showticklabels=False)
@@ -358,12 +412,11 @@ def display_map(model_var, month, metric, display_elements):
     return fig
 
 
-
 @app.callback(
     Output("density", "figure"),
     Input("map-main", "hoverData"),
     Input("month", "value"),
-    Input("display_elements", "value"))
+    Input("display-elements", "value"))
 def cum_density_graph(hoverData, month, display_elements):
     fig_color = '#7570b3'
     
@@ -420,8 +473,25 @@ def cum_density_graph(hoverData, month, display_elements):
 
     return fig  
 
+@app.callback(
+    Output('display-type', 'options'),
+    Input('display-elements', 'value'))
+def set_zone_data_radio_button_state(display_elements):
+    if 'zone_data' not in display_elements:
+        return [{'value': 'markers', 
+                 'label': 'Markers',
+                 'disabled': True},
+                {'value': 'choropleth', 
+                 'label': 'Choropleth',
+                 'disabled': True}]
+    else:
+        return [{'value': 'markers', 
+                 'label': 'Markers'},
+                {'value': 'choropleth', 
+                 'label': 'Choropleth'}]
+
 if __name__ == '__main__':
     if STANDALONE:
         app.run_server(port=8000, host='0.0.0.0', debug=False)
     else:
-        app.run_server(port=8090, debug=False)
+        app.run_server(port=8090, debug=True)
