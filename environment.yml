@@ -19,7 +19,7 @@ dependencies:
   - pandas=1.2
   - rasterio=1.2
   - requests=2.25
-  - s3fs=0.6
+  - s3fs=0.6.0
   - fsspec=0.9
   - shapely=1.7
   - tqdm=4.59
