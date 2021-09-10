@@ -102,7 +102,7 @@ class Geofabrik:
             Path to output file.
         """
         geom = country_geometry(country)
-        url = self.search(geom, min_cover=95)
+        url = self.search(geom, min_cover=95).replace("https", "http")
         with requests.Session() as s:
             fp = download_from_url(
                 s, url, output_dir, show_progress=show_progress, overwrite=overwrite
