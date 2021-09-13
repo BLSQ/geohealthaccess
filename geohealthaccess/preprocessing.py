@@ -321,6 +321,7 @@ def compute_slope(src_dem, dst_file, percent=False, scale=None):
         command += ["-s", str(scale)]
     for opt in GDAL_CO:
         command += ["-co", opt]
+    command += ["-co", "BIGTIFF=YES"]
     command += [src_dem, dst_file]
     logger.info(f"Running command: {' '.join(command)}")
     run(command, logger=_log_for_gdal_output("gdaldem"))
@@ -365,6 +366,7 @@ def compute_aspect(src_dem, dst_file, trigonometric=False):
         command += ["-trigonometric"]
     for opt in GDAL_CO:
         command += ["-co", opt]
+    command += ["-co", "BIGTIFF=YES"]
     command += [src_dem, dst_file]
     logger.info(f"Running command: {' '.join(command)}")
     run(command, logger=_log_for_gdal_output("gdaldem"))
