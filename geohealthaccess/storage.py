@@ -105,7 +105,7 @@ def ls(path):
     Simulates the behavior of os.listdir().
     """
     location = Location(path)
-    logger.info(f"Listing files in {path}")
+    logger.debug(f"Listing files in {path}")
 
     # local
     if location.protocol == "local":
@@ -130,7 +130,7 @@ def cp(src_path, dst_path):
 
     Copying a file from S3 to GCS is not supported.
     """
-    logger.info(f"Copying {src_path} to {dst_path}")
+    logger.debug(f"Copying {src_path} to {dst_path}")
     src_location, dst_location = Location(src_path), Location(dst_path)
 
     # local
@@ -174,7 +174,7 @@ def cp(src_path, dst_path):
 def rm(path):
     """Remove a file."""
     location = Location(path)
-    logger.info(f"Removing file {path}")
+    logger.debug(f"Removing file {path}")
 
     # local
     if location.protocol == "local":
@@ -201,7 +201,7 @@ def mv(src_path, dst_path):
     copy() and rm() instead.
     """
     src_location, dst_location = Location(src_path), Location(dst_path)
-    logger.info(f"Moving {src_path} to {dst_path}")
+    logger.debug(f"Moving {src_path} to {dst_path}")
 
     # local
     if src_location.protocol == "local" and dst_location.protocol == "local":
@@ -224,7 +224,7 @@ def mv(src_path, dst_path):
 def exists(path):
     """Check if a file exists."""
     location = Location(path)
-    logger.info(f"Checking existence of {path}")
+    logger.debug(f"Checking existence of {path}")
 
     # local
     if location.protocol == "local":
@@ -251,14 +251,14 @@ def mkdir(path):
     are not needed anyway.
     """
     location = Location(path)
-    logger.info(f"Creating directory {path}")
+    logger.debug(f"Creating directory {path}")
     if location.protocol == "local":
         os.makedirs(location.path, exist_ok=True)
 
 
 def size(path):
     """Get size of a file in bytes."""
-    logger.info(f"Getting size of file {path}")
+    logger.debug(f"Getting size of file {path}")
     if not exists(path):
         raise FileNotFoundError(f"No file found at {path}.")
 
@@ -287,6 +287,7 @@ def mtime(path):
     datetime
         Last Modified Time as a python datetime.
     """
+    logger.debug(f"Getting mtime of {path}")
     if not exists(path):
         raise FileNotFoundError(f"No file found at {path}.")
     location = Location(path)
@@ -331,7 +332,7 @@ def glob(pattern):
 
 def open_(path, mode="r"):
     """Return a file-like object regardless of the file system."""
-    logger.info(f"Opening file {path}")
+    logger.debug(f"Opening file {path}")
     location = Location(path)
 
     if location.protocol == "local":
@@ -355,7 +356,7 @@ def unzip(src_file_path, dst_dir_path):
     Can read .zip file from a cloud filesystem and copy its contents
     to another cloud filesystem, but processing is performed locally.
     """
-    logger.info(f"Unzipping {src_file_path} to {dst_dir_path}")
+    logger.debug(f"Unzipping {src_file_path} to {dst_dir_path}")
     src_file_location = Location(src_file_path)
 
     with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
@@ -385,6 +386,7 @@ def unzip(src_file_path, dst_dir_path):
 def find(path):
     """List all files in a directory recursively."""
     loc = Location(path)
+    logger.debug(f"Finding all files at {path}")
     if loc.protocol == "local":
         files = []
         for dir_, _, ls in os.walk(loc.path):
@@ -453,6 +455,9 @@ def recursive_download(remote_dir, local_dir, show_progress=False, overwrite=Fal
     """
     remote_dir = _no_ending_slash(remote_dir)
     local_dir = _no_ending_slash(local_dir)
+
+    logger.debug(f"Recursive download from {remote_dir} to {local_dir}")
+
     remote_files = find(remote_dir)
 
     if show_progress:
@@ -461,6 +466,7 @@ def recursive_download(remote_dir, local_dir, show_progress=False, overwrite=Fal
 
     for f_remote in remote_files:
         f_local = f_remote.replace(remote_dir, local_dir)
+        logger.debug(f"{f_remote} > {f_local}")
         if overwrite or not _check_sizes(f_remote, f_local):
             dir_ = os.path.dirname(f_local)
             if not os.path.exists(dir_):
@@ -493,6 +499,8 @@ def recursive_upload(local_dir, remote_dir, show_progress=False, overwrite=False
     remote_dir = _no_ending_slash(remote_dir)
     local_dir = _no_ending_slash(local_dir)
 
+    logger.debug(f"Recursive upload from {local_dir} to {remote_dir}")
+
     local_files = []
     for dir_, _, files in os.walk(local_dir):
         for f in files:
@@ -507,6 +515,7 @@ def recursive_upload(local_dir, remote_dir, show_progress=False, overwrite=False
 
     for f_local in local_files:
         f_remote = f_local.replace(local_dir, remote_dir)
+        logger.debug(f"{f_local} > {f_remote}")
         if overwrite or not _check_sizes(f_local, f_remote):
             cp(f_local, f_remote)
         if show_progress:
@@ -533,4 +542,5 @@ def clean_cache_dir(max_hours=24):
         if (
             datetime.now() - max(mtimes).replace(tzinfo=None)
         ).seconds >= max_hours * 3600:
+            logger.debug(f"Removing cache directory {cache_dir}")
             shutil.rmtree(cache_dir)
