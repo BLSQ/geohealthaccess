@@ -44,7 +44,7 @@ class GeoHealthAccess:
         resolution=100,
         area_of_interest=None,
         logs_dir=None,
-        log_level="WARNING",
+        log_level="DEBUG",
     ):
         self.raw_dir = raw_dir
         self.input_dir = input_dir
@@ -605,6 +605,12 @@ class GeoHealthAccess:
         friction[np.isnan(friction)] = np.nan
         friction[np.isinf(friction)] = np.nan
         friction[~self.mask] = np.nan
+
+        dst_file = os.path.join(self.output_dir, f"friction_{mode}.tif")
+        dst_profile = self.profile
+        dst_profile["dtype"] = "float64"
+        with rasterio.open(dst_file, "w", **dst_profile) as dst:
+            dst.write(friction, 1)
         return friction
 
     def health_facilities(self):
