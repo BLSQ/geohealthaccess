@@ -148,11 +148,11 @@ def grass_execute(*args, **kwargs):
     kwargs["stdout"] = subprocess.PIPE
     kwargs["stderr"] = subprocess.PIPE
     p = gscript.start_command(*args, **kwargs)
-    stdout, stderr = [msg.decode("UTF-8") for msg in p.communicate()]
+    stdout, stderr = p.communicate()
     name = p.args[0]  # GRASS command name, ex. r.in.gdal
     log_cmd_output(stdout, stderr, name)
     if p.returncode != 0:
-        raise GrassError(f"{name}: {stderr}")
+        raise GrassError(f"{name}: {stderr.decode('UTF-8')}")
 
 
 def log_cmd_output(stdout, stderr, name):
