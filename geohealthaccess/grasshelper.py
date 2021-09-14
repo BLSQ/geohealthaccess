@@ -9,7 +9,7 @@ import sys
 
 from loguru import logger
 
-from geohealthaccess.errors import GrassNotFoundError
+from geohealthaccess.errors import GrassNotFoundError, GrassError
 
 logger.disable(__name__)
 
@@ -145,20 +145,18 @@ def setup_environment(gisdb, crs):
 
 def grass_execute(*args, **kwargs):
     """Execute a GRASS command and return stdout and stderr."""
-    kwargs["stdout"] = gscript.PIPE
-    kwargs["stderr"] = gscript.PIPE
-    ps = gscript.start_command(*args, **kwargs)
-    cmd_output = ps.communicate()
-    log_cmd_output(cmd_output)
-    return cmd_output
+    kwargs["stdout"] = subprocess.PIPE
+    kwargs["stderr"] = subprocess.PIPE
+    p = gscript.start_command(*args, **kwargs)
+    stdout, stderr = [msg.decode("UTF-8") for msg in p.communicate()]
+    name = p.args[0]  # GRASS command name, ex. r.in.gdal
+    log_cmd_output(stdout, stderr, name)
+    if p.returncode != 0:
+        raise GrassError(f"{name}: {stderr}")
 
 
-def log_cmd_output(cmd_output):
+def log_cmd_output(stdout, stderr, name):
     """Log stdout and stderr from gscript.start_command()."""
-    if not cmd_output:
-        return
-    stdout, stderr = cmd_output
-
     # stdout
     if stdout:
         stdout = stdout.decode("UTF-8")
@@ -166,7 +164,7 @@ def log_cmd_output(cmd_output):
             line = line.strip()
             # skip empty lines and progress bar
             if line and "\x08" not in line:
-                logger.debug(line)
+                logger.debug(f"{name}: {line}")
 
     # stderr
     if stderr:
@@ -175,4 +173,4 @@ def log_cmd_output(cmd_output):
             line = line.strip()
             # skip empty lines and progress bar
             if line and "\x08" not in line:
-                logger.debug(line)
+                logger.debug(f"{name}: {line}")

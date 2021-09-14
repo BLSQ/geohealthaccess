@@ -19,3 +19,7 @@ class OsmiumNotFoundError(GeoHealthAccessError):
 
 class GrassNotFoundError(GeoHealthAccessError):
     """GRASS directory cannot be found."""
+
+
+class GrassError(GeoHealthAccessError):
+    """GRASS: non-zero return code."""
