@@ -46,6 +46,7 @@ def test():
 @click.option(
     "--logs-dir", "-l", required=False, type=click.Path(), help="logs directory"
 )
+@click.option("--debug", is_flag=True, default=False, help="enable debug logs")
 @click.option(
     "--earthdata-username",
     "-u",
@@ -64,9 +65,20 @@ def test():
     "--overwrite", "-f", is_flag=True, default=False, help="overwrite existing files"
 )
 def download(
-    country, output_dir, earthdata_username, earthdata_password, logs_dir, overwrite
+    country,
+    output_dir,
+    earthdata_username,
+    earthdata_password,
+    logs_dir,
+    debug,
+    overwrite,
 ):
     """Download input datasets."""
+    if debug:
+        log_level = "DEBUG"
+    else:
+        log_level = "INFO"
+
     # no need to set input_dir and output_dir as they are not gonna be used
     gha = GeoHealthAccess(
         raw_dir=output_dir,
@@ -74,6 +86,7 @@ def download(
         output_dir=None,
         country=country,
         logs_dir=logs_dir,
+        log_level=log_level,
     )
 
     # cache remote raw_dir if needed
@@ -101,11 +114,19 @@ def download(
 @click.option("--crs", "-s", type=str, default="EPSG:3857", help="target CRS")
 @click.option("--resolution", "-r", type=int, default=100, help="pixel size")
 @click.option("--logs-dir", "-l", type=click.Path(), help="logs directory")
+@click.option("--debug", is_flag=True, default=False, help="enable debug logs")
 @click.option(
     "--overwrite", "-f", is_flag=True, default=False, help="overwrite existing files"
 )
-def preprocess(input_dir, output_dir, crs, resolution, country, logs_dir, overwrite):
+def preprocess(
+    input_dir, output_dir, crs, resolution, country, logs_dir, debug, overwrite
+):
     """Preprocess and co-register input datasets."""
+    if debug:
+        log_level = "DEBUG"
+    else:
+        log_level = "INFO"
+
     gha = GeoHealthAccess(
         raw_dir=input_dir,
         input_dir=output_dir,
@@ -114,6 +135,7 @@ def preprocess(input_dir, output_dir, crs, resolution, country, logs_dir, overwr
         crs=rasterio.crs.CRS.from_string(crs),
         resolution=resolution,
         logs_dir=logs_dir,
+        log_level=log_level,
     )
 
     # cache from remote data directories if needed
@@ -154,6 +176,7 @@ def preprocess(input_dir, output_dir, crs, resolution, country, logs_dir, overwr
     help="target points",
 )
 @click.option("--logs-dir", "-l", type=click.Path(), help="logs directory")
+@click.option("--debug", is_flag=True, default=False, help="enable debug logs")
 @click.option(
     "--overwrite", "-f", is_flag=True, default=False, help="overwrite existing files"
 )
@@ -168,9 +191,15 @@ def access(
     moving_speeds,
     target,
     logs_dir,
+    debug,
     overwrite,
 ):
     """Map travel times to the provided health facilities."""
+    if debug:
+        log_level = "DEBUG"
+    else:
+        log_level = "INFO"
+
     # raw_dir is not needed anymore as data has already been pre-processed
     gha = GeoHealthAccess(
         raw_dir=None,
@@ -178,6 +207,7 @@ def access(
         output_dir=output_dir,
         country=country,
         logs_dir=logs_dir,
+        log_level=log_level,
     )
 
     # cache remote data directories if needed
