@@ -348,6 +348,7 @@ class GeoHealthAccess:
         overwrite : bool, optional
             Overwrite existing files.
         """
+
         # land cover
         cglc.preprocess(
             src_dir=os.path.join(self.raw_dir, "cglc"),
@@ -456,6 +457,7 @@ class GeoHealthAccess:
         2d array
             Output mask (True pixels are impassable, False are passable).
         """
+        logger.info(f"Computing obstacle raster (max slope = {max_slope} degrees).")
         obstacle = np.zeros(shape=self.shape, dtype=np.bool_)
         with rasterio.open(os.path.join(self.input_dir, "water_osm.tif")) as src:
             obstacle[src.read(1, masked=True) >= 1] = True
@@ -473,6 +475,7 @@ class GeoHealthAccess:
         2d array
             Off-road speed (in km/h) as a 2d numpy array.
         """
+        logger.info("Calculating off-road speed.")
         speed = np.zeros(shape=self.shape, dtype=np.float32)
         rasters = storage.glob(os.path.join(self.input_dir, "landcover_*.tif"))
         for raster in rasters:
@@ -536,6 +539,8 @@ class GeoHealthAccess:
         roads = gpd.read_file(os.path.join(self.input_dir, "roads.gpkg"))
         roads = roads.to_crs(self.crs)
 
+        logger.info(f"Calculating on-road speeds ({len(roads)} road segments).")
+
         # Build a list of features with geometries and associated speed
         features = []
         for _, row in roads.iterrows():
@@ -588,6 +593,7 @@ class GeoHealthAccess:
         2d array
             Friction surface as a 2d numpy array.
         """
+        logger.info(f"Computing friction surface ({mode} scenario).")
         off_road = self.off_road_speed() / 3.6  # speed in m/s
         on_road = self.on_road_speed(mode=mode) / 3.6  # speed in m/s
         obstacle = self.moving_obstacle(max_slope=max_slope)
@@ -628,6 +634,7 @@ class GeoHealthAccess:
         self, src_friction, src_target, dst_dir, max_memory=8000
     ):
         """Isotropic cost distance analysis."""
+        logger.info("Starting isotropic cost-distance modeling.")
         grass_datadir = os.path.join(self.cache_dir, f"GRASSDATA_{random_string()}")
         if os.path.isdir(grass_datadir):
             shutil.rmtree(grass_datadir)
@@ -648,12 +655,16 @@ class GeoHealthAccess:
         src_target_fp = os.path.join(grass_datadir, "target.gpkg")
         src_target.to_file(src_target_fp, driver="GPKG")
 
+        logger.info("Setting up GRASS GIS environment.")
         grasshelper.setup_environment(grass_datadir, self.crs)
+        logger.info(f"Loading {os.path.basename(src_friction_fp)}.")
         grasshelper.grass_execute(
             "r.in.gdal", input=src_friction_fp, output="friction", overwrite=True
         )
         grasshelper.grass_execute("g.region", raster="friction")
+        logger.info(f"Loading {os.path.basename(src_target_fp)}.")
         grasshelper.grass_execute("v.in.ogr", input=src_target_fp, output="target")
+        logger.info("Calculating costs.")
         grasshelper.grass_execute(
             "r.cost",
             flags="kn",
@@ -664,6 +675,7 @@ class GeoHealthAccess:
             start_points="target",
             memory=max_memory,
         )
+        logger.info("Writing output rasters to disk.")
         grasshelper.grass_execute(
             "r.out.gdal",
             input="cost",
@@ -692,7 +704,8 @@ class GeoHealthAccess:
     def anisotropic_costdistance(
         self, src_friction, src_target, dst_dir, max_memory=8000
     ):
-        """Isotropic cost distance analysis."""
+        """Anisotropic cost distance analysis."""
+        logger.info("Starting anisotropic cost-distance modeling.")
         grass_datadir = os.path.join(self.cache_dir, f"GRASSDATA_{random_string()}")
         if os.path.isdir(grass_datadir):
             shutil.rmtree(grass_datadir)
@@ -713,17 +726,22 @@ class GeoHealthAccess:
         src_target_fp = os.path.join(grass_datadir, "target.gpkg")
         src_target.to_file(src_target_fp, driver="GPKG")
 
+        logger.info("Setting up GRASS GIS environment.")
         grasshelper.setup_environment(grass_datadir, self.crs)
+        logger.info(f"Loading {os.path.basename(src_friction_fp)}.")
         grasshelper.grass_execute(
             "r.in.gdal", input=src_friction_fp, output="friction", overwrite=True
         )
         grasshelper.grass_execute("g.region", raster="friction")
+        logger.info("Loading elevation.tif.")
         grasshelper.grass_execute(
             "r.in.gdal",
             input=os.path.join(self.input_dir, "elevation.tif"),
             output="elevation",
         )
+        logger.info(f"Loading {os.path.basename(src_target_fp)}.")
         grasshelper.grass_execute("v.in.ogr", input=src_target_fp, output="target")
+        logger.info("Calculating costs.")
         grasshelper.grass_execute(
             "r.walk",
             flags="kn",
@@ -735,6 +753,7 @@ class GeoHealthAccess:
             start_points="target",
             memory=max_memory,
         )
+        logger.info("Writing output rasters to disk.")
         grasshelper.grass_execute(
             "r.out.gdal",
             input="cost",
@@ -842,6 +861,7 @@ class GeoHealthAccess:
         dict of Series
             Population counts per area and per time level.
         """
+        logger.info(f"Calculating accessibility statistics for {len(areas)} areas.")
         metrics = {}
         with rasterio.open(os.path.join(self.input_dir, "population.tif")) as pop:
             time = np.zeros(shape=(pop.height, pop.width), dtype="int32")

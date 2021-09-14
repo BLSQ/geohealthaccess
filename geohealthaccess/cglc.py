@@ -341,6 +341,7 @@ def preprocess(src_dir, dst_dir, geom, crs, res, overwrite=False):
         if storage.exists(dst_file) and not overwrite:
             logger.info(f"Land cover {label} already preprocessed. Skipping.")
             continue
+        logger.info(f"Preprocessing {label} land cover data...")
         with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
             src_file_tmp = os.path.join(tmp_dir, f"landcover_{label}.tif")
             storage.cp(src_file, src_file_tmp)
