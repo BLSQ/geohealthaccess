@@ -5,26 +5,6 @@ body {
     overflow: hidden;
 }
 
-.rc-slider-mark-text {
-    transform: rotate(-45deg);
-
-    /* Legacy vendor prefixes that you probably don't need... */
-
-    /* Safari */
-    -webkit-transform: rotate(-45deg);
-
-    /* Firefox */
-    -moz-transform: rotate(-45deg);
-
-    /* IE */
-    -ms-transform: rotate(-45deg);
-
-    /* Opera */
-    -o-transform: rotate(-45deg);
-
-    /* Internet Explorer */
-    filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=2);
-}
 
 #app-main {
     width: 100%;
@@ -33,12 +13,22 @@ body {
     padding: none;
 }
 
-#map-main {
+
+#map-container {
     margin-left: 1%;
     height: 100%;
-    width: 78.5%;
+    width: 80%;
     display: inline-block;
     position: absolute;
+}
+
+#map-container > div {
+    height: 100%;
+}
+
+#map-main {
+    height: 100%;
+    width: 100%;
 }
 
 #sidebar {
@@ -74,4 +64,37 @@ div > label {
 #sources{
     padding: inherit;
     font-size: 10px;
+}
+
+.modal {
+    position: fixed;
+    z-index: 1002; /* Sit on top, including modebar which has z=1001 */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    background-color: rgba(0, 0, 0, 0.6); /* Black w/ opacity */
+
+}
+
+.modal-content {
+    margin: 15%;
+    margin-top: 5%;
+    padding: 30px;
+    background-color: white;
+}
+
+.info-button {
+    color: white;
+    background-color: #a6a6a6;
+    border: 2px solid white;
+    border-radius: 25%;
+    width: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+#layer-info-open-button:hover, #display-info-open-button:hover {
+  filter: brightness(110%);
 }
