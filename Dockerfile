@@ -40,7 +40,7 @@ RUN wget -O /usr/local/bin/minio \
 RUN mkdir /app
 
 # Install miniconda
-ARG MINICONDA_VERSION="py38_4.9.2"
+ARG MINICONDA_VERSION="py39_4.10.3"
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh \
     && mkdir -p /opt \
     && bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -b -p /opt/conda \
