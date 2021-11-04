@@ -49,7 +49,9 @@ class GeoHealthAccess:
         self.raw_dir = raw_dir.strip()
         self.input_dir = input_dir.strip()
         self.output_dir = output_dir.strip()
-        self.logs_dir = logs_dir.strip()
+        self.logs_dir = None
+        if logs_dir:
+            self.logs_dir = logs_dir.strip()
         self.log_level = log_level
 
         if len(country) == 3:
