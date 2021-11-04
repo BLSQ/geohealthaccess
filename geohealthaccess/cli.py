@@ -219,6 +219,7 @@ def access(
 
     # update moving speeds if a custom file is provided
     if moving_speeds:
+        moving_speeds = moving_speeds.strip()
         with storage.open_(moving_speeds) as f:
             gha.moving_speeds = json.load(f)
 
@@ -227,6 +228,7 @@ def access(
     if areas:
         # areas can be a local, s3 or gcs path
         # and may be provided as a GeoJSON or GPKG
+        areas = areas.strip()
         with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
             areas_tmp = os.path.join(tmp_dir, os.path.basename(areas))
             storage.cp(areas, areas_tmp)
@@ -260,6 +262,8 @@ def access(
         friction = gha.friction_surface(mode=mode)
 
         for target_ in target:
+
+            target_ = target_.strip()
 
             # load start_points as a geodataframe
             with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
