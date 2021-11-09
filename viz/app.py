@@ -2,8 +2,6 @@
 # 9 june 2021
 # dash visualization of GHA modeling results
 
-import os
-
 try:
     __IPYTHON__
     STANDALONE = False
@@ -22,7 +20,7 @@ if not STANDALONE:
     from jupyter_dash import JupyterDash
 
     JupyterDash.infer_jupyter_proxy_config()
-    
+
 import pandas as pd
 import geopandas as gpd
 
@@ -36,6 +34,7 @@ from dash.dependencies import Input, Output
 
 import json
 import sys
+import os
 from textwrap import dedent as d
 
 ##########################
@@ -113,7 +112,7 @@ app.layout = html.Div(id="app-main", children=[
         ),
     ],
         className='modal',
-        style={"display": "block"},
+        style={"display": "none"},
     ),
     
     html.Div(id='sidebar', children=[
@@ -173,9 +172,9 @@ app.layout = html.Div(id="app-main", children=[
                     dcc.RadioItems(
                         id='display-element',
                         options=[
-                            {'label': 'Zone data', 'value': 'zone_data'},
-                            {'label': 'Access raster', 'value': 'gha_raster'},
-                            {'label': 'UN WorldPop', 'value': 'world_pop'}
+                            {'label': 'Estimates by health zone', 'value': 'zone_data'},
+                            {'label': 'High-res access estimates', 'value': 'gha_raster'},
+                            {'label': 'High-res population', 'value': 'world_pop'}
                         ],
                         value='zone_data'
                     )
@@ -184,7 +183,7 @@ app.layout = html.Div(id="app-main", children=[
             
             html.Div(
                 [
-                    "Display",
+                    "Health Zone Display",
                     html.Button('i', className='info-button', 
                                 id='display-info-open-button'),
                     dcc.RadioItems(
@@ -220,13 +219,14 @@ app.layout = html.Div(id="app-main", children=[
         ]
     ),  
     html.Div(id = "map-container", 
-                children=[dcc.Loading(id='loading-icon',
-                                      children = [dcc.Graph(id="map-main",
-                                                            hoverData={'points': 
-                                                                       [{'text': 'ks Mikope Zone de Santé'}]},
-                                                            config={'displayModeBar': False})],
-                                      type="cube",
-                                      color="#157DC2")], 
+                children=[
+                    dcc.Loading(id='loading-icon',
+                                children = [dcc.Graph(id="map-main",
+                                                      hoverData={'points': 
+                                                                 [{'text': 'ks Mikope Zone de Santé'}]},
+                                                      config={'displayModeBar': False})],
+                                type="cube",
+                                color="#157DC2")], 
                 )
 
     
@@ -254,10 +254,10 @@ def display_map(model_var, month, display_type, display_element):
     zone_opacity = 0.9
     
     custom_cb = dict(thicknessmode='fraction',
-                     thickness=0.04,
+                     thickness=0.05,
                      ticks='inside',
-                     xpad=8,
-                     x=0.9,
+                     xpad=28,
+                     xanchor='right',
                      title=var_label_colorbar,
                      bgcolor='rgba(112, 128, 144, 0.72)',
                      tickfont_color='white',
@@ -334,8 +334,8 @@ def display_map(model_var, month, display_type, display_element):
                 marker=dict(
                     size=gdf['marker_size'],
                     sizemode='area',
-                    color='black',
-                    opacity=zone_opacity,
+                    color='#A5BAD2',
+                    opacity=zone_opacity * 1.1,
                     colorbar=None,
                 ),
                 hovertemplate = "<b>%{text}</b><br><br>" +
@@ -372,14 +372,15 @@ def display_map(model_var, month, display_type, display_element):
             marker=go.scattermapbox.Marker(
                 size=marker_legend.marker_size,
                 sizemode='area',
-                color='black'
+                color='#A5BAD2'
             ),
             showlegend=False,
             text=marker_legend.lname,
             textposition = 'middle right',
             textfont=dict(
                 family="sans serif",
-                size=12),
+                size=12,
+                color='#bfcdde'),
             hoverinfo="skip",
             hovertemplate=None,
         ))
@@ -434,8 +435,8 @@ def display_map(model_var, month, display_type, display_element):
                                                        thicknessmode='fraction',
                                                        thickness=0.04,
                                                        ticks='inside',
-                                                       xpad=8,
-                                                       x=0.9,
+                                                       xpad=28,
+                                                       xanchor='right',
                                                        bgcolor='rgba(112, 128, 144, 0.72)',
                                                        tickfont_color='white',
                                                        tickcolor='white',
@@ -479,8 +480,8 @@ def display_map(model_var, month, display_type, display_element):
                                                thicknessmode='fraction',
                                                thickness=0.04,
                                                ticks='inside',
-                                               xpad=8,
-                                               x=0.9,
+                                               xpad=28,
+                                               xanchor='right',
                                                bgcolor='rgba(112, 128, 144, 0.72)',
                                                tickfont_color='white',
                                                tickcolor='white'                                               
@@ -568,7 +569,10 @@ def cum_density_graph(hoverData, month, display_element):
                       font=dict(size=10),
                       template='simple_white',
                       yaxis_range=[0,105],
-                      xaxis_range=[20,190])
+                      xaxis_range=[20,190],
+#                       plot_bgcolor='red',
+#                       paper_bgcolor='red'
+                     )
 
     return fig  
 
@@ -646,4 +650,4 @@ if __name__ == '__main__':
     if STANDALONE:
         app.run_server(port=8000, host='0.0.0.0', debug=False)
     else:
-        app.run_server(port=8090, debug=True, dev_tools_silence_routes_logging=False)
+        app.run_server(port=8090, debug=True)
