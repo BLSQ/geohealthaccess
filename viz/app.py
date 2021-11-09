@@ -166,13 +166,13 @@ app.layout = html.Div(id="app-main", children=[
 
             html.Div(
                 [
-                    "Layers",
+                    "What to display:",
                     html.Button('i', className='info-button', 
                                 id='layer-info-open-button'),
                     dcc.RadioItems(
                         id='display-element',
                         options=[
-                            {'label': 'Estimates by health zone', 'value': 'zone_data'},
+                            {'label': 'Access estimates by health zone', 'value': 'zone_data'},
                             {'label': 'High-res access estimates', 'value': 'gha_raster'},
                             {'label': 'High-res population', 'value': 'world_pop'}
                         ],
@@ -183,15 +183,15 @@ app.layout = html.Div(id="app-main", children=[
             
             html.Div(
                 [
-                    "Health Zone Display",
+                    "For each health zone, show:",
                     html.Button('i', className='info-button', 
                                 id='display-info-open-button'),
                     dcc.RadioItems(
                         id='display-type',
                         options=[
-                            {'value': 'per_capita', 'label': 'Markers (per capita)'},
-                            {'value': 'absolute', 'label': 'Markers (absolute)'},
-                            {'value': 'choropleth', 'label': 'Choropleth'},
+                            {'value': 'choropleth', 'label': '% of pop. with access to services'},
+                            {'value': 'per_capita', 'label': '% with access and size of pop.'},
+                            {'value': 'absolute', 'label': 'Size of pop. without access'},
                         ],
                         value='per_capita'
                     )
@@ -581,27 +581,26 @@ def cum_density_graph(hoverData, month, display_element):
     Input('display-element', 'value'))
 def set_zone_data_radio_button_state(display_element):
     if 'zone_data' not in display_element:
-        return [{'value': 'per_capita', 
-                 'label': 'Markers (per capita)',
+        return [{'value': 'choropleth', 
+                 'label': '% of pop. with access to services',
+                 'disabled': True},
+                {'value': 'per_capita', 
+                 'label': '% with access and size of pop.',
                  'disabled': True},
                 {'value': 'absolute', 
-                 'label': 'Markers (absolute)',
-                 'disabled': True},
-                {'value': 'choropleth', 
-                 'label': 'Choropleth',
+                 'label': 'Size of pop. without access',
                  'disabled': True}]
     else:
-        return [{'value': 'per_capita', 
-                 'label': 'Markers (per capita)',
+        return [{'value': 'choropleth', 
+                 'label': '% of pop. with access to services',
+                 'disabled': False},
+                {'value': 'per_capita', 
+                 'label': '% with access and size of pop.',
                  'disabled': False},
                 {'value': 'absolute', 
-                 'label': 'Markers (absolute)',
-                 'disabled': False},
-                {'value': 'choropleth', 
-                 'label': 'Choropleth',
+                 'label': 'Size of pop. without access',
                  'disabled': False}]
 
-    
 @app.callback([Output('modal-content', 'children')],
               Output('modal', 'style'),
                [Input('modal-close-button', 'n_clicks'),
