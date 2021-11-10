@@ -69,13 +69,25 @@ def humanize_number(value, fraction_point=1):
 
     return return_value
 
+def bold_before_colon(text):
+    text = text.split(':')
+    first_word = text.pop(0) + ':'
+    
+    return [html.B(first_word), text[0]]
+
 
 ######################
 #### data imports ####
 ######################
-
-with open('assets/lorem.txt') as f:
-    lorem_ipsum = f.readlines()
+    
+with open('assets/landing.txt') as f:
+    landing_text = f.readlines()
+    
+with open('assets/what_to_display.txt') as f:
+    what_text = f.readlines()
+    
+with open('assets/how_to_display.txt') as f:
+    how_text = f.readlines()
 
 gdf = gpd.read_file('s3://hexa-blsq/data/geohealthaccess/DRC_Stats_Service.geojson')
 
@@ -107,7 +119,6 @@ app.layout = html.Div(id="app-main", children=[
             ]),
             html.Button('Close', id='modal-close-button')
         ],
-            style={'textAlign': 'center', },
             className='modal-content',
         ),
     ],
@@ -173,7 +184,7 @@ app.layout = html.Div(id="app-main", children=[
                         id='display-element',
                         options=[
                             {'label': 'Access estimates by health zone', 'value': 'zone_data'},
-                            {'label': 'High-res access estimates', 'value': 'gha_raster'},
+                            {'label': 'High-res travel times', 'value': 'gha_raster'},
                             {'label': 'High-res population', 'value': 'world_pop'}
                         ],
                         value='zone_data'
@@ -183,7 +194,7 @@ app.layout = html.Div(id="app-main", children=[
             
             html.Div(
                 [
-                    "For each health zone, show:",
+                    "How to display accessibility:",
                     html.Button('i', className='info-button', 
                                 id='display-info-open-button'),
                     dcc.RadioItems(
@@ -616,31 +627,55 @@ def open_close_modal(close_n, open_layer_n, open_display_n):
     elif 'layer-info-open-button' in changed_id:
         if (open_layer_n is not None) and (open_layer_n > 0):
             return [html.Div([
-                        html.H2('Various info about the available layers here'),
-                        html.P(lorem_ipsum[0]),
-                        html.Br(),
-                        html.P(lorem_ipsum[1]),
-                        html.Button('Close', id='modal-close-button')]
+                            html.H2('What to display'),
+                            html.Div(children = [html.P(what_text[0]),
+                                                 html.P(bold_before_colon(what_text[1])),
+                                                 html.P(bold_before_colon(what_text[2])),
+                                                 html.P(bold_before_colon(what_text[3])),
+                                                 html.Ul(children = [
+                                                     html.Li(what_text[4]),
+                                                     html.Li(what_text[5]),
+                                                     html.Li(what_text[6])
+                                                 ]),
+                                                 html.P(what_text[7])],
+                                     id='modal-text'),
+                            html.Button('Close', id='modal-close-button')]
                     ), 
                     {"display": "block"}]
     elif 'display-info-open-button' in changed_id:
         if (open_display_n is not None) and (open_display_n > 0):
             return [html.Div([
-                        html.H2('And here we can describe markers and choropleth maps'),
-                        html.P(lorem_ipsum[0]),
-                        html.Br(),
-                        html.P(lorem_ipsum[1]),
-                        html.Button('Close', id='modal-close-button')]
+                            html.H2('How to display accessibility'),
+                            html.Div(children = [html.P(how_text[0]),
+                                                 html.Ul(children = [
+                                                     html.Li(how_text[1]),
+                                                     html.Li(how_text[2]),
+                                                     html.Li(how_text[3])
+                                                 ])],
+                                     id='modal-text'),
+                            html.Button('Close', id='modal-close-button')]
                     ), 
                     {"display": "block"}]
     else:
         return [html.Div([
-                        html.H2('Welcome to GeoHealthAccess!'),
-                        html.P(lorem_ipsum[0]),
-                        html.Br(),
-                        html.P(lorem_ipsum[1]),
-                        html.Br(),
-                        html.P(lorem_ipsum[2]),
+                        html.H2(('Welcome to GeoHealthAccess for'
+                                ' the Democratic Republic of Congo!'),
+                                id='modal-title'),
+                        html.Div([
+                                html.P(landing_text[0]),
+                                html.Ol([
+                                    html.Li(children = [landing_text[1],
+                                                        html.A(('high-resolution population'
+                                                                ' maps made by WorldPop'),
+                                                          href='https://population.un.org/wpp/')]),
+                                    html.Li(landing_text[2]),
+                                    html.Li(landing_text[3]),
+                                ]),
+                                html.P(children = [landing_text[4],
+                                                   html.A('Github',
+                                                          href=('https://github.com/BLSQ'
+                                                                '/geohealthaccess/'))])
+                        ], id = 'modal-text'),
                         html.Button('Close', id='modal-close-button')]
                     ), 
                     {"display": "block"}]

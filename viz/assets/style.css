@@ -82,6 +82,11 @@ div > label {
     margin-top: 5%;
     padding: 30px;
     background-color: white;
+    text-align: center;
+}
+
+#modal-text {
+    text-align: left;
 }
 
 .info-button {
