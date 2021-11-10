@@ -89,13 +89,36 @@ with open('assets/what_to_display.txt') as f:
 with open('assets/how_to_display.txt') as f:
     how_text = f.readlines()
 
-gdf = gpd.read_file('s3://hexa-blsq/data/geohealthaccess/DRC_Stats_Service.geojson')
 
-gdf['fid'] = gdf['fid'] - 1
+gdf = gpd.read_file('s3://hexa-blsq/data/geohealthaccess/cod-malaria/areas.geojson')
+
+# formatting zone-level aggregates
+
+gdf['fid'] = gdf.index
 gdf['Pop_readable'] = gdf['PopTotal'].apply(lambda x: humanize_number(x))
 
 gdf['centroid_lat'] = gdf['geometry'].centroid.y
 gdf['centroid_lon'] = gdf['geometry'].centroid.x
+
+cols = gdf.columns.to_list()
+pct_cols = [c for c in cols if 'Percent' in c]
+gdf[pct_cols] = gdf[pct_cols].apply(lambda x: 100*x)
+
+# adding full zone and province names
+# hfr = pd.read_csv('s3://hexa-cod-msp/data/iaso-edl/SNIS.csv')
+# hfr = hfr[['parent 2', 'Ref Ext parent 2', 
+#            'parent 3', 'Ref Ext parent 3']].drop_duplicates()
+# hfr.rename(columns={'parent 2': 'zone_name',
+#                     'Ref Ext parent 2': 'zone_id',
+#                     'parent 3': 'prov_name',
+#                     'Ref Ext parent 3': 'prov_id'}, 
+#            inplace=True)
+
+# gdf = gdf.merge(hfr, left_on='dhis2_code', right_on='zone_id', how='left')
+# gdf.rename(columns={'name': 'zone_name_short',
+#                     'zone_name': 'name'},
+#            inplace=True)
+
 
 ########################
 #### dash app setup ####
@@ -145,6 +168,17 @@ app.layout = html.Div(id="app-main", children=[
                             {'value': '202008', 'label': 'Aug 2020'},
                             {'value': '202009', 'label': 'Sep 2020'},
                             {'value': '202010', 'label': 'Oct 2020'},
+                            {'value': '202011', 'label': 'Nov 2020'},
+                            {'value': '202012', 'label': 'Dec 2020'},
+                            {'value': '202101', 'label': 'Jan 2021'},
+                            {'value': '202102', 'label': 'Feb 2021'},
+                            {'value': '202103', 'label': 'Mar 2021'},
+                            {'value': '202104', 'label': 'Apr 2021'},
+                            {'value': '202105', 'label': 'May 2021'},
+                            {'value': '202106', 'label': 'Jun 2021'},
+                            {'value': '202107', 'label': 'Jul 2021'},
+                            {'value': '202108', 'label': 'Aug 2021'},
+                            {'value': '202109', 'label': 'Sep 2021'}
                         ],
                         value='202001',
                         clearable=False
@@ -160,14 +194,14 @@ app.layout = html.Div(id="app-main", children=[
                             options=[
                                 {'value': 'Pop30mn', 
                                  'label': '30 min'},
-                                {'value': 'Pop60mn', 
-                                 'label': '60 min'},
                                 {'value': 'Pop90mn', 
                                  'label': '90 min'},
                                 {'value': 'Pop120mn', 
                                  'label': '120 min'},
-                                {'value': 'Pop180mn', 
-                                 'label': '180 min'}
+                                {'value': 'Pop150mn', 
+                                 'label': '150 min'},
+                                {'value': 'Pop190mn', 
+                                 'label': '190 min'}
                             ],
                             value='Pop30mn',
                             clearable=False
@@ -234,7 +268,7 @@ app.layout = html.Div(id="app-main", children=[
                     dcc.Loading(id='loading-icon',
                                 children = [dcc.Graph(id="map-main",
                                                       hoverData={'points': 
-                                                                 [{'text': 'ks Mikope Zone de Santé'}]},
+                                                                 [{'text': 'Mikope'}]},
                                                       config={'displayModeBar': False})],
                                 type="cube",
                                 color="#157DC2")], 
@@ -243,7 +277,10 @@ app.layout = html.Div(id="app-main", children=[
     
 ])
 
-# callback and graphing functions
+#########################################
+#### callback and graphing functions ####
+#########################################
+
 @app.callback(
     Output("map-main", "figure"), 
     [Input("model_var", "value"),
@@ -537,7 +574,7 @@ def cum_density_graph(hoverData, month, display_element):
                         'centroid_lat', 'centroid_lon'], 
                    axis=1).loc[gdf.name == geo_unit_name]
 
-        tdf = tdf.melt(id_vars=['fid', 'id', 'name'])
+        tdf = tdf.melt(id_vars=['fid', 'dhis2_code', 'name'])
         tdf = tdf.loc[tdf.variable.str.contains('Percent')]
 
         meta = tdf.variable.str.split('_', expand=True)
@@ -546,16 +583,16 @@ def cum_density_graph(hoverData, month, display_element):
         tdf['month'] = meta[1]
 
         name_dict = {'Pop30mn': 30,
-                     'Pop60mn': 60,
                      'Pop90mn': 90,
                      'Pop120mn': 120,
-                     'Pop180mn': 180}
+                     'Pop150mn': 150,
+                     'Pop190mn': 190}
 
         tdf['var'] = tdf['var'].replace(name_dict.keys(), name_dict.values())
         tdf = tdf.loc[tdf.month == month]
     else:
         geo_unit_name = ''
-        tdf = pd.DataFrame(data=None, columns=['fid', 'id', 'name', 
+        tdf = pd.DataFrame(data=None, columns=['fid', 'dhis2_code', 'name', 
                                                'variable', 'value', 
                                                'var', 'month'])
 
@@ -580,10 +617,7 @@ def cum_density_graph(hoverData, month, display_element):
                       font=dict(size=10),
                       template='simple_white',
                       yaxis_range=[0,105],
-                      xaxis_range=[20,190],
-#                       plot_bgcolor='red',
-#                       paper_bgcolor='red'
-                     )
+                      xaxis_range=[20,200])
 
     return fig  
 
@@ -666,13 +700,13 @@ def open_close_modal(close_n, open_layer_n, open_display_n):
                                 html.Ol([
                                     html.Li(children = [landing_text[1],
                                                         html.A(('high-resolution population'
-                                                                ' maps made by WorldPop'),
+                                                                ' maps made by WorldPop.'),
                                                           href='https://population.un.org/wpp/')]),
                                     html.Li(landing_text[2]),
                                     html.Li(landing_text[3]),
                                 ]),
                                 html.P(children = [landing_text[4],
-                                                   html.A('Github',
+                                                   html.A('Github.',
                                                           href=('https://github.com/BLSQ'
                                                                 '/geohealthaccess/'))])
                         ], id = 'modal-text'),

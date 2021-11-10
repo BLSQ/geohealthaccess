@@ -1,4 +1,4 @@
 When the access estimates by health zone option is selected, it is possible to display the data in three different ways :
 Percent of population with access in each zone : this is a good way to identify health districts with the lowest level of accessibility of health services.
-Percent of population with access with zone population: this is a good way to identify most populous health districts and check the  level of access to care 
+Percent of population with access with zone population: this is a good way to identify most populous health districts and check the  level of access to care. 
 Number of people without access to care : this is the best way to identify where people don’t have access to care and how many people are affected.
