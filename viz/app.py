@@ -190,7 +190,7 @@ app.layout = html.Div(id="app-main", children=[
                         [
                         "Travel time to care",
                         dcc.Dropdown(
-                            id='model_var', 
+                            id='model-var', 
                             options=[
                                 {'value': 'Pop30mn', 
                                  'label': '30 min'},
@@ -265,14 +265,18 @@ app.layout = html.Div(id="app-main", children=[
     ),  
     html.Div(id = "map-container", 
                 children=[
-                    dcc.Loading(id='loading-icon',
-                                children = [dcc.Graph(id="map-main",
-                                                      hoverData={'points': 
-                                                                 [{'text': 'Mikope'}]},
-                                                      config={'displayModeBar': False})],
-                                type="cube",
-                                color="#157DC2")], 
-                )
+                    html.Div(className="loader-wrapper",
+                             children = [
+                                 dcc.Loading(id='loading-icon',
+                                             children = [dcc.Graph(id="map-main",
+                                                                   hoverData={'points': 
+                                                                              [{'text': 'Mikope'}]},
+                                                                   config={'displayModeBar': False})],
+                                             type="cube",
+                                             color="#157DC2")
+                             ])
+                ], 
+    )
 
     
 ])
@@ -283,7 +287,7 @@ app.layout = html.Div(id="app-main", children=[
 
 @app.callback(
     Output("map-main", "figure"), 
-    [Input("model_var", "value"),
+    [Input("model-var", "value"),
      Input("month", "value"),
      Input("display-type", "value"),
      Input("display-element", "value")])
@@ -626,29 +630,32 @@ def cum_density_graph(hoverData, month, display_element):
     return fig  
 
 @app.callback(
-    Output('display-type', 'options'),
+    [Output('display-type', 'options'),
+     Output('model-var', 'disabled')],
     Input('display-element', 'value'))
-def set_zone_data_radio_button_state(display_element):
+def set_interface_button_states(display_element):
     if 'zone_data' not in display_element:
-        return [{'value': 'choropleth', 
-                 'label': '% of pop. with access to services',
-                 'disabled': True},
-                {'value': 'per_capita', 
-                 'label': '% with access and size of pop.',
-                 'disabled': True},
-                {'value': 'absolute', 
-                 'label': 'Size of pop. without access',
-                 'disabled': True}]
+        return [[{'value': 'choropleth', 
+                  'label': '% of pop. with access to services',
+                  'disabled': True},
+                 {'value': 'per_capita', 
+                  'label': '% with access and size of pop.',
+                  'disabled': True},
+                 {'value': 'absolute', 
+                  'label': 'Size of pop. without access',
+                  'disabled': True}],
+                True]
     else:
-        return [{'value': 'choropleth', 
-                 'label': '% of pop. with access to services',
-                 'disabled': False},
-                {'value': 'per_capita', 
-                 'label': '% with access and size of pop.',
-                 'disabled': False},
+        return [[{'value': 'choropleth', 
+                  'label': '% of pop. with access to services',
+                  'disabled': False},
+                 {'value': 'per_capita', 
+                  'label': '% with access and size of pop.',
+                  'disabled': False},
                 {'value': 'absolute', 
                  'label': 'Size of pop. without access',
-                 'disabled': False}]
+                 'disabled': False}],
+                False]
 
 @app.callback([Output('modal-content', 'children')],
               Output('modal', 'style'),

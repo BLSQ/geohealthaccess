@@ -22,8 +22,17 @@ body {
     position: absolute;
 }
 
-#map-container > div {
-    height: 100%;
+.loader-wrapper {
+    height: inherit;
+}
+
+.loader-wrapper > div {
+    visibility: visible !important;
+    height: inherit;
+}
+
+.loader-wrapper > div > div {
+    background: rgba(0, 0, 0, 0.5);
 }
 
 #map-main {
