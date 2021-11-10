@@ -218,8 +218,8 @@ app.layout = html.Div(id="app-main", children=[
                         id='display-element',
                         options=[
                             {'label': 'Access estimates by health zone', 'value': 'zone_data'},
-                            {'label': 'High-res travel times', 'value': 'gha_raster'},
-                            {'label': 'High-res population', 'value': 'world_pop'}
+                            {'label': 'High-resolution travel times', 'value': 'gha_raster'},
+                            {'label': 'High-resolution population', 'value': 'world_pop'}
                         ],
                         value='zone_data'
                     )
@@ -228,15 +228,15 @@ app.layout = html.Div(id="app-main", children=[
             
             html.Div(
                 [
-                    "How to display accessibility:",
+                    "How to display access:",
                     html.Button('i', className='info-button', 
                                 id='display-info-open-button'),
                     dcc.RadioItems(
                         id='display-type',
                         options=[
-                            {'value': 'choropleth', 'label': '% of pop. with access to services'},
-                            {'value': 'per_capita', 'label': '% with access and size of pop.'},
-                            {'value': 'absolute', 'label': 'Size of pop. without access'},
+                            {'value': 'choropleth', 'label': 'Percent of population with access to services'},
+                            {'value': 'per_capita', 'label': 'Percent with access and size of population'},
+                            {'value': 'absolute', 'label': 'Size of population without access'},
                         ],
                         value='per_capita'
                     )
@@ -636,24 +636,24 @@ def cum_density_graph(hoverData, month, display_element):
 def set_interface_button_states(display_element):
     if 'zone_data' not in display_element:
         return [[{'value': 'choropleth', 
-                  'label': '% of pop. with access to services',
+                  'label': 'Percent of population with access to services',
                   'disabled': True},
                  {'value': 'per_capita', 
-                  'label': '% with access and size of pop.',
+                  'label': 'Percent with access and size of population',
                   'disabled': True},
                  {'value': 'absolute', 
-                  'label': 'Size of pop. without access',
+                  'label': 'Size of population without access',
                   'disabled': True}],
                 True]
     else:
         return [[{'value': 'choropleth', 
-                  'label': '% of pop. with access to services',
+                  'label': 'Percent of population with access to services',
                   'disabled': False},
                  {'value': 'per_capita', 
-                  'label': '% with access and size of pop.',
+                  'label': 'Percent with access and size of population',
                   'disabled': False},
                 {'value': 'absolute', 
-                 'label': 'Size of pop. without access',
+                 'label': 'Size of population without access',
                  'disabled': False}],
                 False]
 
@@ -725,6 +725,16 @@ def open_close_modal(close_n, open_layer_n, open_display_n):
                     ), 
                     {"display": "block"}]
 
+    
+@app.callback(
+    Output("density-container", "style"),
+    Input("display-element", "value"))
+def show_hide_density_graph(display_element):
+    if display_element == 'zone_data':
+        return {'display':'block'}
+    else:
+        return {'display':'none'}
+    
 if __name__ == '__main__':
     if STANDALONE:
         app.run_server(port=8000, host='0.0.0.0', debug=False)

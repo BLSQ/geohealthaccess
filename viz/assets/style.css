@@ -15,13 +15,14 @@ body {
 
 
 #map-container {
-    margin-left: 1%;
+    margin-left: 0.3%;
     height: 100%;
-    width: 80%;
+    width: 79%;
     display: inline-block;
     position: absolute;
 }
 
+/* loading GIF + grey transparency */
 .loader-wrapper {
     height: inherit;
 }
@@ -40,11 +41,14 @@ body {
     width: 100%;
 }
 
+
+/* controls UI */
 #sidebar {
-    width: 20%;
+    width: 22%;
     border-radius: 5px;
     margin-top: 0.8%;
-    padding: 6px;
+    margin-left: 0.25%;
+    padding: 4px;
     padding-top: none;
     display: inline-block;
 }
@@ -57,10 +61,12 @@ body {
 
 #ctrls-container > div {
     padding: inherit;
+    font-size: 0.95vw;
 }
 
 div > label {
     display: block;
+    font-size: 0.8vw;
 }
 
 #density-container {
@@ -74,6 +80,24 @@ div > label {
     padding: inherit;
     font-size: 10px;
 }
+
+.info-button {
+    color: white;
+    background-color: #a6a6a6;
+    border: 2px solid white;
+    border-radius: 25%;
+    width: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+#layer-info-open-button:hover, #display-info-open-button:hover {
+  filter: brightness(110%);
+}
+
+
+/* modal styling */
 
 .modal {
     position: fixed;
@@ -96,19 +120,4 @@ div > label {
 
 #modal-text {
     text-align: left;
-}
-
-.info-button {
-    color: white;
-    background-color: #a6a6a6;
-    border: 2px solid white;
-    border-radius: 25%;
-    width: 20px;
-    font-size: 14px;
-    font-weight: bold;
-    margin-left: 5px;
-}
-
-#layer-info-open-button:hover, #display-info-open-button:hover {
-  filter: brightness(110%);
 }
