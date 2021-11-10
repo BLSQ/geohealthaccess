@@ -338,6 +338,7 @@ def display_map(model_var, month, display_type, display_element):
         ))
         
     else:
+        # Percent with access // population size markers
         if (display_type == 'per_capita') & (display_element == 'zone_data'):
 
             gdf['marker_size'] = gdf['PopTotal'] - gdf['PopTotal'].min()
@@ -365,6 +366,7 @@ def display_map(model_var, month, display_type, display_element):
                             meta='main'
 
             ))
+        # Absolute population without access markers
         else:
             # rescale indicator for visualization
             gdf['absolute_w_out_access'] = gdf['PopTotal'] - gdf[model_var]
@@ -456,9 +458,9 @@ def display_map(model_var, month, display_type, display_element):
                 "sourceattribution": "Bluesquare",
                 "source": ["https://qgis-server.bluesquare.org"
                            "/cgi-bin/qgis_mapserv.fcgi?MAP=/home/qgis/projects"
-                           "/GHA_ISO_COST.qgz&service=WMS&request=GetMap&layers"
-                           "=cost_car_iso_f5f38704_ba1e_4a6d_a5ee_fd1752fa9cf3&styles="
-                           "&format=image/png&transparent=true&version=1.1.1&width=256&height=256"
+                           "/geohealthaccess.qgz&service=WMS&request=GetMap"
+                           f"&layers={month}_cost&styles=&format=image/png&transparent=true"
+                           "&version=1.1.1&width=256&height=256"
                            "&srs=EPSG:3857&bbox={bbox-epsg-3857}"],
                 "opacity" : 0.65
 
@@ -470,15 +472,17 @@ def display_map(model_var, month, display_type, display_element):
                                      y=[None],
                                      mode='markers',
                                      marker=dict(
-                                         colorscale='greens_r', 
+                                         colorscale='magma_r', 
                                          showscale=True,
-                                         cmin=-5,
-                                         cmax=5,
+                                         cmin=0,
+                                         cmax=360,
                                          colorbar=dict(title=dict(text='Time to care <br> &nbsp;',
                                                                   font=dict(color='white')),
-                                                       tickvals=[-4.85, -1.626, 1.626, 4.85], 
-                                                       ticktext=['<1 hour', '1-2 hours',
-                                                                 '2-3 hours', '>3 hours'],
+                                                       tickvals=[60, 120, 180, 
+                                                                 240, 300, 360], 
+                                                       ticktext=['1 hour', '2 hours',
+                                                                 '3 hours', '4 hours',
+                                                                 '5 hours', '6 hours'],
                                                        outlinewidth=0,
                                                        thicknessmode='fraction',
                                                        thickness=0.04,
