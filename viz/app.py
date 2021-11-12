@@ -22,6 +22,19 @@ if not STANDALONE:
     JupyterDash.infer_jupyter_proxy_config()
 
 import pandas as pd
+
+# Attempted fix for:
+# File "/code/app.py", line 25, in <module> import geopandas as gpd File
+# "/usr/local/lib/python3.10/site-packages/geopandas/__init__.py", line 7, in <module>
+# from geopandas.io.file import _read_file as read_file # noqa File
+# "/usr/local/lib/python3.10/site-packages/geopandas/io/file.py", line 20, in <module> from fiona import Env as
+# fiona_env File "/usr/local/lib/python3.10/site-packages/fiona/__init__.py", line 85, in <module>
+# with fiona._loading.add_gdal_dll_directories(): AttributeError: partially initialized module 'fiona'
+# has no attribute '_loading' (most likely due to a circular import). Did you mean: 'logging'?
+# Solution from:
+# https://github.com/Toblerity/Fiona/issues/944#issuecomment-806362135
+import fiona
+
 import geopandas as gpd
 
 import plotly.express as px
