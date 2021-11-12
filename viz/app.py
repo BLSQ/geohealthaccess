@@ -124,8 +124,13 @@ gdf[pct_cols] = gdf[pct_cols].apply(lambda x: 100*x)
 #### dash app setup ####
 ########################
 
-token = open(".mapbox_token").read()
-style = open(".mapbox_style").read()
+MAPBOX_TOKEN = os.environ.get(
+    "MAPBOX_TOKEN",
+    "pk.eyJ1IjoiYWthbGRqaWFuIiwiYSI6ImNrcnVvbzk2eDA2cnozMGxtM2ZwZ3B3bmUifQ.lUpko2ttQM904N8Zg1GB9w",
+)
+MAPBOX_STYLE = os.environ.get(
+    "MAPBOX_STYLE", "mapbox://styles/akaldjian/ckrupp4jrbsbf17mstgsbtrti"
+)
 
 if STANDALONE:
     app = dash.Dash(__name__)
@@ -550,8 +555,8 @@ def display_map(model_var, month, display_type, display_element):
         fig.add_trace(colorbar_trace)
     
     
-    fig.update_layout(mapbox=dict(style=style,
-                                  accesstoken=token,
+    fig.update_layout(mapbox=dict(style=MAPBOX_STYLE,
+                                  accesstoken=MAPBOX_TOKEN,
                                   center=go.layout.mapbox.Center(
                                       lat=-4.8514,
                                       lon=22.6780
