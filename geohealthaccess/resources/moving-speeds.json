@@ -1,0 +1,67 @@
+{
+    "land-cover": {
+        "Bare": 3.00,
+        "Crops": 2.50,
+        "Grass": 4.86,
+        "MossLichen": 4.86,
+        "Shrub": 3.00,
+        "Snow": 1.62,
+        "Tree": 4.00,
+        "BuiltUp": 5.00,
+        "PermanentWater": 0.00,
+        "SeasonalWater": 0.5
+    },
+    "transport": {
+        "highway": {
+            "motorway": 90,
+            "trunk": 80,
+            "trunk_link": 80,
+            "primary": 70,
+            "primary_link": 70,
+            "secondary": 60,
+            "secondary_link": 60,
+            "tertiary": 50,
+            "tertiary_link": 50,
+            "unclassified": 40,
+            "residential": 30,
+            "road": 30,
+            "living_street": 20,
+            "service": 20,
+            "track": 20,
+            "path": 10,
+            "footway": 1
+        },
+        "tracktype": {
+            "grade1": 1.00,
+            "grade2": 0.90,
+            "grade3": 0.80,
+            "grade4": 0.70,
+            "grade5": 0.60
+        },
+        "surface": {
+            "asphalt": 1.00,
+            "paved": 0.90,
+            "concrete": 0.90,
+            "compacted": 0.85,
+            "ground": 0.70,
+            "dirt": 0.70,
+            "unpaved": 0.70,
+            "soil": 0.70,
+            "gravel": 0.70
+        },
+        "smoothness": {
+            "excellent": 1.00,
+            "very_good": 0.90,
+            "good": 0.80,
+            "intermediate": 0.70,
+            "bad": 0.60,
+            "very_bad": 0.50,
+            "horrible": 0.40,
+            "very_horrible": 0.30,
+            "impassable": 0.00
+        },
+        "route": {
+            "ferry": 5
+        }
+    }
+}

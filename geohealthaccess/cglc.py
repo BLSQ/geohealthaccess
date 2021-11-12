@@ -1,137 +1,166 @@
-"""Search and download tiles from the Copernicus Global Land Cover product.
-
-The module provides a `CGLC` class to search and download CGLC products based on
-an input shapely geometry. It also contains helper functions to make sense of
-CGLC files in a local directory.
-
-Examples
---------
-Downloading all CGLC tiles that intersect an area of interest `geom` into a
-directory `output_dir`::
-
-    cglc = CGLC()
-    tiles = cglc.search(geom)
-    for tile in tiles:
-        cglc.download(tile, output_dir)
-
-Notes
------
-See `<https://lcviewer.vito.be/about>`_ for more information about the CGLC project.
-"""
-
 import os
-from collections import namedtuple
+from tempfile import TemporaryDirectory
 
-import geopandas as gpd
-from loguru import logger
+import numpy as np
+import rasterio
 import requests
+from loguru import logger
 from rasterio.crs import CRS
-from shapely.geometry import Polygon
+from rasterio.warp import transform_bounds
+from tqdm import tqdm
 
 from geohealthaccess import storage
-from geohealthaccess.utils import download_from_url, size_from_url
-
+from geohealthaccess.preprocessing import mask_raster, reproject
 
 logger.disable("__name__")
 
 
-def tile_id(url):
-    """Extract tile ID from its URL.
-
-    Returns
-    -------
-    str
-        Tile ID.
-    """
-    basename = url.split("/")[-1]
-    return basename.split("_")[0]
-
-
-def tile_geom(id_):
-    """Get tile geometry from its ID.
-
-    Returns
-    -------
-    Polygon
-        Shapely geometry of the tile.
-    """
-    xmin = int(id_[1:4])
-    ymax = int(id_[5:7])
-    if id_[0] == "W":
-        xmin *= -1
-    if id_[4] == "S":
-        ymax *= -1
-    ymin = ymax - 20
-    xmax = xmin + 20
-    coords = ((xmin, ymax), (xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax))
-    return Polygon(coords)
-
-
 class CGLC:
-    """A catalog of all available CGLC tiles.
+    """Access Copernicus Global Land Cover data.
 
     Attributes
     ----------
-    MANIFEST_URL : str
-        URL to the manifest text file that is used to create the spatial index.
+    BASE_URL : str
+        Base URL where tiles can be downloaded.
+    VERSION : str
+        Dataset version.
+    DATASETS : dict
+        Available datasets and epochs.
+    LABELS : list
+        Land cover labels.
     """
 
     def __init__(self):
         """Initialize CGLC catalog."""
-        self.MANIFEST_URL = (
-            "https://s3-eu-west-1.amazonaws.com/vito-lcv/2015/ZIPfiles/"
-            "manifest_cgls_lc_v2_100m_global_2015.txt"
-        )
+        self.BASE_URL = "https://s3-eu-west-1.amazonaws.com/vito.landcover.global"
+        self.VERSION = "v3.0.1"
+        self.DATASETS = {
+            2015: "2015-base",
+            2016: "2016-conso",
+            2017: "2017-conso",
+            2018: "2018-conso",
+            2019: "2019-nrt",
+        }
+        self.LABELS = [
+            "Bare",
+            "BuiltUp",
+            "Crops",
+            "Tree",
+            "Grass",
+            "MossLichen",
+            "SeasonalWater",
+            "Shrub",
+            "Snow",
+            "PermanentWater",
+        ]
         self.session = requests.Session()
-        self.manifest = self.parse_manifest()
-        self.sindex = self.spatial_index()
 
-    def __repr__(self):
-        return "geohealthaccess.cglc.CGLC()"
-
-    def parse_manifest(self):
-        """Parse manifest text file.
+    def download_url(self, tile, label, year=2019):
+        """Build download URL of a cover fraction land cover tile.
 
         Parameters
         ----------
-        url : str
-            URL of the manifest.
+        tile : str
+            Tile name (e.g. E020N60).
+        label : str
+            Land cover label.
+        year : int, optional
+            Epoch (between 2015 and 2019). Default=2019.
 
         Returns
         -------
-        list of tiles
-            A list of all the available CGLC tiles as ``Tile()`` objects.
+        url : str
+            Path to remote GeoTIFF.
 
         Raises
         ------
-        HTTPError
-            If connection to manifest URL is not sucessfull.
+        ValueError
+            If year or land cover class are unavailable.
         """
-        logger.info(f"Parsing CGLC manifest from {self.MANIFEST_URL}.")
-        r = self.session.get(self.MANIFEST_URL)
-        r.raise_for_status()
-        return r.text.splitlines()
+        if year not in self.DATASETS:
+            raise ValueError("Year unavailable.")
+        if label not in self.LABELS:
+            raise ValueError("Land cover class unavailable.")
+        fname = f"{tile}_PROBAV_LC100_global_{self.VERSION}_{self.DATASETS[year]}"
+        fname += f"_{label}-CoverFraction-layer_EPSG-4326.tif"
+        return "/".join((self.BASE_URL, self.VERSION, str(year), tile, fname))
 
-    def spatial_index(self):
-        """Build a spatial index from the Manifest text file.
+    @staticmethod
+    def format_lat(lat):
+        """Format decimal lontitude into a string.
+
+        Parameters
+        ----------
+        lat : int
+            Decimal latitude.
 
         Returns
         -------
-        geodataframe
-            GeoDataFrame version of the catalog with tile IDs, URL and geometry.
+        str
+            Formatted latitude string.
+
+        Examples
+        --------
+        >>> format_lat(-20)
+        'S20'
         """
-        sindex = gpd.GeoDataFrame(
-            index=[tile_id(tile) for tile in self.manifest],
-            data=self.manifest,
-            columns=["url"],
-            geometry=[tile_geom(tile_id(tile)) for tile in self.manifest],
-            crs=CRS.from_epsg(4326),
-        )
-        logger.info(f"CGLC spatial index has been built ({len(sindex)} tiles).")
-        return sindex
+        if lat < 0:
+            ns = "S"
+            lat *= -1
+        else:
+            ns = "N"
+        return ns + str(int(lat)).zfill(2)
+
+    @staticmethod
+    def format_lon(lon):
+        """Format decimal longitude into a string.
+
+        Parameters
+        ----------
+        lon : int
+            Decimal longitude.
+
+        Returns
+        -------
+        str
+            Formatted longitude string.
+
+        Examples
+        --------
+        >>> format_lon(-60)
+        'W060'
+        """
+        if lon < 0:
+            ew = "W"
+            lon *= -1
+        else:
+            ew = "E"
+        return ew + str(int(lon)).zfill(3)
+
+    def format_latlon(self, lat, lon):
+        """Format decimal latitude and longitude into a string.
+
+        Parameters
+        ----------
+        lat : int
+            Decimal latitude.
+        lon : int
+            Decimal longitude.
+
+        Returns
+        -------
+        str
+            Formatted latitude and longitude string.
+
+        Examples
+        --------
+        >>> format_latlon(-30, 40)
+        'E040S30'
+        """
+        return self.format_lon(lon) + self.format_lat(lat)
 
     def search(self, geom):
-        """Search the CGLC tiles required to cover a given geometry.
+        """Get name of tiles that intersects a geometry.
 
         Parameters
         ----------
@@ -140,153 +169,195 @@ class CGLC:
 
         Returns
         -------
-        list of namedtuples
-            Required CGLC tiles as namedtuples.
+        tiles : list of str
+            Names of the intersecting tiles.
         """
-        tiles = self.sindex[self.sindex.intersects(geom)].index
-        logger.info(f"{len(tiles)} CGLC tiles required to cover the area of interest.")
-        return list(tiles)
+        tiles = []
+        min_lon, min_lat, max_lon, max_lat = geom.bounds
+        lon_stops = [
+            lon // 20 * 20
+            for lon in np.append(np.arange(min_lon, max_lon, 20), max_lon)
+        ]
+        lat_stops = [
+            lat // 20 * 20 + 20
+            for lat in np.append(np.arange(min_lat, max_lat, 20), max_lat)
+        ]
+        for lon in lon_stops:
+            for lat in lat_stops:
+                tile_id = self.format_latlon(lat, lon)
+                if tile_id not in tiles:
+                    tiles.append(tile_id)
+        logger.info(f"{len(tiles)} tiles required to cover the input geometry.")
+        return tiles
 
-    def download(self, tile, output_dir, show_progress=True, overwrite=False):
-        """Download a CGLC tile.
+    def download(self, geom, label, dst_file, year=2019, overwrite=False):
+        """Download data from a single or multiple CGLC tiles.
+
+        CGLC tiles are hosted as Cloud Optimized GeoTIFFs, allowing us to avoid
+        downloading data outside of `geom`.
+
+        Notes
+        -----
+        The function supports S3 or GCS URLs for `dst_file`.
 
         Parameters
         ----------
-        tile : str
-            CGLC tile ID.
-        output_dir : str
-            Path to output directory.
-        show_progress : bool, optional
-            Show download progress bar.
+        geom : shapely geometry
+            Data outside the boundaries of `geom` will not be downloaded.
+        label : str
+            Land cover label.
+        dst_file : str
+            Path to output raster.
+        year : int, optional
+            Epoch (between 2015 and 2019). Default=2019.
         overwrite : bool, optional
             Force overwrite of existing files.
 
         Returns
         -------
         str
-            Path to output file.
+            Path to output GeoTIFF.
         """
-        url = self.sindex.url[tile]
-        return download_from_url(
-            self.session, url, output_dir, show_progress, overwrite
-        )
+        if storage.exists(dst_file) and not overwrite:
+            if overwrite:
+                logger.info(f"Removing old {os.path.basename(dst_file)} file.")
+                storage.rm(dst_file)
+            else:
+                logger.info(
+                    f"{os.path.basename(dst_file)} already exists. Skipping download."
+                )
+                return dst_file
 
-    def download_size(self, tile):
-        """Get download size of a tile.
+        tiles = self.search(geom)
+        for i, tile in enumerate(tiles):
+            url = self.download_url(tile, label, year)
+            with rasterio.open(url) as src:
+                profile = src.profile
+                win = src.window(*geom.bounds)
+                win = win.round_offsets(op="floor")
+                win = win.round_shape(op="ceil")
+                transform = rasterio.windows.transform(win, src.transform)
+                if i == 0:
+                    shape = (len(tiles), win.height, win.width)
+                    data = np.empty(shape, dtype=np.uint8)
+                data[i, :, :] = src.read(
+                    1, masked=True, boundless=True, window=win
+                ).astype(np.uint8)
+
+        # merge tiles
+        # we temporarily use -1 as nodata value to make sure
+        # the 255 value is ignored in the max operation
+        data = data.astype(np.int16)
+        data[data == 255] = -1
+        mosaic = np.max(data, axis=0)
+        mosaic[mosaic == -1] = 255
+        mosaic = mosaic.astype(np.uint8)
+
+        with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+            dst_file_tmp = os.path.join(tmp_dir, "cglc.tif")
+            profile.update(
+                transform=transform, height=data.shape[1], width=data.shape[2]
+            )
+            with rasterio.open(dst_file_tmp, "w", **profile) as dst:
+                dst.write(mosaic, 1)
+            storage.cp(dst_file_tmp, dst_file)
+
+        return dst_file
+
+    def download_all(
+        self, geom, output_dir, year=2019, show_progress=True, overwrite=False
+    ):
+        """Download all land cover layers for a given geometry.
 
         Parameters
         ----------
         tile : str
-            CGLC tile ID.
+            Tile name (e.g. E020N60).
+        geom : shapely geometry
+            Area of interest.
+        output_dir : str
+            Path to output directory.
+        year : int, optional
+            Epoch (between 2015 and 2019). Default=2019.
+        show_progress : bool, optional
+            Show progress bar.
+        overwrite : bool, optional
+            Force overwrite of existing files.
 
         Returns
         -------
-        int
-            Size in bytes.
+        list of str
+            List of output files.
         """
-        url = self.sindex.url[tile]
-        return size_from_url(self.session, url)
+        files = []
+        storage.mkdir(output_dir)
+
+        if show_progress:
+            pbar = tqdm(total=len(self.LABELS), desc="land cover")
+
+        for label in self.LABELS:
+            logger.info(f"Downloading `{label}` land cover data.")
+            dst_file = os.path.join(output_dir, f"landcover_{label}.tif")
+            files.append(self.download(geom, label, dst_file, year, overwrite))
+            if show_progress:
+                pbar.update(1)
+
+        pbar.close()
+        return files
 
 
-def parse_filename(path):
-    """Parse a CGLC filename.
+def preprocess(src_dir, dst_dir, geom, crs, res, overwrite=False):
+    """Process land cover tiles into a new grid.
 
-    Parameters
-    ----------
-    path : str
-        Path to CGLC file.
-
-    Returns
-    -------
-    layer : namedtuple
-        Parsed filename as a namedtuple.
-    """
-    fname = os.path.basename(path)
-    parts = fname.split("_")
-    if len(parts) != 8:
-        raise ValueError("Not a CGLC file.")
-    if not fname.lower().endswith(".tif"):
-        raise ValueError("Not a GeoTIFF file.")
-
-    parts = fname.split("_")
-    Layer = namedtuple("Layer", ["path", "name", "tile", "epoch", "version"])
-    return Layer(
-        path=os.path.abspath(path),
-        name=parts[6],
-        tile=parts[0],
-        epoch=int(parts[3][-4:]),
-        version=parts[5],
-    )
-
-
-def _is_cglc(fname):
-    """Check if a filename can be a CGLC raster."""
-    if len(fname.split("_")) != 8:
-        return False
-    if not fname.lower().endswith(".tif") or "_ProbaV_LC100_" not in fname:
-        return False
-    return True
-
-
-def unique_tiles(directory):
-    """List unique CGLC tiles in a directory.
+    Raw land cover tiles are merged and reprojected to the grid identified
+    by `crs`, `geom` and `res`. Data outside `geom` are assigned
+    NaN values.
 
     Parameters
     ----------
-    directory : str
-        Path to directory with CGLC files.
-
-    Returns
-    -------
-    list of str
-        List of unique tile IDs.
-    """
-    files = [f for f in storage.ls(directory) if _is_cglc(f)]
-    tiles = [f.split("_")[0] for f in files]
-    unique = list(set(tiles))
-    logger.info(f"Found {len(unique)} unique CGLC tiles.")
-    return unique
-
-
-def list_layers(directory, tile):
-    """List available layers for a given tile ID.
-
-    Parameters
-    ----------
-    directory : str
-        Directory with CGLC files.
-    tile : str
-        Tile ID.
-
-    Returns
-    -------
-    list of str
-        List of layer names.
-    """
-    files = [f for f in storage.ls(directory) if _is_cglc(f) and f.startswith(tile)]
-    return [f.split("_")[6] for f in files]
-
-
-def find_layer(directory, tile, name):
-    """Find a CGLC layer in a directory.
-
-    Parameters
-    ----------
-    directory : str
-        Path to directory with CGLC files.
-    tile : str
-        Tile ID.
-    name : str
-        Layer name (e.g. ``grass-coverfraction-layer`` or ``discrete-classification``).
+    src_dir : str
+        Path to directory where land cover tiles are stored.
+    dst_dir : str
+        Path to output directory.
+    geom : shapely geometry
+        Area of interest. Used to create a nodata mask.
+    crs : CRS
+        Target CRS.
+    res : int or float
+        Target spatial resolution in `crs` units.
+    overwrite : bool, optional
+        Overwrite existing files. Default=False.
 
     Returns
     -------
     str
-        Path to CGLC layer.
+        Path to output directory.
     """
-    files = [f for f in storage.ls(directory) if _is_cglc(f)]
-    for f in files:
-        if f.startswith(tile) and f.split("_")[6] == name:
-            return os.path.join(directory, f)
-    logger.warning(f"Layer {name} not found.")
-    return None
+    bounds = transform_bounds(CRS.from_epsg(4326), crs, *geom.bounds)
+    lc = CGLC()
+    for label in lc.LABELS:
+        src_file = os.path.join(src_dir, f"landcover_{label}.tif")
+        dst_file = os.path.join(dst_dir, f"landcover_{label}.tif")
+        if storage.exists(dst_file) and not overwrite:
+            logger.info(f"Land cover {label} already preprocessed. Skipping.")
+            continue
+        logger.info(f"Preprocessing {label} land cover data...")
+        with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+            src_file_tmp = os.path.join(tmp_dir, f"landcover_{label}.tif")
+            storage.cp(src_file, src_file_tmp)
+            dst_file_tmp = os.path.join(tmp_dir, f"landcover_{label}_reproj.tif")
+            dst_file_tmp = reproject(
+                src_file_tmp,
+                dst_file_tmp,
+                dst_crs=crs,
+                dst_bounds=bounds,
+                dst_res=res,
+                src_nodata=255,
+                dst_nodata=-9999,
+                dst_dtype="Float32",
+                resampling_method="bilinear",
+                overwrite=overwrite,
+            )
+            mask_raster(dst_file_tmp, geom)
+            storage.cp(dst_file_tmp, dst_file)
+    return dst_dir

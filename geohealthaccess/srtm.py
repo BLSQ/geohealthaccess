@@ -22,15 +22,25 @@ References
 .. [1] `NASA EarthData Register <https://urs.earthdata.nasa.gov/users/new>`_
 """
 
+import os
+from tempfile import TemporaryDirectory
+
 import geopandas as gpd
 import requests
 from bs4 import BeautifulSoup
-from pkg_resources import resource_filename
-
 from loguru import logger
+from pkg_resources import resource_filename
+from rasterio.crs import CRS
+from rasterio.warp import transform_bounds
 
+from geohealthaccess import storage
+from geohealthaccess.preprocessing import (
+    compute_slope,
+    mask_raster,
+    merge_tiles,
+    reproject,
+)
 from geohealthaccess.utils import download_from_url, size_from_url
-
 
 logger.disable("__name__")
 
@@ -182,3 +192,97 @@ class SRTM:
         """
         url = self.DOWNLOAD_URL + tile
         return size_from_url(self.session, url)
+
+
+def preprocess(src_dir, dst_elev, dst_slope, dst_crs, dst_res, geom, overwrite=False):
+    """Preprocess SRTM elevation data.
+
+    Creates an elevation raster from input SRTM tiles in the specified
+    raster grid and CRS.
+
+    Parameters
+    ----------
+    src_dir : str
+        Path to directory where SRTM tiles are stored.
+    dst_elev : str
+        Path to output elevation raster.
+    dst_slope : str
+        Path to output slope raster.
+    dst_crs : CRS
+        Target coordinate reference system as a rasterio CRS object.
+    dst_res : int or float
+        Target spatial resolution in `dst_crs` units.
+    geom : shapely geometry
+        Area of interest (EPSG:4326).
+    overwrite : bool, optional
+        Overwrite existing files.
+
+    Returns
+    -------
+    str
+        Path to outptut elevation raster.
+    str
+        Path to output slope raster.
+    """
+    if storage.exists(dst_elev) and storage.exists(dst_slope) and not overwrite:
+        logger.info(
+            f"{os.path.basename(dst_elev)} and {os.path.basename(dst_slope)} already exists. Skipping processing."
+        )
+        return dst_elev, dst_slope
+
+    tiles = storage.glob(os.path.join(src_dir, "*SRTM*.hgt.zip"))
+    dst_bounds = transform_bounds(CRS.from_epsg(4326), dst_crs, *geom.bounds)
+
+    with TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+
+        for tile in tiles:
+
+            # Make a local copy of tiles and unzip them
+            tile_tmp = os.path.join(tmp_dir, os.path.basename(tile))
+            storage.cp(tile, tile_tmp)
+            storage.unzip(tile_tmp, tmp_dir)
+
+        # Merge tiles if necessary
+        tiles = storage.glob(os.path.join(tmp_dir, "*.hgt"))
+        if len(tiles) > 1:
+            mosaic = merge_tiles(
+                tiles, os.path.join(tmp_dir, "mosaic.tif"), nodata=-32768
+            )
+        else:
+            mosaic = tiles[0]
+
+        # Compute slope before reprojection
+        slope_tmp = compute_slope(
+            mosaic, os.path.join(tmp_dir, "slope.tif"), percent=False, scale=111120
+        )
+
+        # Reproject elevation and slope
+        # Data types and NoData values are different for each raster
+        dst_elev_tmp = os.path.join(tmp_dir, "elevation_reproj.tif")
+        dst_slope_tmp = os.path.join(tmp_dir, "slope_reproj.tif")
+        for nodata, dtype, src, dst in zip(
+            (-32768, -9999),
+            ("Int16", "Float32"),
+            (mosaic, slope_tmp),
+            (dst_elev_tmp, dst_slope_tmp),
+        ):
+            # Reproject to `dst_crs`, `dst_bounds` and `dst_res`
+            dst_tmp = reproject(
+                src_raster=src,
+                dst_raster=dst,
+                dst_crs=dst_crs,
+                dst_bounds=dst_bounds,
+                dst_res=dst_res,
+                src_nodata=nodata,
+                dst_nodata=-nodata,
+                dst_dtype=dtype,
+                resampling_method="bilinear",
+            )
+
+            # Assign nodata to pixels outisde boundaries
+            dst_tmp = mask_raster(dst_tmp, geom)
+
+        storage.cp(dst_elev_tmp, dst_elev)
+        storage.cp(dst_slope_tmp, dst_slope)
+
+    return dst_elev, dst_slope

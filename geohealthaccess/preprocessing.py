@@ -235,6 +235,8 @@ def reproject(
     if overwrite:
         command += ["-overwrite"]
     command += [src_raster, dst_raster]  # input/output files
+    if dst_dtype:
+        command += ["-ot", dst_dtype]
     if src_nodata:
         command += ["-srcnodata", str(src_nodata)]
     if dst_nodata:
@@ -319,6 +321,7 @@ def compute_slope(src_dem, dst_file, percent=False, scale=None):
         command += ["-s", str(scale)]
     for opt in GDAL_CO:
         command += ["-co", opt]
+    command += ["-co", "BIGTIFF=YES"]
     command += [src_dem, dst_file]
     logger.info(f"Running command: {' '.join(command)}")
     run(command, logger=_log_for_gdal_output("gdaldem"))
@@ -363,6 +366,7 @@ def compute_aspect(src_dem, dst_file, trigonometric=False):
         command += ["-trigonometric"]
     for opt in GDAL_CO:
         command += ["-co", opt]
+    command += ["-co", "BIGTIFF=YES"]
     command += [src_dem, dst_file]
     logger.info(f"Running command: {' '.join(command)}")
     run(command, logger=_log_for_gdal_output("gdaldem"))

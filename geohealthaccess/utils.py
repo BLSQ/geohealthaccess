@@ -5,6 +5,8 @@ import os
 from tempfile import TemporaryDirectory
 import zipfile
 from urllib.parse import urlparse
+import random
+import string
 
 from loguru import logger
 from pkg_resources import resource_string
@@ -82,7 +84,13 @@ def country_geometry(country):
 
 
 def download_from_url(
-    session, url, output_dir, show_progress=True, overwrite=False, pbar_position=0
+    session,
+    url,
+    output_dir,
+    show_progress=True,
+    overwrite=False,
+    pbar_position=0,
+    timeout=30,
 ):
     """Download remote file from URL in a given requests session.
 
@@ -101,6 +109,8 @@ def download_from_url(
     pbar_position : int, optional (default=0)
         Optionally set the absolute position of the progress bar in case several
         threads display a progress bar simultaneously.
+    timeout : int, optional (default=30)
+        GET request timeout in seconds.
 
     Returns
     -------
@@ -111,7 +121,7 @@ def download_from_url(
     filename = url.split("/")[-1]
     dst_file = os.path.join(output_dir, filename)
 
-    with session.get(url, stream=True, timeout=5) as r:
+    with session.get(url, stream=True, timeout=timeout) as r:
 
         try:
             r.raise_for_status()
@@ -273,3 +283,8 @@ def unzip_all(src_dir, remove_archives=False):
         progress.update(1)
     progress.close()
     return src_dir
+
+
+def random_string(length=16):
+    chars = string.ascii_lowercase + string.ascii_uppercase + string.digits
+    return "".join(random.choice(chars) for i in range(length))

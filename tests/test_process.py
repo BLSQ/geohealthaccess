@@ -24,10 +24,13 @@ class MockLogger:
         (("plop",), None, OSError, None),  # File does not exist -> OSError
         (("ls boum",), None, OSError, None),  # Non-zero return code
         (
-            ("ls", "setup.py",),
+            (
+                "ls",
+                "pyproject.toml",
+            ),
             0,
             None,
-            "setup.py\n",
+            "pyproject.toml\n",
         ),  # Successful command, with logging
         (
             ("plop",),
@@ -36,7 +39,10 @@ class MockLogger:
             "[Errno 2] No such file or directory: 'plop'",
         ),  # File does not exist, with logging
         (
-            ("ls", "boum",),
+            (
+                "ls",
+                "boum",
+            ),
             2,
             ProcessError,
             "ls: cannot access 'boum': No such file or directory\n",

@@ -32,6 +32,5 @@ def test_download(monkeypatch):
         fp = worldpop.download(
             "ben", tmp_dir, 2020, un_adj=True, show_progress=False, overwrite=False
         )
-        mtime = os.path.getmtime(fp)
         assert os.path.isfile(fp)
         assert os.path.basename(fp) == "ben_ppp_2020_UNadj.tif"

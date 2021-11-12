@@ -8,19 +8,106 @@ import os
 from subprocess import run, PIPE, DEVNULL
 import tempfile
 import functools
+from pkg_resources import resource_filename
 
 from loguru import logger
 import numpy as np
+import requests
 import rasterio
 from rasterio.features import rasterize
 import geopandas as gpd
 
+from geohealthaccess import storage
 from geohealthaccess.preprocessing import default_compression
-from geohealthaccess.errors import OsmiumNotFoundError, MissingDataError
-from geohealthaccess.utils import human_readable_size
+from geohealthaccess.errors import (
+    OsmiumNotFoundError,
+    MissingDataError,
+    GeoHealthAccessError,
+)
+from geohealthaccess.utils import (
+    country_geometry,
+    download_from_url,
+    human_readable_size,
+)
 
 
 logger.disable(__name__)
+
+
+class Geofabrik:
+    """Acess OSM data hosted on Geofabrik website.
+
+    See <http://download.geofabrik.de/>_.
+    """
+
+    def __init__(self):
+        """Initialize Geofabrik catalog."""
+        self.catalog = gpd.read_file(
+            resource_filename(__name__, "resources/geofabrik.geojson"), driver="GeoJSON"
+        )
+        self.catalog.set_index("id", inplace=True)
+
+    def search(self, geom, min_cover=98):
+        """Search product matching the input geometry.
+
+        The function look for (almost) exact matches. Geofabrik products
+        covering less than `min_cover` are excluded from the results.
+        The product satisfying `min_cover` with the lowest total surface
+        is returned.
+
+        Parameters
+        ----------
+        geom : shapely geometry
+            Area of interest (EPSG:4326).
+        min_cover : int, optional
+            Min. coverage by the Geofabrik product in percents.
+            Default=98%.
+
+        Returns
+        -------
+        str
+            URL of the .osm.pbf file.
+        """
+        results = self.catalog[self.catalog.intersects(geom)]
+        contains = results.geometry.apply(
+            lambda g: geom.intersection(g).area / geom.area
+        )
+        results = results[contains >= min_cover / 100]
+        if results.empty:
+            raise GeoHealthAccessError("Found no matching OSM product on Geofabrik.")
+        results = results.to_crs(epsg=3857)
+        product = results[results.area == results.area.min()].iloc[0]
+        return product.urls["pbf"]
+
+    def download(self, country, output_dir, show_progress=True, overwrite=False):
+        """Search and download OSM product matching the input geometry.
+
+        See `Geofabrik.search()` docstring for more information about the
+        search process.
+
+        Parameters
+        ----------
+        country : str
+            Country ISO A3 code.
+        output_dir : str
+            Path to output directory.
+        show_progress : bool, optional
+            Show progress bar. Default=False.
+        overwrite : bool, optional
+            Overwrite existing files. Default=True.
+
+        Returns
+        -------
+        str
+            Path to output file.
+        """
+        geom = country_geometry(country)
+        url = self.search(geom, min_cover=95).replace("https", "http")
+        with requests.Session() as s:
+            fp = download_from_url(
+                s, url, output_dir, show_progress=show_progress, overwrite=overwrite
+            )
+        return fp
 
 
 def requires_osmium(func):
@@ -183,6 +270,10 @@ def _is_empty(osm_pbf):
 def thematic_extract(osm_pbf, theme, dst_fname):
     """Extract a category of objects from an .osm.pbf file into a GeoPackage.
 
+    Note
+    ----
+    The function does not support S3 or GCS URLs.
+
     Parameters
     ----------
     osm_pbf : str
@@ -262,20 +353,23 @@ def thematic_extract(osm_pbf, theme, dst_fname):
 
 
 def create_water_raster(
-    osm_water,
+    src_file,
     dst_file,
     dst_crs,
     dst_shape,
     dst_transform,
     include_streams=False,
-    geom=None,
     overwrite=False,
 ):
     """Create a raster of surface water from OSM data.
 
+    Notes
+    -----
+    The function supports S3 and GCS URls for `src_file` and `dst_file`.
+
     Parameters
     ----------
-    osm_water : str
+    src_file : str
         Path to input OSM features (.gpkg or .geojson).
     dst_file : str
         Path to output raster.
@@ -291,50 +385,122 @@ def create_water_raster(
         Overwrite existing files.
     """
     logger.info("Starting rasterization of OSM water objects.")
-    if os.path.isfile(dst_file) and not overwrite:
-        logger.info(f"`{os.path.basename(dst_file)}` already exists. Skipping.")
+
+    # Abort if dst_file already exists
+    if storage.exists(dst_file) and not overwrite:
+        logger.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
         return
-    if not os.path.isfile(osm_water):
+
+    # Abort if src_file does not exist
+    if not storage.exists(src_file):
         raise MissingDataError("OSM water data is missing.")
 
-    water = gpd.read_file(osm_water)
-    if water.crs != dst_crs:
-        water = water.to_crs(dst_crs)
-    water_bodies = water[water.water.isin(("lake", "basin", "reservoir", "lagoon"))]
-    large_rivers = water[(water.water == "river") | (water.waterway == "riverbank")]
-    small_rivers = water[water.waterway.isin(("river", "canal"))]
-    streams = water[water.waterway == "stream"]
-    features = [water_bodies, large_rivers, small_rivers]
-    if include_streams:
-        features.append(streams)
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
 
-    geoms = []
-    for objects in features:
-        geoms += [g.__geo_interface__ for g in objects.geometry]
-    logger.info(f"Found {len(geoms)} OSM water objects.")
+        # Make a local copy of source file and load input features
+        src_file_tmp = os.path.join(tmp_dir, os.path.basename(src_file))
+        storage.cp(src_file, src_file_tmp)
+        water = gpd.read_file(src_file_tmp)
+        if water.crs != dst_crs:
+            water = water.to_crs(dst_crs)
 
-    rst = rasterize(
-        geoms,
-        out_shape=dst_shape,
-        fill=0,
-        default_value=1,
-        transform=dst_transform,
-        all_touched=True,
-        dtype="uint8",
-    )
+        # Filter input features based on OSM `water` and `waterway` properties
+        water_bodies = water[water.water.isin(("lake", "basin", "reservoir", "lagoon"))]
+        large_rivers = water[(water.water == "river") | (water.waterway == "riverbank")]
+        small_rivers = water[water.waterway.isin(("river", "canal"))]
+        streams = water[water.waterway == "stream"]
+        features = [water_bodies, large_rivers, small_rivers]
+        if include_streams:
+            features.append(streams)
 
-    dst_profile = rasterio.default_gtiff_profile
-    dst_profile.update(
-        count=1,
-        dtype="uint8",
-        transform=dst_transform,
-        crs=dst_crs,
-        height=dst_shape[0],
-        width=dst_shape[1],
-        nodata=255,
-        **default_compression("uint8"),
-    )
+        # Build a list of all input geometries as required by rasterio
+        geoms = []
+        for objects in features:
+            geoms += [g.__geo_interface__ for g in objects.geometry]
+        logger.info(f"Found {len(geoms)} OSM water objects.")
 
-    with rasterio.open(dst_file, "w", **dst_profile) as dst:
-        dst.write(rst, 1)
-        logger.info(f"OSM water raster saved as `{os.path.basename(dst_file)}`.")
+        # Rasterize input features
+        rst = rasterize(
+            geoms,
+            out_shape=dst_shape,
+            fill=0,
+            default_value=1,
+            transform=dst_transform,
+            all_touched=True,
+            dtype="uint8",
+        )
+
+        dst_profile = rasterio.default_gtiff_profile
+        dst_profile.update(
+            count=1,
+            dtype="uint8",
+            transform=dst_transform,
+            crs=dst_crs,
+            height=dst_shape[0],
+            width=dst_shape[1],
+            nodata=255,
+            **default_compression("uint8"),
+        )
+
+        dst_file_tmp = os.path.join(tmp_dir, os.path.basename(dst_file))
+        with rasterio.open(dst_file_tmp, "w", **dst_profile) as dst:
+            dst.write(rst, 1)
+        storage.cp(dst_file_tmp, dst_file)
+        logger.info(f"OSM water raster saved to {os.path.basename(dst_file)}.")
+
+    return dst_file
+
+
+@requires_osmium
+def extract_osm_objects(src_file, dst_dir, overwrite=False):
+    """Extract roads, ferries, water and health facilities from OSM.
+
+    Notes
+    -----
+    The function requires osmium-tools to be installed as it relies on the
+    `osm.thematic_extract()` defined in the present module. Tags and geometry
+    types of interest are defined in the `EXTRACTS` dictionary.
+    Input file is copied into a temporary directory and output files are moved
+    to `dst_dir` at the end of the processing -- so both paths can be S3 or GCS
+    URLs.
+
+    Parameters
+    ----------
+    src_file : str
+        Path to source .osm.pbf file.
+    dst_dir : str
+        Path to output directory.
+    overwrite : bool, optional
+        Overwrite existing files. Default=False.
+
+    Returns
+    -------
+    str
+        Path to output directory.
+    """
+    # Source files are copied into a temporary directory where processed data
+    # are also going to be stored.
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+        tmp_src_file = os.path.join(tmp_dir, os.path.basename(src_file))
+        storage.cp(src_file, tmp_src_file)
+
+        # Extract roads, health facilities, water objects and ferries
+        for theme in ("roads", "health", "water", "ferry"):
+            dst_file = os.path.join(dst_dir, f"{theme}.gpkg")
+            tmp_dst_file = os.path.join(tmp_dir, os.path.basename(dst_file))
+
+            # Skip processing if destination file already exists
+            if storage.exists(dst_file) and not overwrite:
+                logger.info(f"{os.path.basename(dst_file)} already exists. Skipping.")
+                continue
+
+            # Extract objects and copy output file into destination directory
+            try:
+                thematic_extract(tmp_src_file, theme, tmp_dst_file)
+                storage.cp(tmp_dst_file, dst_file)
+            except MissingDataError:
+                logger.warning(
+                    f"Skipping extraction of `{theme}` objects due to missing data."
+                )
+
+    return dst_dir

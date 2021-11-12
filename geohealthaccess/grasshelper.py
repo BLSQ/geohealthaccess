@@ -4,14 +4,25 @@ This modules includes code from https://github.com/yannforget/shedecides
 
 import os
 import shutil
+import subprocess
 import sys
 
 from loguru import logger
 
-from geohealthaccess.config import find_grass_dir
-
+from geohealthaccess.errors import GrassNotFoundError, GrassError
 
 logger.disable(__name__)
+
+
+def find_grass_dir():
+    """Try to find GRASS install directory."""
+    if "GISBASE" in os.environ:
+        return os.environ["GISBASE"]
+    p = subprocess.run(["grass", "--config", "path"], capture_output=True)
+    if p.returncode == 0:
+        return p.stdout.decode().strip()
+    else:
+        raise GrassNotFoundError()
 
 
 # Import GRASS python modules
@@ -43,11 +54,17 @@ def check_location(gisdb_path, location_name, crs):
     else:
         if crs.is_epsg_code:
             gscript.core.create_location(
-                gisdb_path, location_name, epsg=crs.to_epsg(), overwrite=False,
+                gisdb_path,
+                location_name,
+                epsg=crs.to_epsg(),
+                overwrite=False,
             )
         else:
             gscript.core.create_location(
-                gisdb_path, location_name, proj4=crs.to_proj4(), overwrite=False,
+                gisdb_path,
+                location_name,
+                proj4=crs.to_proj4(),
+                overwrite=False,
             )
         logger.info(f'Location "{location_name}" created.')
 
@@ -99,7 +116,6 @@ def setup_environment(gisdb, crs):
     """
     LOCATION = "GEOHEALTHACCESS"
     MAPSET = "PERMANENT"
-
     if "GISBASE" not in os.environ:
         os.environ["GISBASE"] = find_grass_dir()
     logger.info(f'GISBASE = {os.environ["GISBASE"]}.')
@@ -107,7 +123,10 @@ def setup_environment(gisdb, crs):
     if "GISRC" not in os.environ:
         os.environ["GISRC"] = os.path.join(os.environ["HOME"], ".gisrc")
     gscript.setup.init(
-        gisbase=os.environ["GISBASE"], dbase=gisdb, location=LOCATION, mapset=MAPSET,
+        gisbase=os.environ["GISBASE"],
+        dbase=gisdb,
+        location=LOCATION,
+        mapset=MAPSET,
     )
     logger.info(f'GISRC = {os.environ["GISRC"]}.')
 
@@ -126,18 +145,18 @@ def setup_environment(gisdb, crs):
 
 def grass_execute(*args, **kwargs):
     """Execute a GRASS command and return stdout and stderr."""
-    kwargs["stdout"] = gscript.PIPE
-    kwargs["stderr"] = gscript.PIPE
-    ps = gscript.start_command(*args, **kwargs)
-    return ps.communicate()
+    kwargs["stdout"] = subprocess.PIPE
+    kwargs["stderr"] = subprocess.PIPE
+    p = gscript.start_command(*args, **kwargs)
+    stdout, stderr = p.communicate()
+    name = p.args[0]  # GRASS command name, ex. r.in.gdal
+    log_cmd_output(stdout, stderr, name)
+    if p.returncode != 0:
+        raise GrassError(f"{name}: {stderr.decode('UTF-8')}")
 
 
-def log_cmd_output(cmd_output):
+def log_cmd_output(stdout, stderr, name):
     """Log stdout and stderr from gscript.start_command()."""
-    if not cmd_output:
-        return
-    stdout, stderr = cmd_output
-
     # stdout
     if stdout:
         stdout = stdout.decode("UTF-8")
@@ -145,12 +164,7 @@ def log_cmd_output(cmd_output):
             line = line.strip()
             # skip empty lines and progress bar
             if line and "\x08" not in line:
-                if line.startswith("ERROR"):
-                    logger.error(line)
-                elif line.startswith("WARNING"):
-                    logger.warning(line)
-                else:
-                    logger.info(line)
+                logger.debug(f"{name}: {line}")
 
     # stderr
     if stderr:
@@ -159,9 +173,4 @@ def log_cmd_output(cmd_output):
             line = line.strip()
             # skip empty lines and progress bar
             if line and "\x08" not in line:
-                if line.startswith("ERROR"):
-                    logger.error(line)
-                elif line.startswith("WARNING"):
-                    logger.warning(line)
-                else:
-                    logger.info(line)
+                logger.debug(f"{name}: {line}")

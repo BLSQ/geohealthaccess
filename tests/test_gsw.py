@@ -3,10 +3,13 @@
 import os
 import tempfile
 
-import vcr
 import pytest
-
-from geohealthaccess.gsw import GSW
+import rasterio
+import requests
+from geohealthaccess.gsw import GSW, preprocess
+from pkg_resources import resource_filename
+from rasterio.crs import CRS
+from shapely import wkt
 
 
 @pytest.fixture(scope="module")
@@ -57,23 +60,30 @@ def test_gsw_url(gsw, tile, product, url):
     assert gsw.url(tile, product) == BASE_URL + url
 
 
-@vcr.use_cassette("tests/cassettes/gsw-180W_20S-extent.yaml")
-def test_gsw_download():
-    gsw = GSW()
-    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmpdir:
-        fpath = gsw.download("180W_20S", "extent", tmpdir)
-        assert os.path.isfile(fpath)
-        assert os.path.getsize(fpath) > 1000
-        mtime = os.path.getmtime(fpath)
-        # should not be downloaded again
-        gsw.download("180W_20S", "extent", tmpdir, overwrite=False)
-        assert os.path.getmtime(fpath) == mtime
-        # should be downloaded again
-        gsw.download("180W_20S", "extent", tmpdir, overwrite=True)
-        assert os.path.getmtime(fpath) != mtime
+def test_gsw_download(gsw, monkeypatch):
+    def mockreturn(self, chunk_size):
+        return [b"", b"", b""]
+
+    monkeypatch.setattr(requests.Response, "iter_content", mockreturn)
+
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+        tile = "40E_20N"
+        gsw.download(tile, "seasonality", tmp_dir)
+        assert os.path.isfile(os.path.join(tmp_dir, "seasonality_40E_20N_v1_1.tif"))
 
 
-@vcr.use_cassette("tests/cassettes/gsw-30W_20N-extent-head.yaml")
-def test_gsw_download_size():
-    gsw = GSW()
-    assert gsw.download_size("30W_20N", "extent") == 11137774
+def test_gsw_preprocess():
+    src_dir = resource_filename(__name__, "data/gsw-raw-data")
+    with open(resource_filename(__name__, "data/djibouti.wkt")) as f:
+        geom = wkt.load(f)
+    crs = CRS.from_epsg(3857)
+    res = 100
+    with tempfile.TemporaryDirectory(prefix="geohealthaccess_") as tmp_dir:
+        dst_file = os.path.join(tmp_dir, "water.tif")
+        preprocess(src_dir, dst_file, crs, res, geom)
+        with rasterio.open(dst_file) as src:
+            assert src.transform.a == res
+            assert src.crs == crs
+            data = src.read(1, masked=True)
+            assert data.min() >= 0
+            assert data.max() <= 12
