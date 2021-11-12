@@ -3,7 +3,7 @@
 # - AWS_SECRET_ACCESS_KEY
 # - STANDALONE=yes
 
-FROM python:3
+FROM python:3.9.6
 
 RUN apt-get update
 RUN apt-get install -y libgeos-dev libgdal-dev
@@ -17,3 +17,5 @@ COPY assets /code/assets
 
 EXPOSE 8000
 CMD python /code/app.py
+
+WORKDIR /code
