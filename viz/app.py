@@ -90,7 +90,7 @@ with open('assets/how_to_display.txt') as f:
     how_text = f.readlines()
 
 
-gdf = gpd.read_file('s3://hexa-blsq/data/geohealthaccess/cod-malaria/areas.geojson')
+gdf = gpd.read_file('s3://hexa-demo-blsq/geohealthacess/cod-malaria/areas.geojson')
 
 # formatting zone-level aggregates
 
@@ -105,7 +105,7 @@ pct_cols = [c for c in cols if 'Percent' in c]
 gdf[pct_cols] = gdf[pct_cols].apply(lambda x: 100*x)
 
 # adding full zone and province names
-# hfr = pd.read_csv('s3://hexa-cod-msp/data/iaso-edl/SNIS.csv')
+# hfr = pd.read_csv('s3://some-bucket-name/data/iaso-edl/SNIS.csv')
 # hfr = hfr[['parent 2', 'Ref Ext parent 2', 
 #            'parent 3', 'Ref Ext parent 3']].drop_duplicates()
 # hfr.rename(columns={'parent 2': 'zone_name',
