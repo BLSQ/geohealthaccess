@@ -2,9 +2,11 @@
 # 9 june 2021
 # dash visualization of GHA modeling results
 
-import os
-
-STANDALONE = os.environ.get("STANDALONE", "yes") == "yes"
+try:
+    __IPYTHON__
+    STANDALONE = False
+except NameError:
+    STANDALONE = True
 
 ##############################################
 ##### jupyter dash setup + package imports ###
@@ -19,7 +21,6 @@ if not STANDALONE:
 
     JupyterDash.infer_jupyter_proxy_config()
 
-
 import pandas as pd
 import geopandas as gpd
 
@@ -32,6 +33,8 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 
 import json
+import sys
+import os
 from textwrap import dedent as d
 
 ##########################
@@ -66,18 +69,55 @@ def humanize_number(value, fraction_point=1):
 
     return return_value
 
+def bold_before_colon(text):
+    text = text.split(':')
+    first_word = text.pop(0) + ':'
+    
+    return [html.B(first_word), text[0]]
+
 
 ######################
 #### data imports ####
 ######################
+    
+with open('assets/landing.txt') as f:
+    landing_text = f.readlines()
+    
+with open('assets/what_to_display.txt') as f:
+    what_text = f.readlines()
+    
+with open('assets/how_to_display.txt') as f:
+    how_text = f.readlines()
 
-gdf = gpd.read_file('s3://habari-test-lake/gha-viz/data/DRC_Stats_Service.geojson')
 
-gdf['fid'] = gdf['fid'] - 1
+gdf = gpd.read_file('s3://hexa-demo-blsq/geohealthacess/cod-malaria/areas.geojson')
+
+# formatting zone-level aggregates
+
+gdf['fid'] = gdf.index
 gdf['Pop_readable'] = gdf['PopTotal'].apply(lambda x: humanize_number(x))
 
 gdf['centroid_lat'] = gdf['geometry'].centroid.y
 gdf['centroid_lon'] = gdf['geometry'].centroid.x
+
+cols = gdf.columns.to_list()
+pct_cols = [c for c in cols if 'Percent' in c]
+gdf[pct_cols] = gdf[pct_cols].apply(lambda x: 100*x)
+
+# adding full zone and province names
+# hfr = pd.read_csv('s3://some-bucket-name/data/iaso-edl/SNIS.csv')
+# hfr = hfr[['parent 2', 'Ref Ext parent 2', 
+#            'parent 3', 'Ref Ext parent 3']].drop_duplicates()
+# hfr.rename(columns={'parent 2': 'zone_name',
+#                     'Ref Ext parent 2': 'zone_id',
+#                     'parent 3': 'prov_name',
+#                     'Ref Ext parent 3': 'prov_id'}, 
+#            inplace=True)
+
+# gdf = gdf.merge(hfr, left_on='dhis2_code', right_on='zone_id', how='left')
+# gdf.rename(columns={'name': 'zone_name_short',
+#                     'zone_name': 'name'},
+#            inplace=True)
 
 
 ########################
@@ -96,9 +136,23 @@ if STANDALONE:
     app = dash.Dash(__name__)
 else:
     app = JupyterDash(__name__)
-
+    
 # app component layout
 app.layout = html.Div(id="app-main", children=[
+    
+    html.Div(id='modal', children =[  # modal div
+        html.Div(id='modal-content', children = [  # content div
+            html.Div([
+                'This is the content of the modal',
+            ]),
+            html.Button('Close', id='modal-close-button')
+        ],
+            className='modal-content',
+        ),
+    ],
+        className='modal',
+        style={"display": "none"},
+    ),
     
     html.Div(id='sidebar', children=[
         
@@ -119,6 +173,17 @@ app.layout = html.Div(id="app-main", children=[
                             {'value': '202008', 'label': 'Aug 2020'},
                             {'value': '202009', 'label': 'Sep 2020'},
                             {'value': '202010', 'label': 'Oct 2020'},
+                            {'value': '202011', 'label': 'Nov 2020'},
+                            {'value': '202012', 'label': 'Dec 2020'},
+                            {'value': '202101', 'label': 'Jan 2021'},
+                            {'value': '202102', 'label': 'Feb 2021'},
+                            {'value': '202103', 'label': 'Mar 2021'},
+                            {'value': '202104', 'label': 'Apr 2021'},
+                            {'value': '202105', 'label': 'May 2021'},
+                            {'value': '202106', 'label': 'Jun 2021'},
+                            {'value': '202107', 'label': 'Jul 2021'},
+                            {'value': '202108', 'label': 'Aug 2021'},
+                            {'value': '202109', 'label': 'Sep 2021'}
                         ],
                         value='202001',
                         clearable=False
@@ -130,18 +195,18 @@ app.layout = html.Div(id="app-main", children=[
                         [
                         "Travel time to care",
                         dcc.Dropdown(
-                            id='model_var', 
+                            id='model-var', 
                             options=[
                                 {'value': 'Pop30mn', 
                                  'label': '30 min'},
-                                {'value': 'Pop60mn', 
-                                 'label': '60 min'},
                                 {'value': 'Pop90mn', 
                                  'label': '90 min'},
                                 {'value': 'Pop120mn', 
                                  'label': '120 min'},
-                                {'value': 'Pop180mn', 
-                                 'label': '180 min'}
+                                {'value': 'Pop150mn', 
+                                 'label': '150 min'},
+                                {'value': 'Pop190mn', 
+                                 'label': '190 min'}
                             ],
                             value='Pop30mn',
                             clearable=False
@@ -151,13 +216,15 @@ app.layout = html.Div(id="app-main", children=[
 
             html.Div(
                 [
-                    "Layers",
+                    "What to display:",
+                    html.Button('i', className='info-button', 
+                                id='layer-info-open-button'),
                     dcc.RadioItems(
-                        id='display-elements',
+                        id='display-element',
                         options=[
-                            {'label': 'Zone data', 'value': 'zone_data'},
-                            {'label': 'Access raster', 'value': 'gha_raster'},
-                            {'label': 'UN WorldPop', 'value': 'world_pop'}
+                            {'label': 'Access estimates by health zone', 'value': 'zone_data'},
+                            {'label': 'High-resolution travel times', 'value': 'gha_raster'},
+                            {'label': 'High-resolution population', 'value': 'world_pop'}
                         ],
                         value='zone_data'
                     )
@@ -166,14 +233,17 @@ app.layout = html.Div(id="app-main", children=[
             
             html.Div(
                 [
-                    "Display",
+                    "How to display access:",
+                    html.Button('i', className='info-button', 
+                                id='display-info-open-button'),
                     dcc.RadioItems(
                         id='display-type',
                         options=[
-                            {'value': 'markers', 'label': 'Markers'},
-                            {'value': 'choropleth', 'label': 'Choropleth'},
+                            {'value': 'choropleth', 'label': 'Percent of population with access to services'},
+                            {'value': 'per_capita', 'label': 'Percent with access and size of population'},
+                            {'value': 'absolute', 'label': 'Size of population without access'},
                         ],
-                        value='markers'
+                        value='per_capita'
                     )
                 ],
             )
@@ -198,83 +268,160 @@ app.layout = html.Div(id="app-main", children=[
             ),
         ]
     ),  
+    html.Div(id = "map-container", 
+                children=[
+                    html.Div(className="loader-wrapper",
+                             children = [
+                                 dcc.Loading(id='loading-icon',
+                                             children = [dcc.Graph(id="map-main",
+                                                                   hoverData={'points': 
+                                                                              [{'text': 'Mikope'}]},
+                                                                   config={'displayModeBar': False})],
+                                             type="cube",
+                                             color="#157DC2")
+                             ])
+                ], 
+    )
+
     
-    dcc.Graph(id="map-main",
-              hoverData={'points': [{'hovertext': 'ks Mikope Zone de Santé'}]},
-              config={'displayModeBar': False}),   
 ])
 
-# callback and graphing functions
+#########################################
+#### callback and graphing functions ####
+#########################################
+
 @app.callback(
     Output("map-main", "figure"), 
-    [Input("model_var", "value"),
+    [Input("model-var", "value"),
      Input("month", "value"),
      Input("display-type", "value"),
-     Input("display-elements", "value")])
-def display_map(model_var, month, display_type, display_elements):
-    
+     Input("display-element", "value")])
+def display_map(model_var, month, display_type, display_element):
+
     time_to_care = ''.join([s for s in model_var if s.isdigit()])
-    var_label_tooltip = f'% pop. within {time_to_care} min of care'
     var_label_colorbar = f'% pop. within <br> {time_to_care} min of care <br>'
+    
+    if display_type == 'absolute':
+        var_label_tooltip = f'Further than {time_to_care} min from care'
+    else:
+        var_label_tooltip = f'% pop. within {time_to_care} min of care'
     
     model_var = f'{model_var}_{month}'
     
     zone_opacity = 0.9
     
-    if 'zone_data' not in display_elements:
+    custom_cb = dict(thicknessmode='fraction',
+                     thickness=0.05,
+                     ticks='inside',
+                     xpad=28,
+                     xanchor='right',
+                     title=var_label_colorbar,
+                     bgcolor='rgba(112, 128, 144, 0.72)',
+                     tickfont_color='white',
+                     tickcolor='white',
+                     title_font_color='white',
+                     ticksuffix='%',
+                     outlinewidth=0)
+    
+    if display_element != 'zone_data':
         zone_opacity = 0
 
     # choropleth for proportions
-    if (display_type == 'choropleth') & ('zone_data' in display_elements):
-        fig = px.choropleth_mapbox(gdf,
-                                   geojson=gdf.geometry, 
-                                   locations='fid', 
-                                   color=model_var + "_Percent",
-                                   color_continuous_scale="rdbu",
-                                   range_color=[0,100],
-                                   opacity=zone_opacity,
-                                   center={"lat": -4.8514, "lon":22.6780},
-                                   zoom=4.65,
-                                   hover_name='name',
-                                   hover_data={'PopTotal':False,
-                                               'fid':False,
-                                               'Pop_readable':True},
-                                   labels={model_var + '_Percent': var_label_tooltip,
-                                           'Pop_readable': 'Population'})
+    if (display_type == 'choropleth') & (display_element == 'zone_data'):
+        fig = go.Figure(go.Choroplethmapbox(
+                        geojson=json.loads(gdf.to_json()),
+                        locations=gdf['fid'],
+                        text=gdf['name'],
+                        customdata=gdf[[model_var + '_Percent', 'Pop_readable']],
+                        z=gdf[model_var + '_Percent'],
+                        colorscale='rdbu',
+                        colorbar=custom_cb,
+                        marker=dict(opacity=zone_opacity),
+                        hovertemplate = "<b>%{text}</b><br><br>" +
+                                        "Population: <b>%{customdata[1]}</b><br>" +
+                                        var_label_tooltip +": <b>~%{customdata[0]:.0f}%</b><br>" +
+                                        "<extra></extra>",
+                        showlegend=False,
+                        meta='main'
+        
+        ))
         
     else:
-        fig = px.scatter_mapbox(gdf,
-                                lat='centroid_lat',
-                                lon='centroid_lon',
-                                color=model_var + '_Percent',
-                                color_continuous_scale="rdbu",
-                                range_color=[0,100],
-                                size='PopTotal',
-                                size_max=40,
+        # Percent with access // population size markers
+        if (display_type == 'per_capita') & (display_element == 'zone_data'):
+
+            gdf['marker_size'] = gdf['PopTotal'] - gdf['PopTotal'].min()
+            gdf['marker_size'] /= gdf['marker_size'].max()
+            gdf['marker_size'] *= 1500
+            
+            fig = go.Figure(data=go.Scattermapbox(
+                            lat=gdf['centroid_lat'],
+                            lon=gdf['centroid_lon'],
+                            text=gdf['name'],
+                            customdata=gdf[[model_var + '_Percent', 'Pop_readable']],
+                            marker=dict(
+                                size=gdf['marker_size'],
+                                sizemode='area',
+                                color=gdf[model_var + '_Percent'],
+                                colorscale='rdbu',
                                 opacity=zone_opacity,
-                                center={"lat": -4.8514, "lon":22.6780},
-                                zoom=4.65,
-                                hover_name='name',
-                                hover_data={'PopTotal':False,
-                                            'fid':False,
-                                            'centroid_lat': False,
-                                            'centroid_lon': False,
-                                            'Pop_readable':True},
-                                labels={model_var + '_Percent': var_label_tooltip,
-                                        'Pop_readable': 'Population'})
+                                colorbar=custom_cb,
+                            ),
+                            hovertemplate = "<b>%{text}</b><br><br>" +
+                                            "Population: <b>%{customdata[1]}</b><br>" +
+                                            var_label_tooltip +": <b>~%{customdata[0]:.0f}%</b><br>" +
+                                            "<extra></extra>",
+                            showlegend=False,
+                            meta='main'
+
+            ))
+        # Absolute population without access markers
+        else:
+            # rescale indicator for visualization
+            gdf['absolute_w_out_access'] = gdf['PopTotal'] - gdf[model_var]
+            gdf['marker_size'] = gdf['absolute_w_out_access'] - gdf['absolute_w_out_access'].min()
+            gdf['marker_size'] /= gdf['PopTotal'].max()
+            gdf['marker_size'] *= 1500
+            
+            gdf['absolute_w_out_access'] = gdf['absolute_w_out_access'].apply(lambda x: humanize_number(x))
+            
+            fig = go.Figure(data=go.Scattermapbox(
+                lat=gdf['centroid_lat'],
+                lon=gdf['centroid_lon'],
+                text=gdf['name'],
+                customdata=gdf[['absolute_w_out_access', 'Pop_readable']],
+                marker=dict(
+                    size=gdf['marker_size'],
+                    sizemode='area',
+                    color='#A5BAD2',
+                    opacity=zone_opacity * 1.1,
+                    colorbar=None,
+                ),
+                hovertemplate = "<b>%{text}</b><br><br>" +
+                                "Population: <b>%{customdata[1]}</b><br>" +
+                                var_label_tooltip +": <b>~%{customdata[0]}</b><br>" +
+                                "<extra></extra>",
+                showlegend=False,
+                meta='main'
+
+            ))
         
         marker_legend = pd.DataFrame(columns = ['display_name', 'lname', 'population', 
                                                 'latitude', 'longitude'],
                                       data = [['', '2.5M population', 
-                                               53, -11.48, 11.002433],
+                                               2500000, -11.48, 8.25],
                                               ['', '1M population', 
-                                               33, -10.1, 11.002433],
+                                               1000000, -10.1, 8.25],
                                               ['', '500k population', 
-                                               25, -9.1, 11.002433],
+                                               500000, -9.1, 8.25],
                                               ['', '250k population', 
-                                               15, -8.4, 11.002433],
+                                               250000, -8.25, 8.25],
                                               ['Population scale <br><br><br>', '100k population', 
-                                               10, -7.9, 11.002433]])
+                                               100000, -7.6, 8.25]])
+        
+        marker_legend['marker_size'] = marker_legend['population'] / gdf['PopTotal'].max()
+        marker_legend['marker_size'] *= 1500
+        
         
         fig.add_trace(go.Scattermapbox(
             lat=marker_legend.latitude,
@@ -282,26 +429,37 @@ def display_map(model_var, month, display_type, display_elements):
             mode='markers+text',
             opacity=zone_opacity,
             marker=go.scattermapbox.Marker(
-                size=marker_legend.population,
-                color='black'
+                size=marker_legend.marker_size,
+                sizemode='area',
+                color='#A5BAD2'
             ),
             showlegend=False,
-            text=marker_legend.display_name,
-            textposition = 'bottom center',
+            text=marker_legend.lname,
+            textposition = 'middle right',
             textfont=dict(
                 family="sans serif",
-                size=14),
-            hoverinfo='text',
-            hovertext=marker_legend.lname,
+                size=12,
+                color='#bfcdde'),
+            hoverinfo="skip",
+            hovertemplate=None,
         ))
     
+
     
-    if 'zone_data' not in display_elements:
+    if display_element != 'zone_data':
         fig.update_traces(hoverinfo="skip",
                           hovertemplate=None,
-                          marker_coloraxis=None)
+                          marker_showscale=False)
+        
+    else:
+        ## zone data hover formatting
+        fig.update_layout(
+            hoverlabel=dict(
+                font_size=14
+            )
+        )
     
-    if 'gha_raster' in display_elements:
+    if display_element == 'gha_raster':
         fig.update_layout(
             mapbox_layers=[
                 {
@@ -309,9 +467,9 @@ def display_map(model_var, month, display_type, display_elements):
                 "sourceattribution": "Bluesquare",
                 "source": ["https://qgis-server.bluesquare.org"
                            "/cgi-bin/qgis_mapserv.fcgi?MAP=/home/qgis/projects"
-                           "/GHA_ISO_COST.qgz&service=WMS&request=GetMap&layers"
-                           "=cost_car_iso_f5f38704_ba1e_4a6d_a5ee_fd1752fa9cf3&styles="
-                           "&format=image/png&transparent=true&version=1.1.1&width=256&height=256"
+                           "/geohealthaccess.qgz&service=WMS&request=GetMap"
+                           f"&layers={month}_cost&styles=&format=image/png&transparent=true"
+                           "&version=1.1.1&width=256&height=256"
                            "&srs=EPSG:3857&bbox={bbox-epsg-3857}"],
                 "opacity" : 0.65
 
@@ -323,21 +481,23 @@ def display_map(model_var, month, display_type, display_elements):
                                      y=[None],
                                      mode='markers',
                                      marker=dict(
-                                         colorscale='greens_r', 
+                                         colorscale='magma_r', 
                                          showscale=True,
-                                         cmin=-5,
-                                         cmax=5,
+                                         cmin=0,
+                                         cmax=360,
                                          colorbar=dict(title=dict(text='Time to care <br> &nbsp;',
                                                                   font=dict(color='white')),
-                                                       tickvals=[-4.85, -1.626, 1.626, 4.85], 
-                                                       ticktext=['<1 hour', '1-2 hours',
-                                                                 '2-3 hours', '>3 hours'],
+                                                       tickvals=[60, 120, 180, 
+                                                                 240, 300, 360], 
+                                                       ticktext=['1 hour', '2 hours',
+                                                                 '3 hours', '4 hours',
+                                                                 '5 hours', '6 hours'],
                                                        outlinewidth=0,
                                                        thicknessmode='fraction',
                                                        thickness=0.04,
                                                        ticks='inside',
-                                                       xpad=8,
-                                                       x=0.88,
+                                                       xpad=28,
+                                                       xanchor='right',
                                                        bgcolor='rgba(112, 128, 144, 0.72)',
                                                        tickfont_color='white',
                                                        tickcolor='white',
@@ -349,7 +509,7 @@ def display_map(model_var, month, display_type, display_elements):
         fig['layout']['showlegend'] = False
         fig.add_trace(colorbar_trace)
         
-    if 'world_pop' in display_elements:
+    if display_element == 'world_pop':
         fig.update_layout(
             mapbox_layers=[
                 {
@@ -379,10 +539,10 @@ def display_map(model_var, month, display_type, display_elements):
                                                tickvals=[0, 10, 20, 30, 40, 50], 
                                                outlinewidth=0,
                                                thicknessmode='fraction',
-                                               thickness=0.065,
+                                               thickness=0.04,
                                                ticks='inside',
-                                               xpad=8,
-                                               x=0.9,
+                                               xpad=28,
+                                               xanchor='right',
                                                bgcolor='rgba(112, 128, 144, 0.72)',
                                                tickfont_color='white',
                                                tickcolor='white'                                               
@@ -393,21 +553,17 @@ def display_map(model_var, month, display_type, display_elements):
  
         fig['layout']['showlegend'] = False
         fig.add_trace(colorbar_trace)
-
-
-    fig.update_layout(mapbox_style=MAPBOX_STYLE, mapbox_accesstoken=MAPBOX_TOKEN)
-
-    fig.update_coloraxes(colorbar_thicknessmode='fraction',
-                         colorbar_thickness=0.04,
-                         colorbar_ticks='inside',
-                         colorbar_xpad=8,
-                         colorbar_x=0.9,
-                         colorbar_title=var_label_colorbar,
-                         colorbar_bgcolor='rgba(112, 128, 144, 0.72)',
-                         colorbar_tickfont_color='white',
-                         colorbar_tickcolor='white',
-                         colorbar_title_font_color='white',
-                         colorbar_ticksuffix='%')
+    
+    
+    fig.update_layout(mapbox=dict(style=MAPBOX_STYLE,
+                                  accesstoken=MAPBOX_TOKEN,
+                                  center=go.layout.mapbox.Center(
+                                      lat=-4.8514,
+                                      lon=22.6780
+                                  ),
+                                  zoom=4.65
+                                 )
+                     )
     
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     fig.update_yaxes(visible=False, showticklabels=False)
@@ -420,18 +576,18 @@ def display_map(model_var, month, display_type, display_elements):
     Output("density", "figure"),
     Input("map-main", "hoverData"),
     Input("month", "value"),
-    Input("display-elements", "value"))
-def cum_density_graph(hoverData, month, display_elements):
+    Input("display-element", "value"))
+def cum_density_graph(hoverData, month, display_element):
     fig_color = '#7570b3'
     
-    if 'zone_data' in display_elements:
-        geo_unit_name = hoverData['points'][0]['hovertext']
+    if display_element == 'zone_data':
+        geo_unit_name = hoverData['points'][0]['text']
     
         tdf = gdf.drop(['geometry', 'PopTotal', 'Pop_readable', 
                         'centroid_lat', 'centroid_lon'], 
                    axis=1).loc[gdf.name == geo_unit_name]
 
-        tdf = tdf.melt(id_vars=['fid', 'id', 'name'])
+        tdf = tdf.melt(id_vars=['fid', 'dhis2_code', 'name'])
         tdf = tdf.loc[tdf.variable.str.contains('Percent')]
 
         meta = tdf.variable.str.split('_', expand=True)
@@ -440,29 +596,27 @@ def cum_density_graph(hoverData, month, display_elements):
         tdf['month'] = meta[1]
 
         name_dict = {'Pop30mn': 30,
-                     'Pop60mn': 60,
                      'Pop90mn': 90,
                      'Pop120mn': 120,
-                     'Pop180mn': 180}
+                     'Pop150mn': 150,
+                     'Pop190mn': 190}
 
         tdf['var'] = tdf['var'].replace(name_dict.keys(), name_dict.values())
         tdf = tdf.loc[tdf.month == month]
     else:
         geo_unit_name = ''
-        tdf = pd.DataFrame(data=None, columns=['fid', 'id', 'name', 
+        tdf = pd.DataFrame(data=None, columns=['fid', 'dhis2_code', 'name', 
                                                'variable', 'value', 
                                                'var', 'month'])
 
-    fig = px.area(tdf, 
-                 x="var", y="value",
-                 range_y=[0,105],
-                 template='simple_white')
+    fig = go.Figure()
     
     fig.add_trace(go.Scatter(x=tdf['var'], 
                              y=tdf['value'],
+                             fill='tozeroy',
                              name='',
-                             mode='markers',
-                             hovertemplate='%{y}% have access within %{x} min',
+                             mode='lines+markers',
+                             hovertemplate='~%{y:.0f}% have access within %{x} min',
                              showlegend=False))
     
     fig.update_traces(marker_color=fig_color,
@@ -473,27 +627,119 @@ def cum_density_graph(hoverData, month, display_elements):
                       yaxis_title='% with access',
                       xaxis_title='Travel time to care (min)',
                       title=geo_unit_name,
-                      font=dict(size=10))
+                      font=dict(size=10),
+                      template='simple_white',
+                      yaxis_range=[0,105],
+                      xaxis_range=[20,200])
 
     return fig  
 
 @app.callback(
-    Output('display-type', 'options'),
-    Input('display-elements', 'value'))
-def set_zone_data_radio_button_state(display_elements):
-    if 'zone_data' not in display_elements:
-        return [{'value': 'markers', 
-                 'label': 'Markers',
-                 'disabled': True},
-                {'value': 'choropleth', 
-                 'label': 'Choropleth',
-                 'disabled': True}]
+    [Output('display-type', 'options'),
+     Output('model-var', 'disabled')],
+    Input('display-element', 'value'))
+def set_interface_button_states(display_element):
+    if 'zone_data' not in display_element:
+        return [[{'value': 'choropleth', 
+                  'label': 'Percent of population with access to services',
+                  'disabled': True},
+                 {'value': 'per_capita', 
+                  'label': 'Percent with access and size of population',
+                  'disabled': True},
+                 {'value': 'absolute', 
+                  'label': 'Size of population without access',
+                  'disabled': True}],
+                True]
     else:
-        return [{'value': 'markers', 
-                 'label': 'Markers'},
-                {'value': 'choropleth', 
-                 'label': 'Choropleth'}]
+        return [[{'value': 'choropleth', 
+                  'label': 'Percent of population with access to services',
+                  'disabled': False},
+                 {'value': 'per_capita', 
+                  'label': 'Percent with access and size of population',
+                  'disabled': False},
+                {'value': 'absolute', 
+                 'label': 'Size of population without access',
+                 'disabled': False}],
+                False]
 
+@app.callback([Output('modal-content', 'children')],
+              Output('modal', 'style'),
+               [Input('modal-close-button', 'n_clicks'),
+               Input('layer-info-open-button', 'n_clicks'),
+               Input('display-info-open-button', 'n_clicks')])
+def open_close_modal(close_n, open_layer_n, open_display_n):
+    changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+    
+    if 'modal-close-button' in changed_id:
+        if (close_n is not None) and (close_n > 0):
+            return [html.Div([html.Button('Close', id='modal-close-button')]), 
+                    {"display": "none"}]
+    elif 'layer-info-open-button' in changed_id:
+        if (open_layer_n is not None) and (open_layer_n > 0):
+            return [html.Div([
+                            html.H2('What to display'),
+                            html.Div(children = [html.P(what_text[0]),
+                                                 html.P(bold_before_colon(what_text[1])),
+                                                 html.P(bold_before_colon(what_text[2])),
+                                                 html.P(bold_before_colon(what_text[3])),
+                                                 html.Ul(children = [
+                                                     html.Li(what_text[4]),
+                                                     html.Li(what_text[5]),
+                                                     html.Li(what_text[6])
+                                                 ]),
+                                                 html.P(what_text[7])],
+                                     id='modal-text'),
+                            html.Button('Close', id='modal-close-button')]
+                    ), 
+                    {"display": "block"}]
+    elif 'display-info-open-button' in changed_id:
+        if (open_display_n is not None) and (open_display_n > 0):
+            return [html.Div([
+                            html.H2('How to display accessibility'),
+                            html.Div(children = [html.P(how_text[0]),
+                                                 html.Ul(children = [
+                                                     html.Li(how_text[1]),
+                                                     html.Li(how_text[2]),
+                                                     html.Li(how_text[3])
+                                                 ])],
+                                     id='modal-text'),
+                            html.Button('Close', id='modal-close-button')]
+                    ), 
+                    {"display": "block"}]
+    else:
+        return [html.Div([
+                        html.H2(('Welcome to GeoHealthAccess for'
+                                ' the Democratic Republic of Congo!'),
+                                id='modal-title'),
+                        html.Div([
+                                html.P(landing_text[0]),
+                                html.Ol([
+                                    html.Li(children = [landing_text[1],
+                                                        html.A(('high-resolution population'
+                                                                ' maps made by WorldPop.'),
+                                                          href='https://population.un.org/wpp/')]),
+                                    html.Li(landing_text[2]),
+                                    html.Li(landing_text[3]),
+                                ]),
+                                html.P(children = [landing_text[4],
+                                                   html.A('Github.',
+                                                          href=('https://github.com/BLSQ'
+                                                                '/geohealthaccess/'))])
+                        ], id = 'modal-text'),
+                        html.Button('Close', id='modal-close-button')]
+                    ), 
+                    {"display": "block"}]
+
+    
+@app.callback(
+    Output("density-container", "style"),
+    Input("display-element", "value"))
+def show_hide_density_graph(display_element):
+    if display_element == 'zone_data':
+        return {'display':'block'}
+    else:
+        return {'display':'none'}
+    
 if __name__ == '__main__':
     if STANDALONE:
         app.run_server(port=8000, host='0.0.0.0', debug=False)

@@ -1,0 +1,5 @@
+This visualization is designed to help understand the accessibility of malaria services in the DRC. It displays the results of a model that esimates the time it takes patients to reach a health facility where they can recieve basic malaria treatment, for each month of the years 2020 and 2021.The model takes different types of information into account:
+Where patients are located, based on 
+Where health facilities are located, and what resources and services are available at each facility based on data from DRC's National Health Information System.
+The physical environment that impacts travel (road networks, land cover, elevation, etc.) based on a mix of openly-available data sources.
+More information on the modeling and the data used as well as the full source code can be found on 

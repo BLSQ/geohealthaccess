@@ -1,0 +1,8 @@
+Depending on what you want to understand, you can look at the data in different ways.
+Month: you can select the month for which you want to look at the accessibility of services.
+Travel time: you can choose how fast you think patients should be able to access services. 
+What to display: to inform your analysis, you can look either at 
+Estimates of accessibility aggregated to the health zone level (2nd lowest level of the DRC’s health administrative hierarchy), such as the percentage of a zone’s population that lives under a given travel time from health services. 
+A high resolution display of the travel times to health facilities. This may help you checking the quality of these estimations, find places with specially low access to health care or analyse the main barriers to access.
+A high resolution  display of where populations live. This may help you see which places should be prioritised to reach the highest number of people.
+On the lower left side of the screen you will also find a curve showing you the cumulative number of people having access to care under increasing travel times. For each zone, this allows you to understand if there is one community living between, for example, 30 minutes and 90 minutes of health services.
