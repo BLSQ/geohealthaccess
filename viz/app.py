@@ -530,9 +530,9 @@ def display_map(model_var, month, display_type, display_element):
                 "sourceattribution": "Bluesquare",
                 "source": ["https://qgis-server.bluesquare.org"
                            "/cgi-bin/qgis_mapserv.fcgi?MAP=/home/qgis/projects"
-                           "/test_wmts.qgz&service=WMS&request=GetMap"
-                           "&layers=Population&styles=&format=image/png"
-                           "&transparent=true&version=1.1.1&width=256&height=256"
+                           "/geohealthaccess.qgz&service=WMS&request=GetMap"
+                           f"&layers=population&styles=&format=image/png&transparent=true"
+                           "&version=1.1.1&width=256&height=256"
                            "&srs=EPSG:3857&bbox={bbox-epsg-3857}"],
                 "opacity" : 0.65   
                 }
@@ -543,13 +543,13 @@ def display_map(model_var, month, display_type, display_element):
                              y=[None],
                              mode='markers',
                              marker=dict(
-                                 colorscale='ylorbr', 
+                                 colorscale='viridis', 
                                  showscale=True,
                                  cmin=0,
-                                 cmax=53,
+                                 cmax=10,
                                  colorbar=dict(title=dict(text='Population <br> &nbsp;',
                                                                   font=dict(color='white')),
-                                               tickvals=[0, 10, 20, 30, 40, 50], 
+                                               tickvals=[0, 2, 4, 6, 8, 10], 
                                                outlinewidth=0,
                                                thicknessmode='fraction',
                                                thickness=0.04,
