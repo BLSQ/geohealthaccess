@@ -290,7 +290,7 @@ app.layout = html.Div(id="app-main", children=[
                                  dcc.Loading(id='loading-icon',
                                              children = [dcc.Graph(id="map-main",
                                                                    hoverData={'points': 
-                                                                              [{'text': 'Mikope'}]},
+                                                                              [{'text': 'ks Mikope Zone de Santé'}]},
                                                                    config={'displayModeBar': False})],
                                              type="cube",
                                              color="#157DC2")
