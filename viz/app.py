@@ -213,7 +213,7 @@ app.layout = html.Div(id="app-main", children=[
                                 {'value': 'Pop30mn', 
                                  'label': '30 min'},
                                 {'value': 'Pop60mn',
-                                 'label': '30 min'},
+                                 'label': '60 min'},
                                 {'value': 'Pop90mn', 
                                  'label': '90 min'},
                                 {'value': 'Pop120mn', 
