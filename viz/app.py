@@ -212,14 +212,16 @@ app.layout = html.Div(id="app-main", children=[
                             options=[
                                 {'value': 'Pop30mn', 
                                  'label': '30 min'},
+                                {'value': 'Pop60mn',
+                                 'label': '30 min'},
                                 {'value': 'Pop90mn', 
                                  'label': '90 min'},
                                 {'value': 'Pop120mn', 
                                  'label': '120 min'},
                                 {'value': 'Pop150mn', 
                                  'label': '150 min'},
-                                {'value': 'Pop190mn', 
-                                 'label': '190 min'}
+                                {'value': 'Pop180mn', 
+                                 'label': '180 min'}
                             ],
                             value='Pop30mn',
                             clearable=False
@@ -609,10 +611,11 @@ def cum_density_graph(hoverData, month, display_element):
         tdf['month'] = meta[1]
 
         name_dict = {'Pop30mn': 30,
+                     'Pop60mn': 60,
                      'Pop90mn': 90,
                      'Pop120mn': 120,
                      'Pop150mn': 150,
-                     'Pop190mn': 190}
+                     'Pop180mn': 180}
 
         tdf['var'] = tdf['var'].replace(name_dict.keys(), name_dict.values())
         tdf = tdf.loc[tdf.month == month]
