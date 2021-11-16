@@ -48,6 +48,7 @@ from dash.dependencies import Input, Output
 import json
 import sys
 import os
+import datetime
 from textwrap import dedent as d
 
 ##########################
@@ -88,6 +89,14 @@ def bold_before_colon(text):
     
     return [html.B(first_word), text[0]]
 
+# DHIS period string to month name + year
+def mapper(dhis_period):
+    year = int(dhis_period[:4])
+    month = int(dhis_period[4:])
+    
+    date = datetime.datetime(year, month, 1)
+    return date.strftime('%b %Y')
+
 
 ######################
 #### data imports ####
@@ -117,21 +126,12 @@ cols = gdf.columns.to_list()
 pct_cols = [c for c in cols if 'Percent' in c]
 gdf[pct_cols] = gdf[pct_cols].apply(lambda x: 100*x)
 
-# adding full zone and province names
-# hfr = pd.read_csv('s3://some-bucket-name/data/iaso-edl/SNIS.csv')
-# hfr = hfr[['parent 2', 'Ref Ext parent 2', 
-#            'parent 3', 'Ref Ext parent 3']].drop_duplicates()
-# hfr.rename(columns={'parent 2': 'zone_name',
-#                     'Ref Ext parent 2': 'zone_id',
-#                     'parent 3': 'prov_name',
-#                     'Ref Ext parent 3': 'prov_id'}, 
-#            inplace=True)
-
-# gdf = gdf.merge(hfr, left_on='dhis2_code', right_on='zone_id', how='left')
-# gdf.rename(columns={'name': 'zone_name_short',
-#                     'zone_name': 'name'},
-#            inplace=True)
-
+# months for slider
+cols = gdf.columns.str.split('_')
+months = [item for sublist in cols.to_list() for item in sublist]
+months = [item for item in months if item.isnumeric()]
+months = list(set(months))
+months.sort()
 
 ########################
 #### dash app setup ####
@@ -168,38 +168,18 @@ app.layout = html.Div(id="app-main", children=[
     ),
     
     html.Div(id='sidebar', children=[
-        
         html.Div(id='ctrls-container', children=[
-            html.Div(
-                [
+            html.Div(id='month-container', children=[
                     "Month",
-                    dcc.Dropdown(
-                        id='month', 
-                        options=[
-                            {'value': '202001', 'label': 'Jan 2020'},
-                            {'value': '202002', 'label': 'Feb 2020'},
-                            {'value': '202003', 'label': 'Mar 2020'},
-                            {'value': '202004', 'label': 'Apr 2020'},
-                            {'value': '202005', 'label': 'May 2020'},
-                            {'value': '202006', 'label': 'Jun 2020'},
-                            {'value': '202007', 'label': 'Jul 2020'},
-                            {'value': '202008', 'label': 'Aug 2020'},
-                            {'value': '202009', 'label': 'Sep 2020'},
-                            {'value': '202010', 'label': 'Oct 2020'},
-                            {'value': '202011', 'label': 'Nov 2020'},
-                            {'value': '202012', 'label': 'Dec 2020'},
-                            {'value': '202101', 'label': 'Jan 2021'},
-                            {'value': '202102', 'label': 'Feb 2021'},
-                            {'value': '202103', 'label': 'Mar 2021'},
-                            {'value': '202104', 'label': 'Apr 2021'},
-                            {'value': '202105', 'label': 'May 2021'},
-                            {'value': '202106', 'label': 'Jun 2021'},
-                            {'value': '202107', 'label': 'Jul 2021'},
-                            {'value': '202108', 'label': 'Aug 2021'},
-                            {'value': '202109', 'label': 'Sep 2021'}
-                        ],
-                        value='202001',
-                        clearable=False
+                    html.Div(id='slider-output-container'),
+                    dcc.Slider(
+                        id='month',
+                        min=0,
+                        max=len(months) - 1,
+                        step=1,
+                        value=13,
+                        included=False,
+                        updatemode='drag'
                     ),
                 ],
             ),            
@@ -312,6 +292,8 @@ app.layout = html.Div(id="app-main", children=[
      Input("display-type", "value"),
      Input("display-element", "value")])
 def display_map(model_var, month, display_type, display_element):
+    
+    month = months[month] # slider
 
     time_to_care = ''.join([s for s in model_var if s.isdigit()])
     var_label_colorbar = f'% pop. within <br> {time_to_care} min of care <br>'
@@ -594,6 +576,7 @@ def display_map(model_var, month, display_type, display_element):
     Input("display-element", "value"))
 def cum_density_graph(hoverData, month, display_element):
     fig_color = '#7570b3'
+    month = months[month]
     
     if display_element == 'zone_data':
         geo_unit_name = hoverData['points'][0]['text']
@@ -755,6 +738,12 @@ def show_hide_density_graph(display_element):
         return {'display':'block'}
     else:
         return {'display':'none'}
+    
+@app.callback(
+    Output('slider-output-container', 'children'),
+    [Input('month', 'value')])
+def update_output(value):
+    return f'{mapper(months[value])}'
     
 if __name__ == '__main__':
     if STANDALONE:

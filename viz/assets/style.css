@@ -69,6 +69,39 @@ div > label {
     font-size: 0.8vw;
 }
 
+#month {
+    margin-top: 10px;
+    margin-bottom: -25px; 
+}
+
+#slider-output-container {
+    line-height: 34px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding-left: 10px
+}
+
+.rc-slider-handle {
+  border-color: #007aff;
+}
+
+.rc-slider-handle:hover {
+  border-color: #007aff;
+}
+
+.rc-slider-handle-active:active {
+  border-color: #007aff;
+}
+
+.rc-slider-handle-click-focused:focus {
+    border-color: #007aff;
+}
+
+.rc-slider-handle-click-focused {
+    border-color: #007aff;
+}
+
+
 #density-container {
     margin-top: 4%;
     padding: inherit;
@@ -116,6 +149,7 @@ div > label {
     padding: 30px;
     background-color: white;
     text-align: center;
+    border-radius: 4px;
 }
 
 #modal-text {
