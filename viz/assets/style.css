@@ -46,11 +46,17 @@ body {
 #sidebar {
     width: 22%;
     border-radius: 5px;
-    margin-top: 0.8%;
+    margin-top: 0.2%;
     margin-left: 0.25%;
     padding: 4px;
     padding-top: none;
     display: inline-block;
+}
+
+#title-container {
+    font-size: 1.2vw !important;
+    color: #2065ab;
+/*     font-weight: bold; */
 }
 
 #ctrls-container {
@@ -103,10 +109,21 @@ div > label {
 
 
 #density-container {
-    margin-top: 4%;
+    margin-top: 3%;
     padding: inherit;
     border-radius: 5px;
     background-color: white;
+}
+
+#density-title-container {
+    display: flex;
+    padding: 1.5%;
+    font-size: 0.9vw
+}
+
+
+#density-title {
+    width: 90%;
 }
 
 #sources{
@@ -125,7 +142,7 @@ div > label {
     margin-left: 5px;
 }
 
-#layer-info-open-button:hover, #display-info-open-button:hover {
+.info-button:hover {
   filter: brightness(110%);
 }
 
@@ -150,6 +167,10 @@ div > label {
     background-color: white;
     text-align: center;
     border-radius: 4px;
+}
+
+#modal-title, .modal-content > div > h2 {
+    color: #2065ab;
 }
 
 #modal-text {
